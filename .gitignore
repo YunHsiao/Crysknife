@@ -1,0 +1,10 @@
+*.sln
+*.exe
+*.user
+*.ignore.*
+
+obj
+bin
+.vs
+.vscode
+.idea
