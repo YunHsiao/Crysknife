@@ -4,7 +4,7 @@ Inject source files & code segments into existing Unreal Engine code base.
 
 This repository is meant to be used as part of an engine plugin. 
 
-You should copy this project to your engine plugin:
+You should clone this project to your engine plugin:
 ```
 Engine/Plugins/${ProjectName}/UnrealSourceInjector/
 ```
@@ -42,10 +42,10 @@ For code segments we detect & inject in the following forms (with comment guards
 
 Additionally, for modifying stock engine code, follow these steps:
 * Comment out the original code block (only line comments are supported atm.)
-* Guard the comment block using any of the above forms, with one special tweak
+* Guard the comment block using any of the above forms, with one special tweak*
 * Add a new guarded block normally for your own code
 
-The special tweak is:
+Where the special tweak is:
 
 ```cpp
 // ${ProjectName}-${Comments}
@@ -56,7 +56,7 @@ The special tweak is:
 > The minus sign can be omitted in the ending comment for multi-line guards.
 
 Patches generated for these injections are fuzzy matched with customizable tolerances.
-Error messages will be received when a patch is failed, with a full file diff HTML to help you manually resolve the conflicts.
+Error messages will be received when patching fails, with a full file diff HTML to help you manually resolve the conflicts.
 
 ## Usage
 
@@ -123,6 +123,6 @@ If we only want to temporarily remove the patches from all files under `Engine/S
 
 ## Builtin Source Patches
 
-|                                   Include Path                                   | Module |                               Comment                                |
-|:--------------------------------------------------------------------------------:|:------:|:--------------------------------------------------------------------:|
-| [Misc/PrivateAccessor.h](SourcePatch/Runtime/Core/Public/Misc/PrivateAccessor.h) |  Core  | A tiny library for accessing private members from non-friend classes |
+|                                   Include Path                                   | Module |                                Comment                                |
+|:--------------------------------------------------------------------------------:|:------:|:---------------------------------------------------------------------:|
+| [Misc/PrivateAccessor.h](SourcePatch/Runtime/Core/Public/Misc/PrivateAccessor.h) |  Core  | A tiny library for accessing private members from non-friend contexts |

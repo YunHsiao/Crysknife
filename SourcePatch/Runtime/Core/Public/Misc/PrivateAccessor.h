@@ -1,10 +1,13 @@
-#pragma once
-
 /**
  * A tiny library for accessing private members from non-friend classes.
  *
+ * Under the hood this is done by exploiting the fact that
+ * accessibilities are disregarded during explicit instantiation.
+ *
  * Ref: http://bloglitb.blogspot.com/2010/07/access-to-private-members-thats-easy.html
  */
+
+#pragma once
 
 template<typename Tag>
 struct TResult
@@ -25,43 +28,42 @@ struct TRob
 template<typename Tag, typename Tag::Type Ptr>
 TRob<Tag, Ptr> TRob<Tag, Ptr>::Obj;
 
-#define DEFINE_PRIVATE_ACCESSOR_EX(Class, MemberType, MemberName, ClassTag) \
+#define DEFINE_PRIVATE_ACCESSOR_VARIABLE_EX(ClassTag, Class, MemberType, MemberName) \
 	struct F##ClassTag##MemberName##PrivateAccessor { typedef MemberType (Class::*Type); }; \
 	template struct TRob<F##ClassTag##MemberName##PrivateAccessor, &Class::MemberName>
 
-#define DEFINE_PRIVATE_ACCESSOR_STATIC_EX(Class, MemberType, MemberName, ClassTag) \
+#define DEFINE_PRIVATE_ACCESSOR_STATIC_VARIABLE_EX(ClassTag, Class, MemberType, MemberName) \
 	struct F##ClassTag##MemberName##PrivateAccessor { typedef MemberType* Type; }; \
 	template struct TRob<F##ClassTag##MemberName##PrivateAccessor, &Class::MemberName>
 
-#define DEFINE_PRIVATE_ACCESSOR_FUNCTION_EX(Class, ReturnType, MemberName, ClassTag, Const, ...) \
-	struct F##ClassTag##MemberName##PrivateAccessor { typedef ReturnType(Class::*Type)(__VA_ARGS__) Const; }; \
+#define DEFINE_PRIVATE_ACCESSOR_FUNCTION_EX(ClassTag, Class, ReturnType, MemberName, Qualifier, ...) \
+	struct F##ClassTag##MemberName##PrivateAccessor { typedef ReturnType(Class::*Type)(__VA_ARGS__) Qualifier; }; \
 	template struct TRob<F##ClassTag##MemberName##PrivateAccessor, &Class::MemberName>
 
-#define DEFINE_PRIVATE_ACCESSOR_STATIC_FUNCTION_EX(Class, ReturnType, MemberName, ClassTag, ...) \
+#define DEFINE_PRIVATE_ACCESSOR_STATIC_FUNCTION_EX(ClassTag, Class, ReturnType, MemberName, ...) \
 	struct F##ClassTag##MemberName##PrivateAccessor { typedef ReturnType(*Type)(__VA_ARGS__); }; \
 	template struct TRob<F##ClassTag##MemberName##PrivateAccessor, &Class::MemberName>
 
 #define PRIVATE_ACCESS(ClassTag, MemberName) TResult<F##ClassTag##MemberName##PrivateAccessor>::Ptr
 
-// Syntactic sugars
+/****************************** Syntactic Sugars ******************************/
 
-#define DEFINE_PRIVATE_ACCESSOR(Class, MemberType, MemberName) DEFINE_PRIVATE_ACCESSOR_EX(Class, MemberType, MemberName, Class)
-#define DEFINE_PRIVATE_ACCESSOR_STATIC(Class, MemberType, MemberName) DEFINE_PRIVATE_ACCESSOR_STATIC_EX(Class, MemberType, MemberName, Class)
-#define DEFINE_PRIVATE_ACCESSOR_FUNCTION(Class, ReturnType, MemberName, ...) DEFINE_PRIVATE_ACCESSOR_FUNCTION_EX(Class, ReturnType, MemberName, Class, , __VA_ARGS__)
-#define DEFINE_PRIVATE_ACCESSOR_CONST_FUNCTION(Class, ReturnType, MemberName, ...) DEFINE_PRIVATE_ACCESSOR_FUNCTION_EX(Class, ReturnType, MemberName, Class, const, __VA_ARGS__)
-#define DEFINE_PRIVATE_ACCESSOR_STATIC_FUNCTION(Class, ReturnType, MemberName, ...) DEFINE_PRIVATE_ACCESSOR_STATIC_FUNCTION_EX(Class, ReturnType, MemberName, Class, __VA_ARGS__)
+#define DEFINE_PRIVATE_ACCESSOR_VARIABLE(Class, MemberType, MemberName) DEFINE_PRIVATE_ACCESSOR_VARIABLE_EX(Class, Class, MemberType, MemberName)
+#define DEFINE_PRIVATE_ACCESSOR_STATIC_VARIABLE(Class, MemberType, MemberName) DEFINE_PRIVATE_ACCESSOR_STATIC_VARIABLE_EX(Class, Class, MemberType, MemberName)
+#define DEFINE_PRIVATE_ACCESSOR_FUNCTION(Class, ReturnType, MemberName, ...) DEFINE_PRIVATE_ACCESSOR_FUNCTION_EX(Class, Class, ReturnType, MemberName, , __VA_ARGS__)
+#define DEFINE_PRIVATE_ACCESSOR_CONST_FUNCTION(Class, ReturnType, MemberName, ...) DEFINE_PRIVATE_ACCESSOR_FUNCTION_EX(Class, Class, ReturnType, MemberName, const, __VA_ARGS__)
+#define DEFINE_PRIVATE_ACCESSOR_STATIC_FUNCTION(Class, ReturnType, MemberName, ...) DEFINE_PRIVATE_ACCESSOR_STATIC_FUNCTION_EX(Class, Class, ReturnType, MemberName, __VA_ARGS__)
 
-#define DEFINE_PRIVATE_ACCESSOR_FUNCTION_TAG(Class, ReturnType, MemberName, ClassTag, ...) DEFINE_PRIVATE_ACCESSOR_FUNCTION_EX(Class, ReturnType, MemberName, ClassTag, , __VA_ARGS__)
-#define DEFINE_PRIVATE_ACCESSOR_CONST_FUNCTION_TAG(Class, ReturnType, MemberName, ClassTag, ...) DEFINE_PRIVATE_ACCESSOR_FUNCTION_EX(Class, ReturnType, MemberName, ClassTag, const, __VA_ARGS__)
-#define DEFINE_PRIVATE_ACCESSOR_STATIC_FUNCTION_TAG(Class, ReturnType, MemberName, ClassTag, ...) DEFINE_PRIVATE_ACCESSOR_STATIC_FUNCTION_EX(Class, ReturnType, MemberName, ClassTag, __VA_ARGS__)
+#define DEFINE_PRIVATE_ACCESSOR_FUNCTION_TAG(ClassTag, Class, ReturnType, MemberName, ...) DEFINE_PRIVATE_ACCESSOR_FUNCTION_EX(ClassTag, Class, ReturnType, MemberName, , __VA_ARGS__)
+#define DEFINE_PRIVATE_ACCESSOR_CONST_FUNCTION_TAG(ClassTag, Class, ReturnType, MemberName, ...) DEFINE_PRIVATE_ACCESSOR_FUNCTION_EX(ClassTag, Class, ReturnType, MemberName, const, __VA_ARGS__)
 
 #define PRIVATE_ACCESS_OBJ(ClassTag, MemberName, Obj) (Obj.*PRIVATE_ACCESS(ClassTag, MemberName))
 #define PRIVATE_ACCESS_PTR(ClassTag, MemberName, Ptr) (Ptr->*PRIVATE_ACCESS(ClassTag, MemberName))
 #define PRIVATE_ACCESS_STATIC(ClassTag, MemberName) (*PRIVATE_ACCESS(ClassTag, MemberName))
 
-#if 0
-
 /****************************** Use Cases ******************************/
+
+#if 0
 
 // For any class with private members:
 
@@ -86,13 +88,13 @@ inline const FTestClass* FTestClass::Instance = nullptr;
 
 // Define accessors as follows:
 
-DEFINE_PRIVATE_ACCESSOR(FTestClass, int32_t, Value);
-DEFINE_PRIVATE_ACCESSOR_STATIC(FTestClass, const FTestClass*, Instance);
+DEFINE_PRIVATE_ACCESSOR_VARIABLE(FTestClass, int32_t, Value);
+DEFINE_PRIVATE_ACCESSOR_STATIC_VARIABLE(FTestClass, const FTestClass*, Instance);
 DEFINE_PRIVATE_ACCESSOR_FUNCTION(FTestClass, void, Increment);
 DEFINE_PRIVATE_ACCESSOR_STATIC_FUNCTION(FTestClass, bool, Register, const FTestClass*);
 
 using FTestClassIndexMap = std::map<const FTestClass*, int32_t>; // Alias complex type names so we can pass to the macros
-DEFINE_PRIVATE_ACCESSOR_CONST_FUNCTION_TAG(FTestClass, void, Register, FTestClassToMap, FTestClassIndexMap&); // Use different tags for overloaded functions
+DEFINE_PRIVATE_ACCESSOR_CONST_FUNCTION_TAG(FTestClassToMap, FTestClass, void, Register, FTestClassIndexMap&); // Use different tags for overloaded functions
 
 // Use it anywhere!
 
