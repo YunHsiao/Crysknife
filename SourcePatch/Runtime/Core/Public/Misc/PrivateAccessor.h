@@ -4,62 +4,53 @@
  * Under the hood this is done by exploiting the fact that
  * accessibilities are disregarded during explicit instantiation.
  *
- * Ref: http://bloglitb.blogspot.com/2010/07/access-to-private-members-thats-easy.html
+ * Inspired by: http://bloglitb.blogspot.com/2010/07/access-to-private-members-thats-easy.html
  */
 
 #pragma once
 
-template<typename Tag>
-struct TResult
-{
-	static typename Tag::Type Ptr;
-};
-
-template<typename Tag>
-typename Tag::Type TResult<Tag>::Ptr;
-
-template<typename Tag, typename Tag::Type Ptr>
+template<typename Type, Type& Output, Type Input>
 struct TRob
 {
-	TRob() { TResult<Tag>::Ptr = Ptr; }
+	TRob() { Output = Input; }
 	static TRob Obj;
 };
 
-template<typename Tag, typename Tag::Type Ptr>
-TRob<Tag, Ptr> TRob<Tag, Ptr>::Obj;
+template<typename Type, Type& Output, Type Input>
+TRob<Type, Output, Input> TRob<Type, Output, Input>::Obj;
 
-#define DEFINE_PRIVATE_ACCESSOR_VARIABLE_EX(ClassTag, Class, MemberType, MemberName) \
-	struct F##ClassTag##MemberName##PrivateAccessor { typedef MemberType (Class::*Type); }; \
-	template struct TRob<F##ClassTag##MemberName##PrivateAccessor, &Class::MemberName>
+template<typename OwnerType, typename VariableType>
+using TMemberVariableType = VariableType(OwnerType::*);
 
-#define DEFINE_PRIVATE_ACCESSOR_STATIC_VARIABLE_EX(ClassTag, Class, MemberType, MemberName) \
-	struct F##ClassTag##MemberName##PrivateAccessor { typedef MemberType* Type; }; \
-	template struct TRob<F##ClassTag##MemberName##PrivateAccessor, &Class::MemberName>
+template<typename OwnerType, typename ReturnType, typename... Args>
+using TMemberFunctionType = ReturnType(OwnerType::*)(Args...);
 
-#define DEFINE_PRIVATE_ACCESSOR_FUNCTION_EX(ClassTag, Class, ReturnType, MemberName, Qualifier, ...) \
-	struct F##ClassTag##MemberName##PrivateAccessor { typedef ReturnType(Class::*Type)(__VA_ARGS__) Qualifier; }; \
-	template struct TRob<F##ClassTag##MemberName##PrivateAccessor, &Class::MemberName>
+template<typename OwnerType, typename ReturnType, typename... Args>
+using TConstMemberFunctionType = ReturnType(OwnerType::*)(Args...) const;
 
-#define DEFINE_PRIVATE_ACCESSOR_STATIC_FUNCTION_EX(ClassTag, Class, ReturnType, MemberName, ...) \
-	struct F##ClassTag##MemberName##PrivateAccessor { typedef ReturnType(*Type)(__VA_ARGS__); }; \
-	template struct TRob<F##ClassTag##MemberName##PrivateAccessor, &Class::MemberName>
+template<typename VariableType>
+using TStaticVariableType = VariableType*;
 
-#define PRIVATE_ACCESS(ClassTag, MemberName) TResult<F##ClassTag##MemberName##PrivateAccessor>::Ptr
+template<typename ReturnType, typename... Args>
+using TStaticFunctionType = ReturnType(*)(Args...);
+
+#define INIT_PRIVATE_ACCESSOR(Name, Value) template struct TRob<decltype(Name), Name, &Value>
+
+#define DEFINE_PRIVATE_ACCESSOR(Name, Value, Type, ...) \
+	static Type<__VA_ARGS__> Name; \
+	INIT_PRIVATE_ACCESSOR(Name, Value)
 
 /****************************** Syntactic Sugars ******************************/
 
-#define DEFINE_PRIVATE_ACCESSOR_VARIABLE(Class, MemberType, MemberName) DEFINE_PRIVATE_ACCESSOR_VARIABLE_EX(Class, Class, MemberType, MemberName)
-#define DEFINE_PRIVATE_ACCESSOR_STATIC_VARIABLE(Class, MemberType, MemberName) DEFINE_PRIVATE_ACCESSOR_STATIC_VARIABLE_EX(Class, Class, MemberType, MemberName)
-#define DEFINE_PRIVATE_ACCESSOR_FUNCTION(Class, ReturnType, MemberName, ...) DEFINE_PRIVATE_ACCESSOR_FUNCTION_EX(Class, Class, ReturnType, MemberName, , __VA_ARGS__)
-#define DEFINE_PRIVATE_ACCESSOR_CONST_FUNCTION(Class, ReturnType, MemberName, ...) DEFINE_PRIVATE_ACCESSOR_FUNCTION_EX(Class, Class, ReturnType, MemberName, const, __VA_ARGS__)
-#define DEFINE_PRIVATE_ACCESSOR_STATIC_FUNCTION(Class, ReturnType, MemberName, ...) DEFINE_PRIVATE_ACCESSOR_STATIC_FUNCTION_EX(Class, Class, ReturnType, MemberName, __VA_ARGS__)
+#define DEFINE_PRIVATE_ACCESSOR_VARIABLE(Name, Class, VariableType, VariableName) DEFINE_PRIVATE_ACCESSOR(Name, Class::VariableName, TMemberVariableType, Class, VariableType)
+#define DEFINE_PRIVATE_ACCESSOR_STATIC_VARIABLE(Name, Class, VariableType, VariableName) DEFINE_PRIVATE_ACCESSOR(Name, Class::VariableName, TStaticVariableType, VariableType)
+#define DEFINE_PRIVATE_ACCESSOR_FUNCTION(Name, Class, ReturnType, FunctionName, ...) DEFINE_PRIVATE_ACCESSOR(Name, Class::FunctionName, TMemberFunctionType, Class, ReturnType, __VA_ARGS__)
+#define DEFINE_PRIVATE_ACCESSOR_CONST_FUNCTION(Name, Class, ReturnType, FunctionName, ...) DEFINE_PRIVATE_ACCESSOR(Name, Class::FunctionName, TConstMemberFunctionType, Class, ReturnType, __VA_ARGS__)
+#define DEFINE_PRIVATE_ACCESSOR_STATIC_FUNCTION(Name, Class, ReturnType, FunctionName, ...) DEFINE_PRIVATE_ACCESSOR(Name, Class::FunctionName, TStaticFunctionType, ReturnType, __VA_ARGS__)
 
-#define DEFINE_PRIVATE_ACCESSOR_FUNCTION_TAG(ClassTag, Class, ReturnType, MemberName, ...) DEFINE_PRIVATE_ACCESSOR_FUNCTION_EX(ClassTag, Class, ReturnType, MemberName, , __VA_ARGS__)
-#define DEFINE_PRIVATE_ACCESSOR_CONST_FUNCTION_TAG(ClassTag, Class, ReturnType, MemberName, ...) DEFINE_PRIVATE_ACCESSOR_FUNCTION_EX(ClassTag, Class, ReturnType, MemberName, const, __VA_ARGS__)
-
-#define PRIVATE_ACCESS_OBJ(ClassTag, MemberName, Obj) (Obj.*PRIVATE_ACCESS(ClassTag, MemberName))
-#define PRIVATE_ACCESS_PTR(ClassTag, MemberName, Ptr) (Ptr->*PRIVATE_ACCESS(ClassTag, MemberName))
-#define PRIVATE_ACCESS_STATIC(ClassTag, MemberName) (*PRIVATE_ACCESS(ClassTag, MemberName))
+#define PRIVATE_ACCESS_OBJ(Obj, Name) (Obj.*Name)
+#define PRIVATE_ACCESS_PTR(Ptr, Name) (Ptr->*Name)
+#define PRIVATE_ACCESS_STATIC(Name) (*Name)
 
 /****************************** Use Cases ******************************/
 
@@ -74,10 +65,10 @@ TRob<Tag, Ptr> TRob<Tag, Ptr>::Obj;
 class FTestClass
 {
 	static const FTestClass* Instance;
-	int32_t Value = 42;
-	void Increment() { Value++; }
 	static bool Register(const FTestClass* Ptr) { Instance = Ptr; return true; }
 
+	int32_t Value = 42;
+	void Increment() { Value++; }
 	void Register(std::map<const FTestClass*, int32_t>& Dictionary) const { Dictionary[this] = Value; }
 
 public:
@@ -88,13 +79,14 @@ inline const FTestClass* FTestClass::Instance = nullptr;
 
 // Define accessors as follows:
 
-DEFINE_PRIVATE_ACCESSOR_VARIABLE(FTestClass, int32_t, Value);
-DEFINE_PRIVATE_ACCESSOR_STATIC_VARIABLE(FTestClass, const FTestClass*, Instance);
-DEFINE_PRIVATE_ACCESSOR_FUNCTION(FTestClass, void, Increment);
-DEFINE_PRIVATE_ACCESSOR_STATIC_FUNCTION(FTestClass, bool, Register, const FTestClass*);
+DEFINE_PRIVATE_ACCESSOR_STATIC_VARIABLE(TestClassInstance, FTestClass, const FTestClass*, Instance);
+DEFINE_PRIVATE_ACCESSOR_STATIC_FUNCTION(TestClassRegister, FTestClass, bool, Register, const FTestClass*);
 
-using FTestClassIndexMap = std::map<const FTestClass*, int32_t>; // Alias complex type names so we can pass to the macros
-DEFINE_PRIVATE_ACCESSOR_CONST_FUNCTION_TAG(FTestClassToMap, FTestClass, void, Register, FTestClassIndexMap&); // Use different tags for overloaded functions
+DEFINE_PRIVATE_ACCESSOR_VARIABLE(TestClassValue, FTestClass, int32_t, Value);
+DEFINE_PRIVATE_ACCESSOR_FUNCTION(TestClassIncrement, FTestClass, void, Increment);
+
+using FTestClassIndexMap = std::map<const FTestClass*, int32_t>; // Alias complex type names so we can pass them to macros
+DEFINE_PRIVATE_ACCESSOR_CONST_FUNCTION(TestClassRegister2, FTestClass, void, Register, FTestClassIndexMap&);
 
 // Use it anywhere!
 
@@ -105,20 +97,20 @@ inline void PrivateAccessorTest()
 	const FTestClass* Ptr = &Obj;
 
 	// Get member variable
-	const int32_t* Value = &PRIVATE_ACCESS_PTR(FTestClass, Value, Ptr);
+	const int32_t* Value = &PRIVATE_ACCESS_PTR(Ptr, TestClassValue);
 
 	// Invoke member function
-	PRIVATE_ACCESS_OBJ(FTestClass, Increment, Obj)();
+	PRIVATE_ACCESS_OBJ(Obj, TestClassIncrement)();
 
 	// Invoke static function
-	bool bSuccess = PRIVATE_ACCESS_STATIC(FTestClass, Register)(Ptr);
+	bool bSuccess = PRIVATE_ACCESS_STATIC(TestClassRegister)(Ptr);
 
 	// Set static variable
-	PRIVATE_ACCESS_STATIC(FTestClass, Instance) = (const FTestClass*)0xdeadbeef;
+	PRIVATE_ACCESS_STATIC(TestClassInstance) = reinterpret_cast<const FTestClass*>(static_cast<intptr_t>(0xdeadbeef));
 
 	// Invoke overloaded function
 	FTestClassIndexMap TestClassIndexMap;
-	PRIVATE_ACCESS_PTR(FTestClassToMap, Register, Ptr)(TestClassIndexMap);
+	PRIVATE_ACCESS_PTR(Ptr, TestClassRegister2)(TestClassIndexMap);
 
 	Obj.Print();
 	printf("LocalValue %d Success %d MapValue %d\n", *Value, bSuccess, TestClassIndexMap[Ptr]);
