@@ -90,8 +90,8 @@ Say we want to permanently remove all our previous modification from some existi
 
 If we only want to temporarily remove the patches from all files under `Engine/Source/Runtime/Engine`:
 
-* `dotnet run -- -C -F Runtime/Engine` (To un-patch source files)
-* `dotnet run -- -F Runtime/Engine` (To re-apply patches)
+* `dotnet run -- -C -I Runtime/Engine` (To un-patch source files)
+* `dotnet run -- -I Runtime/Engine` (To re-apply patches)
 
 ## Command Line Options
 
@@ -107,8 +107,8 @@ If we only want to temporarily remove the patches from all files under `Engine/S
 ### Modifiers
 
 * `-P PROJECT` or `--project PROJECT` Project name to match in comments
-* `-I FILTER` or `--inclusive-filter FILTER` Inclusive filter target path
-* `-E FILTER` or `--exclusive-filter FILTER` Exclusive filter target path
+* `-I FILTER` or `--inclusive-filter FILTER` Inclusive target path filter
+* `-E FILTER` or `--exclusive-filter FILTER` Exclusive target path filter
 * `--src DIRECTORY` Source directory containing all the patches
 * `--dst DIRECTORY` Destination directory containing target sources to be patched
 * `--link` Make symbolic links instead of copy all the new files

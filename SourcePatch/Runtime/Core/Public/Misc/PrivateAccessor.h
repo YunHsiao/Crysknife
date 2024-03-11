@@ -86,7 +86,7 @@ DEFINE_PRIVATE_ACCESSOR_VARIABLE(TestClassValue, FTestClass, int32_t, Value);
 DEFINE_PRIVATE_ACCESSOR_FUNCTION(TestClassIncrement, FTestClass, void, Increment);
 
 using FTestClassIndexMap = std::map<const FTestClass*, int32_t>; // Alias complex type names so we can pass them to macros
-DEFINE_PRIVATE_ACCESSOR_CONST_FUNCTION(TestClassRegister2, FTestClass, void, Register, FTestClassIndexMap&);
+DEFINE_PRIVATE_ACCESSOR_CONST_FUNCTION(TestClassRegister2, FTestClass, void, Register, FTestClassIndexMap&); // Overloaded functions also works
 
 // Use it anywhere!
 
