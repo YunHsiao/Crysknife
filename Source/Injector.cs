@@ -44,7 +44,7 @@ public enum JobOptions
     Force = 0x4,
 }
 
-public class UnrealSourceInjector
+public class Injector
 {
     private readonly struct InjectionRegex
     {
@@ -339,7 +339,6 @@ public class UnrealSourceInjector
     private string PrivateExclusiveFilter = "NonExist";
 
     private static readonly Regex CommentRE = new (@"^(\s*)//\s*", RegexOptions.Multiline | RegexOptions.Compiled);
-    private static readonly Regex SeparatorRE = new (@"[\\/]", RegexOptions.Compiled);
     private static readonly Regex EngienVersionRE = new (@"#define\s+ENGINE_MAJOR_VERSION\s+(\d+)\s*#define\s+ENGINE_MINOR_VERSION\s+(\d+)", RegexOptions.Compiled);
 
     private readonly InjectionRegex[] InjectionRE;
@@ -348,7 +347,7 @@ public class UnrealSourceInjector
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    public UnrealSourceInjector(string InProjectName, string InSrcDirectory, string InDstDirectory, JobOptions InOptions)
+    public Injector(string InProjectName, string InSrcDirectory, string InDstDirectory, JobOptions InOptions)
     {
         ProjectName = InProjectName;
         SrcDirectory = InSrcDirectory;
@@ -377,12 +376,12 @@ public class UnrealSourceInjector
     public string InclusiveFilter
     {
         get => PrivateInclusiveFilter;
-        set => PrivateInclusiveFilter = SeparatorRE.Replace(value, Path.DirectorySeparatorChar.ToString());
+        set => PrivateInclusiveFilter = InjectorConfig.SeparatorPatch(value);
     }
     public string ExclusiveFilter
     {
         get => PrivateExclusiveFilter;
-        set => PrivateExclusiveFilter = SeparatorRE.Replace(value, Path.DirectorySeparatorChar.ToString());
+        set => PrivateExclusiveFilter = InjectorConfig.SeparatorPatch(value);
     }
 
     public void CreatePatchFile(IEnumerable<string> InputPaths)
@@ -466,16 +465,15 @@ public class UnrealSourceInjector
 
     public void Process(JobType Job, string SrcDirectoryOverride)
     {
-        var Injections = new List<string>();
         var Patches = new Dictionary<string, PatchDescription>();
-        var Config = new Config(Path.Combine(SrcDirectoryOverride, "Injector.ini"));
+        var Config = new InjectorConfig(Path.Combine(SrcDirectoryOverride, "Injector.ini"), DstDirectory);
 
         foreach (string SrcPath in Directory.GetFiles(SrcDirectoryOverride, "*", new EnumerationOptions { RecurseSubdirectories = true }))
         {
             string RelativePath = Path.GetRelativePath(SrcDirectoryOverride, SrcPath);
             if (!RelativePath.Contains(InclusiveFilter) || RelativePath.Contains(ExclusiveFilter)) continue;
-            var ParsedRelativePath = new ParsedPath(RelativePath);
 
+            var ParsedRelativePath = new ParsedPath(RelativePath);
             if (ParsedRelativePath.Extensions.Last() == ".patch") // Patch existing files
             {
                 RelativePath = ParsedRelativePath.PathTrunc + ParsedRelativePath.Extensions.First();
@@ -485,17 +483,10 @@ public class UnrealSourceInjector
                 if (!Patches.ContainsKey(RelativePath)) Patches.Add(RelativePath, new PatchDescription());
                 Patches[RelativePath].Add(ParsedRelativePath);
             }
-            else if (ParsedRelativePath.Extensions.Last() is ".h" or ".cpp" && !ParsedRelativePath.Extensions.Contains(".ignore")) // Add our new files
+            else if (Config.Remap(RelativePath, out var DstRelativePath))
             {
-                Injections.Add(RelativePath);
+                ProcessFile(Job, Path.Combine(SrcDirectoryOverride, RelativePath), Path.Combine(DstDirectory, DstRelativePath));
             }
-        }
-
-        foreach (string RelativePath in Injections)
-        {
-            if (!Config.Remap(RelativePath, out var DstRelativePath)) continue;
-
-            ProcessFile(Job, Path.Combine(SrcDirectoryOverride, RelativePath), Path.Combine(DstDirectory, DstRelativePath));
         }
 
         foreach (var Pair in Patches)
@@ -504,6 +495,13 @@ public class UnrealSourceInjector
 
             string SrcPath = Path.Combine(SrcDirectoryOverride, Pair.Key + Pair.Value.Match(CurrentEngineVersion));
             string DstPath = Path.Combine(DstDirectory, DstRelativePath);
+
+            if (!File.Exists(DstPath))
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("Skipped patch: {0} does not exist!", DstPath);
+                continue;
+            }
 
             if (Job == JobType.Apply) ApplyPatch(DstPath, SrcPath);
             else if (Job == JobType.Generate) GeneratePatch(DstPath, SrcPath);
@@ -521,7 +519,7 @@ public class UnrealSourceInjector
     }
 }
 
-internal static class UnrealSourceInjectorLauncher
+internal static class Launcher
 {
     private static Dictionary<string, string> ParseArguments(IEnumerable<string> Args)
     {
@@ -558,10 +556,11 @@ internal static class UnrealSourceInjectorLauncher
     {
         var Arguments = ParseArguments(Args);
 
+        string RootFolderName = "UnrealSourceInjector";
         string RootDirectory = Directory.GetCurrentDirectory();
-        RootDirectory = RootDirectory[..(RootDirectory.IndexOf("UnrealSourceInjector", StringComparison.Ordinal) - 1)];
+        RootDirectory = RootDirectory[..(RootDirectory.IndexOf(RootFolderName, StringComparison.Ordinal) - 1)];
 
-        UnrealBuildTool.ConfigFile.Init(RootDirectory);
+        InjectorConfig.Init(Path.Combine(RootDirectory, RootFolderName));
 
         string ProjectName = Arguments.TryGetValue("P", out var Parameters) || Arguments.TryGetValue("project", out Parameters) ?
             Parameters : RootDirectory[(RootDirectory.LastIndexOf(Path.DirectorySeparatorChar) + 1)..];
@@ -574,7 +573,7 @@ internal static class UnrealSourceInjectorLauncher
         if (Arguments.ContainsKey("debug")) Options |= JobOptions.Debug;
         if (Arguments.ContainsKey("F") || Arguments.ContainsKey("force")) Options |= JobOptions.Force;
 
-        var Injector = new UnrealSourceInjector(ProjectName, SrcDirectory, DstDirectory, Options);
+        var Injector = new Injector(ProjectName, SrcDirectory, DstDirectory, Options);
         var Job = JobType.Apply;
 
         if (Arguments.TryGetValue("I", out Parameters) || Arguments.TryGetValue("inclusive-filter", out Parameters)) Injector.InclusiveFilter = Parameters;
@@ -592,7 +591,7 @@ internal static class UnrealSourceInjectorLauncher
 
         if (!Arguments.ContainsKey("nb") && !Arguments.ContainsKey("no-builtin"))
         {
-            string BuiltinSourcePatch = Path.Combine(RootDirectory, "UnrealSourceInjector", "SourcePatch");
+            string BuiltinSourcePatch = Path.Combine(RootDirectory, RootFolderName, "SourcePatch");
             Injector.Process(Job, BuiltinSourcePatch);   
         }
 

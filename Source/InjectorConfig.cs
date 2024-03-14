@@ -29,51 +29,127 @@ namespace UnrealSourceInjector;
 
 internal class ConfigPredicate
 {
-    public void Parse(string Desc, ConfigLineAction Action)
+    private struct PredicateInstance
     {
-        
+        public readonly List<string> Conditions = new();
+        public bool LogicalAnd = false;
+        public PredicateInstance() {}
+        public bool Eval(Func<string, bool> Pred)
+        {
+            return LogicalAnd ? Conditions.All(Pred) : Conditions.Any(Pred);
+        }
     }
 
-    public void Compile()
+    private bool Eval(bool Result, bool NewResult)
     {
-        
+        return LogicalAnd ? Result && NewResult : Result || NewResult;
+    }
+
+    private static bool ContainsString(IEnumerable<string> Values, string Target)
+    {
+        return Values.Any(Value => Value.Equals(Target, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private readonly List<string> FullDesc = new();
+    private bool CompileTimePredicate;
+    private bool LogicalAnd; // By default all predicates are disjunction
+    private PredicateInstance FilenamePredicates = new();
+
+    public void Add(string Desc, ConfigLineAction Action)
+    {
+        switch (Action)
+        {
+            case ConfigLineAction.Set:
+                FullDesc.Clear();
+                FullDesc.Add(Desc);
+                break;
+            case ConfigLineAction.Add:
+                FullDesc.Add(Desc);
+                break;
+            case ConfigLineAction.RemoveKey:
+                FullDesc.Clear();
+                break;
+            case ConfigLineAction.RemoveKeyValue:
+                FullDesc.Remove(Desc);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(Action), Action, null);
+        }
+    }
+
+    public void Compile(string RootPath)
+    {
+        var ExistencePredicates = new PredicateInstance();
+
+        foreach (var Rule in FullDesc.SelectMany(Desc => Desc.Split(',')))
+        {
+            if (Rule.StartsWith("Exist:", StringComparison.OrdinalIgnoreCase))
+            {
+                ExistencePredicates.Conditions.AddRange(Rule[6..].Split('|'));
+            }
+            else if (Rule.StartsWith("Filename:", StringComparison.OrdinalIgnoreCase))
+            {
+                FilenamePredicates.Conditions.AddRange(Rule[9..].Split('|'));
+            }
+            else if (Rule.StartsWith("Always", StringComparison.OrdinalIgnoreCase))
+            {
+                CompileTimePredicate = true;
+            }
+            else if (Rule.StartsWith("Conjunction:", StringComparison.OrdinalIgnoreCase))
+            {
+                var Scopes = Rule[12..].Split('|');
+                bool AlwaysTrue = ContainsString(Scopes, "All");
+                if (AlwaysTrue || ContainsString(Scopes, "Global")) LogicalAnd = true;
+                else if (AlwaysTrue || ContainsString(Scopes, "Exist")) ExistencePredicates.LogicalAnd = true;
+                else if (AlwaysTrue || ContainsString(Scopes, "Filename")) FilenamePredicates.LogicalAnd = true;
+            }
+        }
+
+        foreach (var TargetPath in ExistencePredicates.Conditions.Select(Cond => Path.Combine(RootPath, Cond)))
+        {
+            CompileTimePredicate = Eval(CompileTimePredicate, File.Exists(TargetPath) || Directory.Exists(TargetPath));
+        }
     }
 
     public bool Eval(string Target)
     {
-        return false;
+        bool Result = CompileTimePredicate;
+        Result = Eval(Result, FilenamePredicates.Eval(Cond => Path.GetFileName(Target).Contains(Cond, StringComparison.OrdinalIgnoreCase)));
+        return Result;
     }
 }
 
-internal class ConfigRules
+internal class ScopedRules
 {
     private readonly string TargetName;
-    private readonly ConfigPredicate SkipPredicate = new();
-    private readonly ConfigPredicate RemapPredicate = new();
     private readonly string RemapTarget = string.Empty;
+    private readonly ConfigPredicate RemapRule = new();
+    private readonly ConfigPredicate SkipRule = new();
 
-    public ConfigRules(string SectionName, ConfigFileSection Section)
+    public ScopedRules(string SectionName, ConfigFileSection Section, string RootPath)
     {
-        TargetName = SectionName;
+        // Global section affects all targets
+        TargetName = SectionName.Equals("Global", StringComparison.OrdinalIgnoreCase) ? "" : SectionName;
+        TargetName = InjectorConfig.SeparatorPatch(TargetName);
 
         foreach (ConfigLine Line in Section.Lines)
         {
-            switch (Line.Key)
+            if (Line.Key.Equals("SkipIf", StringComparison.OrdinalIgnoreCase))
             {
-                case "SkipIf":
-                    SkipPredicate.Parse(Line.Value, Line.Action);
-                    break;
-                case "RemapIf":
-                    RemapPredicate.Parse(Line.Value, Line.Action);
-                    break;
-                case "RemapTarget":
-                    RemapTarget = Line.Value;
-                    break;
+                SkipRule.Add(Line.Value, Line.Action);
+            }
+            else if (Line.Key.Equals("RemapIf", StringComparison.OrdinalIgnoreCase))
+            {
+                RemapRule.Add(Line.Value, Line.Action);
+            }
+            else if (Line.Key.Equals("RemapTarget", StringComparison.OrdinalIgnoreCase))
+            {
+                RemapTarget = InjectorConfig.SeparatorPatch(Line.Value);
             }
         }
 
-        SkipPredicate.Compile();
-        RemapPredicate.Compile();
+        SkipRule.Compile(RootPath);
+        RemapRule.Compile(RootPath);
     }
 
     public bool Affects(string Target)
@@ -83,45 +159,66 @@ internal class ConfigRules
 
     public bool Remap(string Target, out string Result)
     {
-        if (SkipPredicate.Eval(Target))
-        {
-            Result = Target;
-            return false;
-        }
+        Result = Target;
+        if (SkipRule.Eval(Target)) return false;
 
-        Result = RemapPredicate.Eval(Target) ? Target.Replace(TargetName, RemapTarget) : Target;
+        if (RemapRule.Eval(Target))
+        {
+            Result = TargetName == string.Empty ? Path.Combine(RemapTarget, Path.GetFileName(Target)) : Target.Replace(TargetName, RemapTarget);
+        }
         return true;
     }
 }
 
-public class Config
+public class InjectorConfig
 {
-    private readonly List<ConfigRules> RulesList = new();
-    private static readonly Regex SeparatorRE = new (@"[\\/]", RegexOptions.Compiled);
+    private static ConfigFile BaseConfig = new();
+    private readonly List<ScopedRules> Scopes = new();
 
-    public Config(string ConfigPath)
+    private static readonly Regex SeparatorRE = new (@"[\\/]", RegexOptions.Compiled);
+    public static string SeparatorPatch(string Value)
+    {
+        return SeparatorRE.Replace(Value, Path.DirectorySeparatorChar.ToString());
+    }
+
+    public static void Init(string RootDirectory)
+    {
+        ConfigFile.Init(RootDirectory);
+        string ConfigPath = Path.Combine(RootDirectory, "BaseInjector.ini");
+        if (File.Exists(ConfigPath)) BaseConfig = new ConfigFile(ConfigPath);
+    }
+
+    public InjectorConfig(string ConfigPath, string RootPath)
     {
         ConfigFile Config = File.Exists(ConfigPath) ? new ConfigFile(ConfigPath) : new ConfigFile();
 
+        // Merge base config sections
+        foreach (string SectionName in BaseConfig.SectionNames)
+        {
+            if (BaseConfig.TryGetSection(SectionName, out var BaseSection))
+            {
+                Config.FindOrAddSection(SectionName).Lines.AddRange(BaseSection.Lines);
+            }
+        }
+
+        // Parse into scoped rules
         foreach (string SectionName in Config.SectionNames)
         {
             if (Config.TryGetSection(SectionName, out var Section))
             {
-                RulesList.Add(new ConfigRules(SectionName, Section));
+                Scopes.Add(new ScopedRules(SectionName, Section, RootPath));
             }
         }
     }
 
     public bool Remap(string Target, out string Result)
     {
-        string RulesKey = SeparatorRE.Replace(Target, "/");
-
-        foreach (var Rules in RulesList.Where(Rules => Rules.Affects(RulesKey)))
-        {
-            return Rules.Remap(Target, out Result);
-        }
-
         Result = Target;
+
+        foreach (var Scope in Scopes.Where(Rules => Rules.Affects(Target)))
+        {
+            if (!Scope.Remap(Target, out Result)) return false;
+        }
         return true;
     }
 }
