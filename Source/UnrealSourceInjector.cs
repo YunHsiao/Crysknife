@@ -1,6 +1,29 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2024 Yun Hsiao Wu
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 using System.Text;
 using System.Text.RegularExpressions;
-using DiffMatchPatch;
 
 namespace UnrealSourceInjector;
 
@@ -175,7 +198,7 @@ public class UnrealSourceInjector
         string Target = File.ReadAllText(TargetPath);
         string ClearedTarget = Unpatch(Target);
 
-        var DMP = new diff_match_patch { Match_Threshold = MatchContentTolerance, Match_Distance = MatchLineTolerance };
+        var DMP = new DiffMatchPatch.diff_match_patch { Match_Threshold = MatchContentTolerance, Match_Distance = MatchLineTolerance };
         var Patches = DMP.patch_fromText(File.ReadAllText(PatchPath));
         object[] Result = DMP.patch_apply(Patches, ClearedTarget);
         string Patched = (string)Result[0];
@@ -222,7 +245,7 @@ public class UnrealSourceInjector
             Console.WriteLine("Unpatched content written to: " + DebugOutput);
         }
 
-        var DMP = new diff_match_patch { Patch_Margin = PatchContextLength };
+        var DMP = new DiffMatchPatch.diff_match_patch { Patch_Margin = PatchContextLength };
         var Diffs = DMP.diff_main(Source, Target);
         if (Diffs.Count > 2)
         {
@@ -315,9 +338,9 @@ public class UnrealSourceInjector
     private string PrivateInclusiveFilter = string.Empty;
     private string PrivateExclusiveFilter = "NonExist";
 
-    private readonly Regex CommentRE = new (@"^(\s*)//\s*", RegexOptions.Multiline | RegexOptions.Compiled);
-    private readonly Regex SeparatorRE = new (@"[\\/]", RegexOptions.Compiled);
-    private readonly Regex EngienVersionRE = new (@"#define\s+ENGINE_MAJOR_VERSION\s+(\d+)\s*#define\s+ENGINE_MINOR_VERSION\s+(\d+)", RegexOptions.Compiled);
+    private static readonly Regex CommentRE = new (@"^(\s*)//\s*", RegexOptions.Multiline | RegexOptions.Compiled);
+    private static readonly Regex SeparatorRE = new (@"[\\/]", RegexOptions.Compiled);
+    private static readonly Regex EngienVersionRE = new (@"#define\s+ENGINE_MAJOR_VERSION\s+(\d+)\s*#define\s+ENGINE_MINOR_VERSION\s+(\d+)", RegexOptions.Compiled);
 
     private readonly InjectionRegex[] InjectionRE;
     private readonly EngineVersion CurrentEngineVersion;
@@ -445,6 +468,7 @@ public class UnrealSourceInjector
     {
         var Injections = new List<string>();
         var Patches = new Dictionary<string, PatchDescription>();
+        var Config = new Config(Path.Combine(SrcDirectoryOverride, "Injector.ini"));
 
         foreach (string SrcPath in Directory.GetFiles(SrcDirectoryOverride, "*", new EnumerationOptions { RecurseSubdirectories = true }))
         {
@@ -469,13 +493,17 @@ public class UnrealSourceInjector
 
         foreach (string RelativePath in Injections)
         {
-            ProcessFile(Job, Path.Combine(SrcDirectoryOverride, RelativePath), Path.Combine(DstDirectory, RelativePath));
+            if (!Config.Remap(RelativePath, out var DstRelativePath)) continue;
+
+            ProcessFile(Job, Path.Combine(SrcDirectoryOverride, RelativePath), Path.Combine(DstDirectory, DstRelativePath));
         }
 
         foreach (var Pair in Patches)
         {
+            if (!Config.Remap(Pair.Key, out var DstRelativePath)) continue;
+
             string SrcPath = Path.Combine(SrcDirectoryOverride, Pair.Key + Pair.Value.Match(CurrentEngineVersion));
-            string DstPath = Path.Combine(DstDirectory, Pair.Key);
+            string DstPath = Path.Combine(DstDirectory, DstRelativePath);
 
             if (Job == JobType.Apply) ApplyPatch(DstPath, SrcPath);
             else if (Job == JobType.Generate) GeneratePatch(DstPath, SrcPath);
@@ -532,6 +560,8 @@ internal static class UnrealSourceInjectorLauncher
 
         string RootDirectory = Directory.GetCurrentDirectory();
         RootDirectory = RootDirectory[..(RootDirectory.IndexOf("UnrealSourceInjector", StringComparison.Ordinal) - 1)];
+
+        UnrealBuildTool.ConfigFile.Init(RootDirectory);
 
         string ProjectName = Arguments.TryGetValue("P", out var Parameters) || Arguments.TryGetValue("project", out Parameters) ?
             Parameters : RootDirectory[(RootDirectory.LastIndexOf(Path.DirectorySeparatorChar) + 1)..];
