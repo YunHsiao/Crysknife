@@ -50,38 +50,44 @@ internal class ConfigPredicate
         return Values.Any(Value => Value.Equals(Target, StringComparison.OrdinalIgnoreCase));
     }
 
+    private readonly List<string> BaseDesc = new();
     private readonly List<string> FullDesc = new();
     private bool CompileTimePredicate;
     private bool LogicalAnd; // By default all predicates are disjunction
     private PredicateInstance FilenamePredicates = new();
 
-    public void Add(string Desc, ConfigLineAction Action)
+    private static void Add(string Desc, ConfigLineAction Action, ICollection<string> Target)
     {
         switch (Action)
         {
             case ConfigLineAction.Set:
-                FullDesc.Clear();
-                FullDesc.Add(Desc);
+                Target.Clear();
+                Target.Add(Desc);
                 break;
             case ConfigLineAction.Add:
-                FullDesc.Add(Desc);
+                Target.Add(Desc);
                 break;
             case ConfigLineAction.RemoveKey:
-                FullDesc.Clear();
+                Target.Clear();
                 break;
             case ConfigLineAction.RemoveKeyValue:
-                FullDesc.Remove(Desc);
+                Target.Remove(Desc);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(Action), Action, null);
         }
     }
 
+    public void Add(string Desc, ConfigLineAction Action)
+    {
+        Add(Desc, Action, Desc.StartsWith("BaseDomain") ? BaseDesc : FullDesc);
+    }
+
     public void Compile(string RootPath)
     {
         var ExistencePredicates = new PredicateInstance();
 
-        foreach (var Rule in FullDesc.SelectMany(Desc => Desc.Split(',')))
+        foreach (var Rule in BaseDesc.Concat(FullDesc).SelectMany(Desc => Desc.Split(',')))
         {
             if (Rule.StartsWith("Exist:", StringComparison.OrdinalIgnoreCase))
             {
@@ -122,9 +128,16 @@ internal class ConfigPredicate
 internal class ScopedRules
 {
     private readonly string TargetName;
+    private readonly bool Flat;
     private readonly string RemapTarget = string.Empty;
     private readonly ConfigPredicate RemapRule = new();
     private readonly ConfigPredicate SkipRule = new();
+
+    private static bool IsTruthyValue(string Value)
+    {
+        if (int.TryParse(Value, out var Number)) return Number > 0;
+        return Value.Equals("True", StringComparison.OrdinalIgnoreCase);
+    }
 
     public ScopedRules(string SectionName, ConfigFileSection Section, string RootPath)
     {
@@ -146,6 +159,10 @@ internal class ScopedRules
             {
                 RemapTarget = InjectorConfig.SeparatorPatch(Line.Value);
             }
+            else if (Line.Key.Equals("Flat", StringComparison.OrdinalIgnoreCase))
+            {
+                Flat = IsTruthyValue(Line.Value);
+            }
         }
 
         SkipRule.Compile(RootPath);
@@ -164,7 +181,8 @@ internal class ScopedRules
 
         if (RemapRule.Eval(Target))
         {
-            Result = TargetName == string.Empty ? Path.Combine(RemapTarget, Path.GetFileName(Target)) : Target.Replace(TargetName, RemapTarget);
+            Result = Flat ? Path.Combine(RemapTarget, Path.GetFileName(Target)) : 
+                TargetName == string.Empty ? Path.Combine(RemapTarget, Target) : Target.Replace(TargetName, RemapTarget);
         }
         return true;
     }
@@ -197,7 +215,7 @@ public class InjectorConfig
         {
             if (BaseConfig.TryGetSection(SectionName, out var BaseSection))
             {
-                Config.FindOrAddSection(SectionName).Lines.AddRange(BaseSection.Lines);
+                Config.FindOrAddSection(SectionName).Lines.InsertRange(0, BaseSection.Lines);
             }
         }
 

@@ -308,6 +308,11 @@ public class Injector
 
                 File.Delete(DstPath);
             }
+            else // Create directory if not exist
+            {
+                string? TargetDir = Path.GetDirectoryName(DstPath);
+                if (TargetDir != null && !Directory.Exists(TargetDir)) Directory.CreateDirectory(TargetDir);
+            }
 
             if (ShouldBeSymLink) File.CreateSymbolicLink(DstPath, SrcPath);
             else File.Copy(SrcPath, DstPath);
@@ -498,7 +503,7 @@ public class Injector
 
             if (!File.Exists(DstPath))
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("Skipped patch: {0} does not exist!", DstPath);
                 continue;
             }
