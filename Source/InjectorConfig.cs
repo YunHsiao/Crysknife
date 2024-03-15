@@ -80,22 +80,22 @@ internal class ConfigPredicate
 
     public void Add(string Desc, ConfigLineAction Action)
     {
-        Add(Desc, Action, Desc.StartsWith("BaseDomain") ? BaseDesc : FullDesc);
+        Add(Desc, Action, Desc.StartsWith("BaseDomain", StringComparison.OrdinalIgnoreCase) ? BaseDesc : FullDesc);
     }
 
     public void Compile(string RootPath)
     {
         var ExistencePredicates = new PredicateInstance();
 
-        foreach (var Rule in BaseDesc.Concat(FullDesc).SelectMany(Desc => Desc.Split(',')))
+        foreach (var Rule in BaseDesc.Concat(FullDesc).SelectMany(Desc => Desc.Split(',', StringSplitOptions.TrimEntries)))
         {
             if (Rule.StartsWith("Exist:", StringComparison.OrdinalIgnoreCase))
             {
-                ExistencePredicates.Conditions.AddRange(Rule[6..].Split('|'));
+                ExistencePredicates.Conditions.AddRange(Rule[6..].Split('|', StringSplitOptions.TrimEntries));
             }
             else if (Rule.StartsWith("Filename:", StringComparison.OrdinalIgnoreCase))
             {
-                FilenamePredicates.Conditions.AddRange(Rule[9..].Split('|'));
+                FilenamePredicates.Conditions.AddRange(Rule[9..].Split('|', StringSplitOptions.TrimEntries));
             }
             else if (Rule.StartsWith("Always", StringComparison.OrdinalIgnoreCase))
             {
@@ -103,18 +103,20 @@ internal class ConfigPredicate
             }
             else if (Rule.StartsWith("Conjunction:", StringComparison.OrdinalIgnoreCase))
             {
-                var Scopes = Rule[12..].Split('|');
-                bool AlwaysTrue = ContainsString(Scopes, "All");
-                if (AlwaysTrue || ContainsString(Scopes, "Global")) LogicalAnd = true;
-                else if (AlwaysTrue || ContainsString(Scopes, "Exist")) ExistencePredicates.LogicalAnd = true;
-                else if (AlwaysTrue || ContainsString(Scopes, "Filename")) FilenamePredicates.LogicalAnd = true;
+                var Scopes = Rule[12..].Split('|', StringSplitOptions.TrimEntries);
+                bool AllTrue = ContainsString(Scopes, "All");
+                bool PredicatesTrue = ContainsString(Scopes, "Predicates");
+                if (AllTrue || ContainsString(Scopes, "Root")) CompileTimePredicate = LogicalAnd = true;
+                else if (AllTrue || PredicatesTrue || ContainsString(Scopes, "Exist")) ExistencePredicates.LogicalAnd = true;
+                else if (AllTrue || PredicatesTrue || ContainsString(Scopes, "Filename")) FilenamePredicates.LogicalAnd = true;
             }
         }
 
-        foreach (var TargetPath in ExistencePredicates.Conditions.Select(Cond => Path.Combine(RootPath, Cond)))
+        CompileTimePredicate = Eval(CompileTimePredicate, ExistencePredicates.Eval(Cond =>
         {
-            CompileTimePredicate = Eval(CompileTimePredicate, File.Exists(TargetPath) || Directory.Exists(TargetPath));
-        }
+            string TargetPath = Path.Combine(RootPath, Cond);
+            return File.Exists(TargetPath) || Directory.Exists(TargetPath);
+        }));
     }
 
     public bool Eval(string Target)
@@ -171,7 +173,7 @@ internal class ScopedRules
 
     public bool Affects(string Target)
     {
-        return Target.StartsWith(TargetName);
+        return Target.StartsWith(TargetName, StringComparison.OrdinalIgnoreCase);
     }
 
     public bool Remap(string Target, out string Result)
