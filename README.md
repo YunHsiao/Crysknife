@@ -1,8 +1,8 @@
 # Unreal Source Injector
 
 Inject source files & code segments into any existing Unreal Engine code base.  
-All injections are strictly reversable with a single command.  
-More complex behaviors can be specified with the [config system](#Config-System).  
+All injections are strictly reversible with a single command.  
+More complex behaviors can be specified with the [config system](#Config-System).
 
 This repository is meant to be used as part of an engine plugin to help
 quickly deploying features to different engine bases.
@@ -23,7 +23,7 @@ new source files can be either copied or symbolically linked into target directo
 
 For code segments we detect & inject in the following forms (with comment guards):
 
-1. Multi-line:
+### Multi-line
 
 ```cpp
 // ${ProjectName}${Comments}: Begin
@@ -31,13 +31,14 @@ For code segments we detect & inject in the following forms (with comment guards
 // ${ProjectName}: End
 ```
 
-2. Single-line:
+### Single-line
 
 ```cpp
 ** YOUR ONE-LINER HERE ** // ${ProjectName}${Comments}
 ```
 
-3. Next-line: Note that there can be no code at the same line with the comment guard:
+### Next-line
+Note that there can be no code at the same line with the comment guard:
 
 ```cpp
 // ${ProjectName}${Comments}
@@ -62,6 +63,37 @@ Where the special tweak is:
 Patches generated for these injections are fuzzy matched with customizable tolerances.
 Error messages will be received when patching fails, with a full file diff HTML to help you manually resolve the conflicts.
 
+> Only executed actions are logged to console, so an empty output would mean everything's up-to-date.
+
+## Command Line Options
+
+### Actions
+
+* `-A` Apply existing patches and copy all new sources (default action)
+* `-G` Generate/update patches
+* `-C` Clear patches from target files
+* `-R` Round trip update, effectively the same as manually `-G` then `-A`
+* `--add [FILES|DIRECTORIES]...` Add specified source files to patch list and update
+* `--rm [FILES|DIRECTORIES]...` Remove specified source files from patch list and update
+
+### Modifiers
+
+* `-P [PROJECT]` or `--project [PROJECT]` Project name to match in comments
+* `-I [FILTER]` or `--inclusive-filter [FILTER]` Inclusive target path filter
+* `-E [FILTER]` or `--exclusive-filter [FILTER]` Exclusive target path filter
+* `--src [DIRECTORY]` Customize the source directory where the patches are located
+* `--dst [DIRECTORY]` Customize the destination directory containing target sources to be patched
+* `--dry-run` Test run, safely executes the action with all engine output remapped to `SourcePatch` directory
+* `--link` Make symbolic links instead of copy all the new files
+* `--nb` or `--no-builtin` Skip builtin source patches
+* `-F` or `--force` Force override existing files
+
+### Parameters
+
+* `--pc [LENGTH]` or `--patch-context [LENGTH]` Patch context length when generating patches, default to 50
+* `--ct [TOLERANCE]` or `--content-tolerance [TOLERANCE]` Content tolerance in [0, 1] when matching sources, default to 0.5
+* `--lt [TOLERANCE]` or `--line-tolerance [TOLERANCE]` Line tolerance when matching sources, default to infinity (line numbers may vary significantly between engine versions)
+
 ## Usage
 
 Use the script file matching your operating system:
@@ -80,7 +112,6 @@ Say we are adding a new source file under `Engine/Source/Runtime/Engine/Private`
 ### Modify Existing Engine Source
 
 Say we want to modifying some existing engine source file:
-
 * Go ahead and modify the engine source directly, remember to add the aforementioned comment guards
 * `./Injector.sh --add ${FullPathToModifiedEngineSourceFile}`
 * `./Injector.sh -G` afterwards to update all patches before committing
@@ -96,34 +127,6 @@ If we only want to temporarily remove the patches from all files under `Engine/S
 
 * `./Injector.sh -C -I Runtime/Engine` (To un-patch source files)
 * `./Injector.sh -I Runtime/Engine` (To re-apply patches)
-
-## Command Line Options
-
-### Actions
-
-* `-A` Apply patch and link all new sources (default action)
-* `-G` Generate/update patch
-* `-C` Clear patches from target files
-* `-T` Test run
-* `--add [FILES|DIRECTORIES]...` Add specified source files to patch list and update
-* `--rm [FILES|DIRECTORIES]...` Remove specified source files from patch list and update
-
-### Modifiers
-
-* `-P [PROJECT]` or `--project [PROJECT]` Project name to match in comments
-* `-I [FILTER]` or `--inclusive-filter [FILTER]` Inclusive target path filter
-* `-E [FILTER]` or `--exclusive-filter [FILTER]` Exclusive target path filter
-* `--src [DIRECTORY]` Source directory containing all the patches
-* `--dst [DIRECTORY]` Destination directory containing target sources to be patched
-* `--link` Make symbolic links instead of copy all the new files
-* `--nb` or `--no-builtin` Skip builtin source patches
-* `-F` or `--force` Force override existing files
-
-### Parameters
-
-* `--pc [LENGTH]` or `--patch-context [LENGTH]` Patch context length when generating patches, default to 50
-* `--ct [TOLERANCE]` or `--content-tolerance [TOLERANCE]` Content tolerance in [0, 1] when matching sources, default to 0.5
-* `--lt [TOLERANCE]` or `--line-tolerance [TOLERANCE]` Line tolerance when matching sources, default to infinity (line numbers may vary significantly between engine versions)
 
 ## Config System
 

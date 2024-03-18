@@ -32,7 +32,7 @@ public enum JobType
     Apply,
     Generate,
     Clear,
-    Test
+    RoundTrip
 }
 
 [Flags]
@@ -40,7 +40,7 @@ public enum JobOptions
 {
     None = 0x0,
     Link = 0x1,
-    Debug = 0x2,
+    DryRun = 0x2,
     Force = 0x4,
 }
 
@@ -175,6 +175,56 @@ public class Injector
         };
     }
 
+    private readonly struct DMPContext
+    {
+        private readonly DiffMatchPatch.diff_match_patch GenerationContext;
+        private readonly DiffMatchPatch.diff_match_patch ApplyContext;
+
+        public DMPContext(short ContextLength, float ContentTolerance, int LineTolerance)
+        {
+            GenerationContext = new DiffMatchPatch.diff_match_patch { Patch_Margin = ContextLength };
+            ApplyContext = new DiffMatchPatch.diff_match_patch { Match_Threshold = ContentTolerance, Match_Distance = LineTolerance };
+        }
+
+        public string Apply(string Content, List<DiffMatchPatch.Patch> Patches, out bool[] IsSuccess)
+        {
+            object[] Result = ApplyContext.patch_apply(Patches, Content);
+            IsSuccess = (bool[])Result[1];
+            return (string)Result[0];
+        }
+
+        public string Apply(string Content, string PatchPath, out bool[] IsSuccess)
+        {
+            return Apply(Content, ApplyContext.patch_fromText(File.ReadAllText(PatchPath)), out IsSuccess);
+        }
+
+        public List<DiffMatchPatch.Diff> GenerateDiffs(string Source, string Target)
+        {
+            var Diffs = GenerationContext.diff_main(Source, Target);
+            if (Diffs.Count > 2)
+            {
+                GenerationContext.diff_cleanupSemantic(Diffs);
+                GenerationContext.diff_cleanupEfficiency(Diffs);
+            }
+            return Diffs;
+        }
+
+        public List<DiffMatchPatch.Patch> GeneratePatches(string Source, List<DiffMatchPatch.Diff> Diffs)
+        {
+            return GenerationContext.patch_make(Source, Diffs);
+        }
+
+        public string Generate(List<DiffMatchPatch.Patch> Patches)
+        {
+            return GenerationContext.patch_toText(Patches);
+        }
+
+        public string GetHtml(List<DiffMatchPatch.Diff> Diffs)
+        {
+            return GenerationContext.diff_prettyHtml(Diffs);
+        }
+    }
+
     private static string GetPatchDebugOutputPath(string PatchPath)
     {
         var ParsedPath = new ParsedPath(PatchPath);
@@ -193,97 +243,79 @@ public class Injector
         }));
     }
 
-    private void ApplyPatch(string TargetPath, string PatchPath)
+    private void ProcessPatch(JobType Job, string PatchPath, string TargetPath)
     {
         string Target = File.ReadAllText(TargetPath);
         string ClearedTarget = Unpatch(Target);
+        List<DiffMatchPatch.Patch>? Patches = null;
 
-        var DMP = new DiffMatchPatch.diff_match_patch { Match_Threshold = MatchContentTolerance, Match_Distance = MatchLineTolerance };
-        var Patches = DMP.patch_fromText(File.ReadAllText(PatchPath));
-        object[] Result = DMP.patch_apply(Patches, ClearedTarget);
-        string Patched = (string)Result[0];
-        if (Patched == Target) return;
-
-        if (Target.Length != ClearedTarget.Length)
+        if (Job is JobType.Clear)
         {
-            // Apply op is potentially dangerous: Confirm before overriding any new contents.
-            if (!OverrideConfirm.HasFlag(ConfirmResult.ForAll))
+            if (ClearedTarget.Length == Target.Length) return;
+
+            if (Options.HasFlag(JobOptions.DryRun))
             {
-                OverrideConfirm = PromptToConfirm($"Override patched file {TargetPath}?");
+                TargetPath = GetPatchDebugOutputPath(PatchPath);
             }
-            if (OverrideConfirm.HasFlag(ConfirmResult.No)) return;
-            if (OverrideConfirm.HasFlag(ConfirmResult.Abort)) Environment.Exit(1);
-        }
 
-        File.WriteAllText(TargetPath, Patched);
-
-        bool[] IsSuccess = (bool[])Result[1];
-        int SuccessCount = IsSuccess.Count(V => V);
-        if (SuccessCount == IsSuccess.Length)
-        {
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("Patched: " + TargetPath);
-        }
-        else
-        {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.Error.WriteLine("Error: Patch failed ({0}/{1}): Please merge the relevant changes manually from {2} to {3}",
-                SuccessCount, IsSuccess.Length, PatchPath + ".html", TargetPath);
-        }
-    }
-
-    private void GeneratePatch(string TargetPath, string PatchPath)
-    {
-        string Target = File.ReadAllText(TargetPath);
-        string Source = Unpatch(Target);
-
-        if (Options.HasFlag(JobOptions.Debug))
-        {
-            string DebugOutput = GetPatchDebugOutputPath(PatchPath);
-            File.WriteAllText(DebugOutput, Source);
+            File.WriteAllText(TargetPath, ClearedTarget);
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("Unpatched content written to: " + DebugOutput);
+            Console.WriteLine("Patch removed from: " + TargetPath);
         }
 
-        var DMP = new DiffMatchPatch.diff_match_patch { Patch_Margin = PatchContextLength };
-        var Diffs = DMP.diff_main(Source, Target);
-        if (Diffs.Count > 2)
+        if (Job is JobType.Generate or JobType.RoundTrip)
         {
-            DMP.diff_cleanupSemantic(Diffs);
-            DMP.diff_cleanupEfficiency(Diffs);
-        }
-        string Patch = DMP.patch_toText(DMP.patch_make(Source, Diffs));
+            var Diffs = PatchTool.GenerateDiffs(ClearedTarget, Target);
+            Patches = PatchTool.GeneratePatches(ClearedTarget, Diffs);
+            string Patch = PatchTool.Generate(Patches);
 
-        if (File.Exists(PatchPath))
+            if (!File.Exists(PatchPath) || File.ReadAllText(PatchPath) != Patch)
+            {
+                File.WriteAllText(PatchPath + ".html", PatchTool.GetHtml(Diffs));
+                File.WriteAllText(PatchPath, Patch);
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("Patch updated: " + TargetPath);
+            }
+        }
+
+        if (Job is JobType.Apply or JobType.RoundTrip)
         {
-            string ExistingPatch = File.ReadAllText(PatchPath);
-            if (ExistingPatch == Patch) return;
+            string Patched = Patches != null ? PatchTool.Apply(ClearedTarget, Patches, out var IsSuccess)
+                : PatchTool.Apply(ClearedTarget, PatchPath, out IsSuccess);
+            if (Patched == Target) return;
+
+            if (Options.HasFlag(JobOptions.DryRun))
+            {
+                TargetPath = GetPatchDebugOutputPath(PatchPath);
+            }
+            else if (Target.Length != ClearedTarget.Length)
+            {
+                // Apply op is potentially dangerous: Confirm before overriding any new contents.
+                if (!OverrideConfirm.HasFlag(ConfirmResult.ForAll))
+                {
+                    OverrideConfirm = PromptToConfirm($"Override patched file {TargetPath}?");
+                }
+                if (OverrideConfirm.HasFlag(ConfirmResult.No)) return;
+                if (OverrideConfirm.HasFlag(ConfirmResult.Abort)) Environment.Exit(1);
+            }
+
+            File.WriteAllText(TargetPath, Patched);
+
+            int SuccessCount = IsSuccess.Count(V => V);
+            if (SuccessCount == IsSuccess.Length)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("Patched: " + TargetPath);
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.Error.WriteLine("Error: Patch failed ({0}/{1}): Please merge the relevant changes manually from {2} to {3}",
+                    SuccessCount, IsSuccess.Length, PatchPath + ".html", TargetPath);
+            }
         }
-
-        File.WriteAllText(PatchPath + ".html", DMP.diff_prettyHtml(Diffs));
-        File.WriteAllText(PatchPath, Patch);
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine("Patch updated: " + TargetPath);
     }
 
-    private void ClearPatch(string TargetPath)
-    {
-        string Target = File.ReadAllText(TargetPath);
-        string ClearedTarget = Unpatch(Target);
-        if (ClearedTarget.Length == Target.Length) return;
-
-        File.WriteAllText(TargetPath, ClearedTarget);
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine("Patch removed from: " + TargetPath);
-    }
-
-    private void TestPatch(string RefPath, string PatchPath)
-    {
-        string TargetPath = GetPatchDebugOutputPath(PatchPath);
-        if (!File.Exists(TargetPath)) File.Copy(RefPath, TargetPath);
-        ApplyPatch(TargetPath, PatchPath);
-    }
-    
     private void ProcessFile(JobType Job, string SrcPath, string DstPath)
     {
         bool Exists = File.Exists(DstPath);
@@ -320,8 +352,11 @@ public class Injector
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("{0}: {1} -> {2}", ShouldBeSymLink ? "Linked" : "Copied", SrcPath, DstPath);
         }
-        else if (Job == JobType.Generate && Exists && !IsSymLink)
+        else if (Job is JobType.Generate or JobType.RoundTrip && Exists && !IsSymLink)
         {
+            if (File.ReadAllText(SrcPath) == File.ReadAllText(DstPath)) return;
+
+            File.Delete(SrcPath);
             File.Copy(DstPath, SrcPath);
 
             Console.ForegroundColor = ConsoleColor.Green;
@@ -335,6 +370,11 @@ public class Injector
         }
     }
 
+    private void CreatePatchTool()
+    {
+        PatchTool = new DMPContext(PatchContextLength, MatchContentTolerance, MatchLineTolerance);
+    }
+
     private readonly string ProjectName;
     private readonly string SrcDirectory;
     private readonly string DstDirectory;
@@ -342,6 +382,9 @@ public class Injector
 
     private string PrivateInclusiveFilter = string.Empty;
     private string PrivateExclusiveFilter = "NonExist";
+    private short PrivatePatchContextLength = 50;
+    private float PrivateMatchContentTolerance = 0.5f;
+    private int PrivateMatchLineTolerance = int.MaxValue; // Line number may vary significantly
 
     private static readonly Regex CommentRE = new (@"^(\s*)//\s*", RegexOptions.Multiline | RegexOptions.Compiled);
     private static readonly Regex EngienVersionRE = new (@"#define\s+ENGINE_MAJOR_VERSION\s+(\d+)\s*#define\s+ENGINE_MINOR_VERSION\s+(\d+)", RegexOptions.Compiled);
@@ -349,6 +392,7 @@ public class Injector
     private readonly InjectionRegex[] InjectionRE;
     private readonly EngineVersion CurrentEngineVersion;
     private ConfirmResult OverrideConfirm;
+    private DMPContext PatchTool;
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -373,11 +417,36 @@ public class Injector
         Match VersionMatch = EngienVersionRE.Match(File.ReadAllText(Path.Combine(DstDirectory, "Runtime/Launch/Resources/Version.h")));
         CurrentEngineVersion = EngineVersion.Create(VersionMatch.Groups[1].Value, VersionMatch.Groups[2].Value);
         OverrideConfirm = Options.HasFlag(JobOptions.Force) ? ConfirmResult.Yes | ConfirmResult.ForAll : ConfirmResult.NotDecided;
+        CreatePatchTool();
     }
 
-    public short PatchContextLength = 50;
-    public float MatchContentTolerance = 0.5f;
-    public int MatchLineTolerance = int.MaxValue; // Line number may vary significantly
+    public short PatchContextLength
+    {
+        get => PrivatePatchContextLength;
+        set
+        {
+            PrivatePatchContextLength = value;
+            CreatePatchTool();
+        }
+    }
+    public float MatchContentTolerance
+    {
+        get => PrivateMatchContentTolerance;
+        set
+        {
+            PrivateMatchContentTolerance = value;
+            CreatePatchTool();
+        }
+    }
+    public int MatchLineTolerance
+    {
+        get => PrivateMatchLineTolerance;
+        set
+        {
+            PrivateMatchLineTolerance = value;
+            CreatePatchTool();
+        }
+    }
     public string InclusiveFilter
     {
         get => PrivateInclusiveFilter;
@@ -460,7 +529,7 @@ public class Injector
             string PatchPath = Path.Combine(SrcDirectory, RelativePath + PatchDescription.MakeExtension(CurrentEngineVersion));
             if (!File.Exists(PatchPath)) continue;
 
-            ClearPatch(PatchedPath);
+            ProcessPatch(JobType.Clear, PatchPath, PatchedPath);
             File.Delete(PatchPath);
             File.Delete(PatchPath + ".html");
             Console.ForegroundColor = ConsoleColor.Yellow;
@@ -508,10 +577,7 @@ public class Injector
                 continue;
             }
 
-            if (Job == JobType.Apply) ApplyPatch(DstPath, SrcPath);
-            else if (Job == JobType.Generate) GeneratePatch(DstPath, SrcPath);
-            else if (Job == JobType.Clear) ClearPatch(DstPath);
-            else if (Job == JobType.Test) TestPatch(DstPath, SrcPath);
+            ProcessPatch(Job, SrcPath, DstPath);
         }
 
         Console.ForegroundColor = ConsoleColor.DarkBlue;
@@ -575,7 +641,7 @@ internal static class Launcher
 
         var Options = JobOptions.None;
         if (Arguments.ContainsKey("link")) Options |= JobOptions.Link;
-        if (Arguments.ContainsKey("debug")) Options |= JobOptions.Debug;
+        if (Arguments.ContainsKey("dry-run")) Options |= JobOptions.DryRun;
         if (Arguments.ContainsKey("F") || Arguments.ContainsKey("force")) Options |= JobOptions.Force;
 
         var Injector = new Injector(ProjectName, SrcDirectory, DstDirectory, Options);
@@ -592,7 +658,7 @@ internal static class Launcher
         if (Arguments.ContainsKey("A")) Job = JobType.Apply;
         else if (Arguments.ContainsKey("G")) Job = JobType.Generate;
         else if (Arguments.ContainsKey("C")) Job = JobType.Clear;
-        else if (Arguments.ContainsKey("T")) Job = JobType.Test;
+        else if (Arguments.ContainsKey("R")) Job = JobType.RoundTrip;
 
         if (!Arguments.ContainsKey("nb") && !Arguments.ContainsKey("no-builtin"))
         {
