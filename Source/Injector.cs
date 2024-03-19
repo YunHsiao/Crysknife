@@ -27,12 +27,13 @@ using System.Text.RegularExpressions;
 
 namespace UnrealSourceInjector;
 
+[Flags]
 public enum JobType
 {
-    Apply,
-    Generate,
-    Clear,
-    RoundTrip
+    None = 0x0,
+    Generate = 0x1,
+    Clear = 0x2,
+    Apply = 0x4,
 }
 
 [Flags]
@@ -249,21 +250,7 @@ public class Injector
         string ClearedTarget = Unpatch(Target);
         List<DiffMatchPatch.Patch>? Patches = null;
 
-        if (Job is JobType.Clear)
-        {
-            if (ClearedTarget.Length == Target.Length) return;
-
-            if (Options.HasFlag(JobOptions.DryRun))
-            {
-                TargetPath = GetPatchDebugOutputPath(PatchPath);
-            }
-
-            File.WriteAllText(TargetPath, ClearedTarget);
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("Patch removed from: " + TargetPath);
-        }
-
-        if (Job is JobType.Generate or JobType.RoundTrip)
+        if (Job.HasFlag(JobType.Generate))
         {
             var Diffs = PatchTool.GenerateDiffs(ClearedTarget, Target);
             Patches = PatchTool.GeneratePatches(ClearedTarget, Diffs);
@@ -278,7 +265,19 @@ public class Injector
             }
         }
 
-        if (Job is JobType.Apply or JobType.RoundTrip)
+        if (Job.HasFlag(JobType.Clear) && ClearedTarget.Length != Target.Length)
+        {
+            if (Options.HasFlag(JobOptions.DryRun))
+            {
+                TargetPath = GetPatchDebugOutputPath(PatchPath);
+            }
+
+            File.WriteAllText(TargetPath, ClearedTarget);
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("Patch removed from: " + TargetPath);
+        }
+
+        if (Job.HasFlag(JobType.Apply))
         {
             string Patched = Patches != null ? PatchTool.Apply(ClearedTarget, Patches, out var IsSuccess)
                 : PatchTool.Apply(ClearedTarget, PatchPath, out IsSuccess);
@@ -320,16 +319,33 @@ public class Injector
     {
         bool Exists = File.Exists(DstPath);
         bool IsSymLink = Exists && new FileInfo(DstPath).Attributes.HasFlag(FileAttributes.ReparsePoint);
+        bool UpToDate = Exists && !IsSymLink && File.ReadAllText(SrcPath) == File.ReadAllText(DstPath);
 
-        if (Job == JobType.Apply)
+        if (Job.HasFlag(JobType.Generate) && Exists && !IsSymLink && !UpToDate)
+        {
+            File.Delete(SrcPath);
+            File.Copy(DstPath, SrcPath);
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("Copied back: {0} -> {1}", DstPath, SrcPath);
+            UpToDate = true;
+        }
+
+        if (Job.HasFlag(JobType.Clear) && Exists)
+        {
+            File.Delete(DstPath);
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("{0} removed: {1}", IsSymLink ? "Link" : "File", DstPath);
+            Exists = IsSymLink = UpToDate = false;
+        }
+
+        if (Job.HasFlag(JobType.Apply))
         {
             bool ShouldBeSymLink = Options.HasFlag(JobOptions.Link);
-            if (IsSymLink && ShouldBeSymLink) return;
+            if (UpToDate || IsSymLink && ShouldBeSymLink) return;
 
             if (Exists)
             {
-                if (File.ReadAllText(SrcPath) == File.ReadAllText(DstPath)) return;
-
                 // Apply op is potentially dangerous: Confirm before overriding any new contents.
                 if (!OverrideConfirm.HasFlag(ConfirmResult.ForAll))
                 {
@@ -351,22 +367,6 @@ public class Injector
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("{0}: {1} -> {2}", ShouldBeSymLink ? "Linked" : "Copied", SrcPath, DstPath);
-        }
-        else if (Job is JobType.Generate or JobType.RoundTrip && Exists && !IsSymLink)
-        {
-            if (File.ReadAllText(SrcPath) == File.ReadAllText(DstPath)) return;
-
-            File.Delete(SrcPath);
-            File.Copy(DstPath, SrcPath);
-
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("Copied back: {0} -> {1}", DstPath, SrcPath);
-        }
-        else if (Job == JobType.Clear && Exists)
-        {
-            File.Delete(DstPath);
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("{0} removed: {1}", IsSymLink ? "Link" : "File", DstPath);
         }
     }
 
@@ -633,34 +633,35 @@ internal static class Launcher
 
         InjectorConfig.Init(Path.Combine(RootDirectory, RootFolderName));
 
-        string ProjectName = Arguments.TryGetValue("P", out var Parameters) || Arguments.TryGetValue("project", out Parameters) ?
+        string ProjectName = Arguments.TryGetValue("p", out var Parameters) || Arguments.TryGetValue("project", out Parameters) ?
             Parameters : RootDirectory[(RootDirectory.LastIndexOf(Path.DirectorySeparatorChar) + 1)..];
-        string SrcDirectory = Arguments.TryGetValue("src", out Parameters) ? Parameters : Path.Combine(RootDirectory, "SourcePatch");
+        string SrcDirectory = Arguments.TryGetValue("s", out Parameters) || Arguments.TryGetValue("src", out Parameters) ? Parameters : Path.Combine(RootDirectory, "SourcePatch");
         // Assuming we are inside an engine plugin by default
-        string DstDirectory = Arguments.TryGetValue("dst", out Parameters) ? Parameters : Path.GetFullPath(Path.Combine(RootDirectory, "../../Source"));
+        string DstDirectory = Arguments.TryGetValue("d", out Parameters) || Arguments.TryGetValue("dst", out Parameters) ? Parameters : Path.GetFullPath(Path.Combine(RootDirectory, "../../Source"));
 
         var Options = JobOptions.None;
-        if (Arguments.ContainsKey("link")) Options |= JobOptions.Link;
-        if (Arguments.ContainsKey("dry-run")) Options |= JobOptions.DryRun;
-        if (Arguments.ContainsKey("F") || Arguments.ContainsKey("force")) Options |= JobOptions.Force;
+        if (Arguments.ContainsKey("l") || Arguments.ContainsKey("link")) Options |= JobOptions.Link;
+        if (Arguments.ContainsKey("t") || Arguments.ContainsKey("dry-run")) Options |= JobOptions.DryRun;
+        if (Arguments.ContainsKey("f") || Arguments.ContainsKey("force")) Options |= JobOptions.Force;
 
         var Injector = new Injector(ProjectName, SrcDirectory, DstDirectory, Options);
-        var Job = JobType.Apply;
+        var Job = JobType.None;
 
-        if (Arguments.TryGetValue("I", out Parameters) || Arguments.TryGetValue("inclusive-filter", out Parameters)) Injector.InclusiveFilter = Parameters;
-        if (Arguments.TryGetValue("E", out Parameters) || Arguments.TryGetValue("exclusive-filter", out Parameters)) Injector.ExclusiveFilter = Parameters;
+        if (Arguments.TryGetValue("if", out Parameters) || Arguments.TryGetValue("inclusive-filter", out Parameters)) Injector.InclusiveFilter = Parameters;
+        if (Arguments.TryGetValue("ef", out Parameters) || Arguments.TryGetValue("exclusive-filter", out Parameters)) Injector.ExclusiveFilter = Parameters;
         if (Arguments.TryGetValue("pc", out Parameters) || Arguments.TryGetValue("patch-context", out Parameters)) Injector.PatchContextLength = short.Parse(Parameters);
         if (Arguments.TryGetValue("ct", out Parameters) || Arguments.TryGetValue("content-tolerance", out Parameters)) Injector.MatchContentTolerance = float.Parse(Parameters);
         if (Arguments.TryGetValue("lt", out Parameters) || Arguments.TryGetValue("line-tolerance", out Parameters)) Injector.MatchLineTolerance = int.Parse(Parameters);
-        if (Arguments.TryGetValue("add", out Parameters)) { Injector.CreatePatchFile(Parameters.Split()); Job = JobType.Generate; }
-        if (Arguments.TryGetValue("rm", out Parameters)) { Injector.RemovePatchFile(Parameters.Split()); Job = JobType.Generate; }
 
-        if (Arguments.ContainsKey("A")) Job = JobType.Apply;
-        else if (Arguments.ContainsKey("G")) Job = JobType.Generate;
-        else if (Arguments.ContainsKey("C")) Job = JobType.Clear;
-        else if (Arguments.ContainsKey("R")) Job = JobType.RoundTrip;
+        if (Arguments.TryGetValue("R", out Parameters)) { Injector.CreatePatchFile(Parameters.Split()); Job = JobType.Generate; }
+        if (Arguments.TryGetValue("U", out Parameters)) { Injector.RemovePatchFile(Parameters.Split()); Job = JobType.Generate; }
 
-        if (!Arguments.ContainsKey("nb") && !Arguments.ContainsKey("no-builtin"))
+        if (Arguments.ContainsKey("G")) Job |= JobType.Generate;
+        if (Arguments.ContainsKey("C")) Job |= JobType.Clear;
+        if (Arguments.ContainsKey("A")) Job |= JobType.Apply;
+        if (Job == JobType.None) Job = JobType.Apply; // By default do the apply action
+
+        if (!Arguments.ContainsKey("b") && !Arguments.ContainsKey("no-builtin"))
         {
             string BuiltinSourcePatch = Path.Combine(RootDirectory, RootFolderName, "SourcePatch");
             Injector.Process(Job, BuiltinSourcePatch);   

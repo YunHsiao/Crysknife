@@ -1,27 +1,50 @@
 # Unreal Source Injector
 
-Inject source files & code segments into any existing Unreal Engine code base.  
-All injections are strictly reversible with a single command.  
-More complex behaviors can be specified with the [config system](#Config-System).
+When implementing plugins with complex engine-level customizations for Unreal Engine™,
+due to many design decisions of the engine architecture,
+it is very hard, if not impossible to keep away from modifying stock engine files to make everything fully works.
 
-This repository is meant to be used as part of an engine plugin to help
-quickly deploying features to different engine bases.
+In fact oftentimes the changes are completely scattered across engine modules,
+which could be fine for one in-house engine base, but extremely hard to port to any other.
 
-You should clone this project to your engine plugin:
-```
-Engine/Plugins/${ProjectName}/UnrealSourceInjector/
-```
-And code will be injected from the following directory to `Engine/Source`:
-```
-Engine/Plugins/${ProjectName}/SourcePatch/
-```
-All relative structures from the `SourcePatch` directory will be preserved,
-new source files can be either copied or symbolically linked into target directory.
+This project aims to completely automate the injection process, with powerful customization capabilities.
+
+Changes in existing engine files are stored as patches:
+* Patches are fuzzy matched with customizable tolerances
+* Multiple patches can be generated targeting at different engine versions when they become just too diverged to be fuzzy matched
+* When applying patches, the closest matched version to destination engine base will be used
+* All injections are strictly reversible with a single command
+* As the last resort when patching fails, the error message comes with a full file diff HTML to help you manually resolve the conflicts
+
+> Only actions making observable differences are executed, so an empty console output means everything's up-to-date.
+
+New source files can be either copied or symbolically linked into target directory.
 
 > Although tempting, symbolic links doesn't update with source file changes which may cause
 > new updates to be ignored by compiler during development, so copy is made the default operation.
 
-For code segments we detect & inject in the following forms (with comment guards):
+More complex injection behaviors can be specified with the [config system](#Config-System).
+
+# Environment Setup
+
+You should clone this project under an engine plugin:
+```
+Engine/Plugins/${ProjectName}/UnrealSourceInjector/
+```
+And code patches will be read from the following directory to `Engine/Source`:
+```
+Engine/Plugins/${ProjectName}/SourcePatch/
+```
+All relative structures from the `SourcePatch` directory will be preserved.
+
+The injector itself doesn't magically change the way your code is organized. Here are the recommended general principles:
+* Only inject sources when there is no way around, you can still go very far with only the builtin plugin system
+* Try to move as much code as possible to separate new files instead of embedding them inline into existing engine base
+* Empirically 90% of the code in new source files is considered a good ratio
+
+# Patch Syntax
+
+For changes in existing engine files we detect & inject in the following forms (with comment guards):
 
 ### Multi-line
 
@@ -45,6 +68,9 @@ Note that there can be no code at the same line with the comment guard:
 ** YOUR ONE-LINER HERE **
 ```
 
+> Try to find the most representative context to insert your code (beginning of class, after long-standing public interfaces, etc.),
+> which can greatly increase the chances of finding matches in different engine bases.
+
 Additionally, for modifying stock engine code, follow these steps:
 * Comment out the original code block (only line comments are supported atm.)
 * Guard the comment block using any of the above forms, with one special tweak*
@@ -60,41 +86,38 @@ Where the special tweak is:
 
 > The minus sign can be omitted in the ending comment for multi-line guards.
 
-Patches generated for these injections are fuzzy matched with customizable tolerances.
-Error messages will be received when patching fails, with a full file diff HTML to help you manually resolve the conflicts.
-
-> Only executed actions are logged to console, so an empty output would mean everything's up-to-date.
-
-## Command Line Options
+## Command Line Interface
 
 ### Actions
 
-* `-A` Apply existing patches and copy all new sources (default action)
+* `-R [FILES|DIRECTORIES]...` Search specified file or directory, register any patched file and generate
+* `-U [FILES|DIRECTORIES]...` Search specified file or directory, unregister any patched file and update
 * `-G` Generate/update patches
 * `-C` Clear patches from target files
-* `-R` Round trip update, effectively the same as manually `-G` then `-A`
-* `--add [FILES|DIRECTORIES]...` Add specified source files to patch list and update
-* `--rm [FILES|DIRECTORIES]...` Remove specified source files from patch list and update
+* `-A` Apply existing patches and copy all new sources (default action)
+
+> Actions are combinatorial:  
+> i.e. `-G -A` for generate & apply (round trip), `-G -C` for generate & clear (retraction), etc. 
 
 ### Modifiers
 
-* `-P [PROJECT]` or `--project [PROJECT]` Project name to match in comments
-* `-I [FILTER]` or `--inclusive-filter [FILTER]` Inclusive target path filter
-* `-E [FILTER]` or `--exclusive-filter [FILTER]` Exclusive target path filter
-* `--src [DIRECTORY]` Customize the source directory where the patches are located
-* `--dst [DIRECTORY]` Customize the destination directory containing target sources to be patched
-* `--dry-run` Test run, safely executes the action with all engine output remapped to `SourcePatch` directory
-* `--link` Make symbolic links instead of copy all the new files
-* `--nb` or `--no-builtin` Skip builtin source patches
-* `-F` or `--force` Force override existing files
+* `-p [PROJECT]` or `--project [PROJECT]` Project name to match in comments
+* `-s [DIRECTORY]` or `--src [DIRECTORY]` Customize the source directory where the patches are located
+* `-d [DIRECTORY]` or `--dst [DIRECTORY]` Customize the destination directory containing target sources to be patched
+* `-l` or `--link` Make symbolic links instead of copy all the new files
+* `-t` or `--dry-run` Test run, safely executes the action with all engine output remapped to `SourcePatch` directory
+* `-f` or `--force` Force override existing files
+* `-b` or `--no-builtin` Skip builtin source patches
 
 ### Parameters
 
+* `--if [FILTER]` or `--inclusive-filter [FILTER]` Inclusive target path filter
+* `--ef [FILTER]` or `--exclusive-filter [FILTER]` Exclusive target path filter
 * `--pc [LENGTH]` or `--patch-context [LENGTH]` Patch context length when generating patches, default to 50
 * `--ct [TOLERANCE]` or `--content-tolerance [TOLERANCE]` Content tolerance in [0, 1] when matching sources, default to 0.5
 * `--lt [TOLERANCE]` or `--line-tolerance [TOLERANCE]` Line tolerance when matching sources, default to infinity (line numbers may vary significantly between engine versions)
 
-## Usage
+## CLI Examples
 
 Use the script file matching your operating system:
 * `Injector.sh` for Linux
@@ -113,20 +136,32 @@ Say we are adding a new source file under `Engine/Source/Runtime/Engine/Private`
 
 Say we want to modifying some existing engine source file:
 * Go ahead and modify the engine source directly, remember to add the aforementioned comment guards
-* `./Injector.sh --add ${FullPathToModifiedEngineSourceFile}`
+* `./Injector.sh -R ${FullPathToModifiedEngineSourceFile}`
 * `./Injector.sh -G` afterwards to update all patches before committing
+
+> During development it is recommended to periodically check the cleared source still works:  
+> `./Injector.sh -G -C` (The retraction action)  
+> This can be used to ensure all relevant changes are properly guarded.
 
 ### Remove Existing Patch From Engine Source
 
 Say we want to permanently remove all our previous modification from some existing engine source file:
 
-* `./Injector.sh --rm ${FullPathToModifiedEngineSourceFile}`
-* The source file should be un-patched and the relevant patch files are deleted
+* `./Injector.sh -U ${PathToEngineSourceToBeUnpatched}...`
+* The source file should be un-patched and the relevant patch files will be deleted
 
 If we only want to temporarily remove the patches from all files under `Engine/Source/Runtime/Engine`:
 
-* `./Injector.sh -C -I Runtime/Engine` (To un-patch source files)
-* `./Injector.sh -I Runtime/Engine` (To re-apply patches)
+* `./Injector.sh -C --if Runtime/Engine` (To un-patch source files)
+* `./Injector.sh --if Runtime/Engine` (To re-apply patches)
+
+### Porting To A Completely Different Engine Base
+
+* `./Injector.sh`
+* Resolve potential conflicts by either adjust the `--content-tolerance` parameter or inspecting
+the reference diff HTML & manually patch in (remember the comment guards)
+* `./Injector.sh -G`
+* A new set of patches matching the current engine version will be generated and ready to be committed
 
 ## Config System
 

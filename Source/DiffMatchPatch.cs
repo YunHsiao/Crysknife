@@ -1337,18 +1337,18 @@ namespace DiffMatchPatch {
       StringBuilder html = new StringBuilder();
       foreach (Diff aDiff in diffs) {
         string text = aDiff.text.Replace("&", "&amp;").Replace("<", "&lt;")
-          .Replace(">", "&gt;").Replace("\n", "<br>").Replace("\t", "&emsp;");
+          .Replace(">", "&gt;");
         switch (aDiff.operation) {
           case Operation.INSERT:
-            html.Append("<ins style=\"background:#e6ffe6;\">").Append(text)
-                .Append("</ins>");
+            html.Append("<pre style=\"background:#ccffcc;\">").Append(text)
+                .Append("</pre>");
             break;
           case Operation.DELETE:
-            html.Append("<del style=\"background:#ffe6e6;\">").Append(text)
-                .Append("</del>");
+            html.Append("<pre style=\"background:#ffcccc;\">").Append(text)
+                .Append("</pre>");
             break;
           case Operation.EQUAL:
-            html.Append("<span>").Append(text).Append("</span>");
+            html.Append("<pre>").Append(text).Append("</pre>");
             break;
         }
       }
