@@ -639,6 +639,17 @@ internal static class Launcher
         // Assuming we are inside an engine plugin by default
         string DstDirectory = Arguments.TryGetValue("d", out Parameters) || Arguments.TryGetValue("dst", out Parameters) ? Parameters : Path.GetFullPath(Path.Combine(RootDirectory, "../../Source"));
 
+        bool IsSrcDirValid = Directory.Exists(SrcDirectory);
+        bool IsDstDirValid = Directory.Exists(DstDirectory);
+        if (!IsSrcDirValid || !IsDstDirValid)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            if (!IsSrcDirValid) Console.WriteLine("Invalid src patch directory {0}, abort!", SrcDirectory);
+            else if (!IsDstDirValid) Console.WriteLine("Invalid dst patch directory {0}, abort!", DstDirectory);
+            Console.ResetColor();
+            Environment.Exit(1);
+        }
+
         var Options = JobOptions.None;
         if (Arguments.ContainsKey("l") || Arguments.ContainsKey("link")) Options |= JobOptions.Link;
         if (Arguments.ContainsKey("t") || Arguments.ContainsKey("dry-run")) Options |= JobOptions.DryRun;
