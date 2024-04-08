@@ -25,7 +25,7 @@
 using System.Text.RegularExpressions;
 using UnrealBuildTool;
 
-namespace UnrealSourceInjector;
+namespace Crysknife;
 
 internal class ConfigPredicate
 {
@@ -145,7 +145,7 @@ internal class ScopedRules
     {
         // Global section affects all targets
         TargetName = SectionName.Equals("Global", StringComparison.OrdinalIgnoreCase) ? "" : SectionName;
-        TargetName = InjectorConfig.SeparatorPatch(TargetName);
+        TargetName = Config.SeparatorPatch(TargetName);
 
         foreach (ConfigLine Line in Section.Lines)
         {
@@ -159,7 +159,7 @@ internal class ScopedRules
             }
             else if (Line.Key.Equals("RemapTarget", StringComparison.OrdinalIgnoreCase))
             {
-                RemapTarget = InjectorConfig.SeparatorPatch(Line.Value);
+                RemapTarget = Config.SeparatorPatch(Line.Value);
             }
             else if (Line.Key.Equals("Flat", StringComparison.OrdinalIgnoreCase))
             {
@@ -190,7 +190,7 @@ internal class ScopedRules
     }
 }
 
-public class InjectorConfig
+public class Config
 {
     private static ConfigFile BaseConfig = new();
     private readonly List<ScopedRules> Scopes = new();
@@ -204,11 +204,11 @@ public class InjectorConfig
     public static void Init(string RootDirectory)
     {
         ConfigFile.Init(RootDirectory);
-        string ConfigPath = Path.Combine(RootDirectory, "BaseInjector.ini");
+        string ConfigPath = Path.Combine(RootDirectory, "BaseCrysknife.ini");
         if (File.Exists(ConfigPath)) BaseConfig = new ConfigFile(ConfigPath);
     }
 
-    public InjectorConfig(string ConfigPath, string RootPath)
+    public Config(string ConfigPath, string RootPath)
     {
         ConfigFile Config = File.Exists(ConfigPath) ? new ConfigFile(ConfigPath) : new ConfigFile();
 

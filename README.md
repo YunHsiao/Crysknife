@@ -1,4 +1,4 @@
-# Unreal Source Injector
+# Crysknife
 
 When implementing plugins with complex engine-level customizations for Unreal Engine™,
 due to many design decisions of the engine architecture,
@@ -7,7 +7,9 @@ it is very hard, if not impossible to keep away from modifying stock engine file
 In fact oftentimes the changes are completely scattered across engine modules,
 which could be fine for one in-house engine base, but extremely hard to port to any other.
 
-This project aims to completely automate the injection process, with powerful customization capabilities.
+This project aims to completely automate the injection process, with powerful customization capabilities. This not only
+enables quick upgrade to newer engine versions, but also essentially making your custom engine features deployable
+to any existing engine code base.
 
 Changes in existing engine files are stored as patches:
 * Patches are fuzzy matched with customizable tolerances
@@ -27,9 +29,9 @@ More complex injection behaviors can be specified with the [config system](#Conf
 
 # Environment Setup
 
-You should clone this project under an engine plugin:
+You should clone this project as an engine plugin:
 ```
-Engine/Plugins/${ProjectName}/UnrealSourceInjector/
+Engine/Plugins/Crysknife/
 ```
 And code patches will be read from the following directory to `Engine/Source`:
 ```
@@ -120,52 +122,52 @@ Where the special tweak is:
 ## CLI Examples
 
 Use the script file matching your operating system:
-* `Injector.sh` for Linux
-* `Injector.command` for Mac
-* `Injector.bat` for Windows
+* `Crysknife.sh` for Linux
+* `Crysknife.command` for Mac
+* `Crysknife.bat` for Windows
 
 ### New Engine Source Files
 
 Say we are adding a new source file under `Engine/Source/Runtime/Engine/Private` named `MyEnginePlugin.cpp`:
 
 * Create `MyEnginePlugin.cpp` under `${ProjectRoot}/SourcePatch/Runtime/Engine/Private`
-* `./Injector.sh` (by default runs the apply action)
+* `./Crysknife.sh` (by default runs the apply action)
 * The source file should be present under the same hierarchy inside engine source directory
 
 ### Modify Existing Engine Source
 
 Say we want to modifying some existing engine source file:
 * Go ahead and modify the engine source directly, remember to add the aforementioned comment guards
-* `./Injector.sh -R ${FullPathToModifiedEngineSourceFile}`
-* `./Injector.sh -G` afterwards to update all patches before committing
+* `./Crysknife.sh -R ${FullPathToModifiedEngineSourceFile}`
+* `./Crysknife.sh -G` afterwards to update all patches before committing
 
 > During development it is recommended to periodically check the cleared source still works:  
-> `./Injector.sh -G -C` (The retraction action)  
+> `./Crysknife.sh -G -C` (The retraction action)  
 > This can be used to ensure all relevant changes are properly guarded.
 
 ### Remove Existing Patch From Engine Source
 
 Say we want to permanently remove all our previous modification from some existing engine source file:
 
-* `./Injector.sh -U ${PathToEngineSourceToBeUnpatched}...`
+* `./Crysknife.sh -U ${PathToEngineSourceToBeUnpatched}...`
 * The source file should be un-patched and the relevant patch files will be deleted
 
 If we only want to temporarily remove the patches from all files under `Engine/Source/Runtime/Engine`:
 
-* `./Injector.sh -C --if Runtime/Engine` (To un-patch source files)
-* `./Injector.sh --if Runtime/Engine` (To re-apply patches)
+* `./Crysknife.sh -C --if Runtime/Engine` (To un-patch source files)
+* `./Crysknife.sh --if Runtime/Engine` (To re-apply patches)
 
 ### Porting To A Completely Different Engine Base
 
-* `./Injector.sh`
+* `./Crysknife.sh`
 * Resolve potential conflicts by either adjust the `--content-tolerance` parameter or inspecting
 the reference diff HTML & manually patch in (remember the comment guards)
-* `./Injector.sh -G`
+* `./Crysknife.sh -G`
 * A new set of patches matching the current engine version will be generated and ready to be committed
 
 ## Config System
 
-Every `SourcePatch` directory can have one config file `Injector.ini` at the root,
+Every `SourcePatch` directory can have one config file `Crysknife.ini` at the root,
 to specify more complex patching behaviors such as conditional remapping, etc. in the following framework:
 
 ```ini
@@ -212,7 +214,7 @@ relative file/directory paths can be used to limit the effective scope of the ru
 
 `^BaseDomain`
 * Indicating current rule line is in base domain, therefore can only be overrule by the same domain directives
-* Use this iff you want to override base rules defined in [BaseInjector.ini](BaseInjector.ini)
+* Use this iff you want to override base rules defined in [BaseCrysknife.ini](BaseCrysknife.ini)
 * Must be defined at the start of the current rule.
 
 `Always`

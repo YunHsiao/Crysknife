@@ -25,7 +25,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace UnrealSourceInjector;
+namespace Crysknife;
 
 [Flags]
 public enum JobType
@@ -327,7 +327,7 @@ public class Injector
             File.Copy(DstPath, SrcPath);
 
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("Copied back: {0} -> {1}", DstPath, SrcPath);
+            Console.WriteLine("Copied back: {0} <- {1}", SrcPath, DstPath);
             UpToDate = true;
         }
 
@@ -450,12 +450,12 @@ public class Injector
     public string InclusiveFilter
     {
         get => PrivateInclusiveFilter;
-        set => PrivateInclusiveFilter = InjectorConfig.SeparatorPatch(value);
+        set => PrivateInclusiveFilter = Config.SeparatorPatch(value);
     }
     public string ExclusiveFilter
     {
         get => PrivateExclusiveFilter;
-        set => PrivateExclusiveFilter = InjectorConfig.SeparatorPatch(value);
+        set => PrivateExclusiveFilter = Config.SeparatorPatch(value);
     }
 
     public void CreatePatchFile(IEnumerable<string> InputPaths)
@@ -540,7 +540,7 @@ public class Injector
     public void Process(JobType Job, string SrcDirectoryOverride)
     {
         var Patches = new Dictionary<string, PatchDescription>();
-        var Config = new InjectorConfig(Path.Combine(SrcDirectoryOverride, "Injector.ini"), DstDirectory);
+        var Config = new Config(Path.Combine(SrcDirectoryOverride, "Crysknife.ini"), DstDirectory);
 
         foreach (string SrcPath in Directory.GetFiles(SrcDirectoryOverride, "*", new EnumerationOptions { RecurseSubdirectories = true }))
         {
@@ -627,28 +627,22 @@ internal static class Launcher
     {
         var Arguments = ParseArguments(Args);
 
-        string RootFolderName = "UnrealSourceInjector";
+        if (!Arguments.TryGetValue("p", out var Parameters) && !Arguments.TryGetValue("project", out Parameters))
+        {
+            Console.Write("Please specify the source project name, where the patches are located.");
+            return;
+        }
+
+        string RootFolderName = "Crysknife";
         string RootDirectory = Directory.GetCurrentDirectory();
         RootDirectory = RootDirectory[..(RootDirectory.IndexOf(RootFolderName, StringComparison.Ordinal) - 1)];
 
-        InjectorConfig.Init(Path.Combine(RootDirectory, RootFolderName));
+        Config.Init(Path.Combine(RootDirectory, RootFolderName));
 
-        string ProjectName = Arguments.TryGetValue("p", out var Parameters) || Arguments.TryGetValue("project", out Parameters) ?
-            Parameters : RootDirectory[(RootDirectory.LastIndexOf(Path.DirectorySeparatorChar) + 1)..];
-        string SrcDirectory = Arguments.TryGetValue("s", out Parameters) || Arguments.TryGetValue("src", out Parameters) ? Parameters : Path.Combine(RootDirectory, "SourcePatch");
-        // Assuming we are inside an engine plugin by default
-        string DstDirectory = Arguments.TryGetValue("d", out Parameters) || Arguments.TryGetValue("dst", out Parameters) ? Parameters : Path.GetFullPath(Path.Combine(RootDirectory, "../../Source"));
-
-        bool IsSrcDirValid = Directory.Exists(SrcDirectory);
-        bool IsDstDirValid = Directory.Exists(DstDirectory);
-        if (!IsSrcDirValid || !IsDstDirValid)
-        {
-            Console.ForegroundColor = ConsoleColor.Red;
-            if (!IsSrcDirValid) Console.WriteLine("Invalid src patch directory {0}, abort!", SrcDirectory);
-            else if (!IsDstDirValid) Console.WriteLine("Invalid dst patch directory {0}, abort!", DstDirectory);
-            Console.ResetColor();
-            Environment.Exit(1);
-        }
+        string ProjectName = Parameters;
+        string SrcDirectory = Arguments.TryGetValue("s", out Parameters) || Arguments.TryGetValue("src", out Parameters) ? Parameters : Path.Combine(RootDirectory, ProjectName, "SourcePatch");
+        // Assuming we are an engine plugin by default
+        string DstDirectory = Arguments.TryGetValue("d", out Parameters) || Arguments.TryGetValue("dst", out Parameters) ? Parameters : Path.GetFullPath(Path.Combine(RootDirectory, "../Source"));
 
         var Options = JobOptions.None;
         if (Arguments.ContainsKey("l") || Arguments.ContainsKey("link")) Options |= JobOptions.Link;
