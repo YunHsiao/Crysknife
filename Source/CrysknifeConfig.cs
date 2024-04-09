@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 
 using System.Text.RegularExpressions;
-using UnrealBuildTool;
 
 namespace Crysknife;
 

@@ -102,6 +102,7 @@ Where the special tweak is:
 * `-G` Generate/update patches
 * `-C` Clear patches from target files
 * `-A` Apply existing patches and copy all new sources (default action)
+* `--setup-scripts` Generate a set of setup scripts for the specified project
 
 > Actions are combinatorial:  
 > i.e. `-G -A` for generate & apply (round trip), `-G -C` for generate & clear (retraction), etc. 

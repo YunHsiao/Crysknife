@@ -73,6 +73,8 @@ internal static class Launcher
         if (Arguments.TryGetValue("ct", out Parameters) || Arguments.TryGetValue("content-tolerance", out Parameters)) Injector.MatchContentTolerance = float.Parse(Parameters);
         if (Arguments.TryGetValue("lt", out Parameters) || Arguments.TryGetValue("line-tolerance", out Parameters)) Injector.MatchLineTolerance = int.Parse(Parameters);
 
+        if (Arguments.ContainsKey("setup-scripts")) { SetupScripts.Generate(RootDirectory, ProjectName); }
+
         if (Arguments.TryGetValue("R", out Parameters)) { Injector.CreatePatchFile(Parameters.Split()); Job = JobType.Generate; }
         if (Arguments.TryGetValue("U", out Parameters)) { Injector.RemovePatchFile(Parameters.Split()); Job = JobType.Generate; }
 
