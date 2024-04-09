@@ -7,18 +7,14 @@ public static class SetupScripts
 {
     private static readonly string WindowsTemplate = @"
         @echo off
-        cd %~dp0..\Crysknife\Source
-        dotnet build > NUL
-        dotnet run -- -p {0} %*
+        ""%~dp0..\Crysknife\Crysknife.bat"" -p {0} %*
         pause
     ".Replace("    ", string.Empty);
 
     private static readonly string LinuxTemplate = @"
         DIR=`cd ""$(dirname ""$0"")""; pwd`
-        cd ""$DIR/../Crysknife/Source""
-        dotnet build > /dev/null
-        dotnet run -- -p {0} ""$@""
-    ".Replace("    ", string.Empty);
+        ""$DIR/../Crysknife/Crysknife.sh"" -p {0} ""$@""
+    ".Replace("    ", string.Empty).Replace("\r\n", "\n");
 
     public static void Generate(string RootDirectory, string ProjectName)
     {
