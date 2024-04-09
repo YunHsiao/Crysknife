@@ -1,6 +1,11 @@
+<!--
+SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
+SPDX-License-Identifier: MIT
+-->
+
 # Crysknife
 
-When implementing plugins with complex engine-level customizations for Unreal Engine™,
+When implementing plugins with complex engine-level customizations for Unreal® Engine,
 due to many design decisions of the engine architecture,
 it is very hard, if not impossible to keep away from modifying stock engine files to make everything fully works.
 

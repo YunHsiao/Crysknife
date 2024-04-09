@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Epic Games, Inc.
+// SPDX-License-Identifier: LicenseRef-Proprietary
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 using System.Diagnostics.CodeAnalysis;
