@@ -205,7 +205,7 @@ public class ConfigFile
 		}
 	}
 
-	private static void TryAddConfigLine(ConfigFileSection Section, Dictionary<string, string>? KeyRemap, string Filename,
+	private static void TryAddConfigLine(ConfigFileSection Section, IDictionary<string, string>? KeyRemap, string Filename,
 		string Line, int StartIdx, int EndIdx, ConfigLineAction DefaultAction, IDictionary<string, ConfigFileSection> Sections)
 	{
 		// Find the '=' character separating key and value

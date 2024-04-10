@@ -16,6 +16,8 @@ This project aims to completely automate the injection process, with powerful cu
 enables quick upgrade to newer engine versions, but also essentially making your custom engine features deployable
 to any existing engine code base.
 
+Here's how it works under the hood:
+
 Changes in existing engine files are stored as patches:
 * Patches are fuzzy matched with customizable tolerances
 * Multiple patches can be generated targeting at different engine versions when they become just too diverged to be fuzzy matched
@@ -75,8 +77,8 @@ Note that there can be no code at the same line with the comment guard:
 ** YOUR ONE-LINER HERE **
 ```
 
-> Try to find the most representative context to insert your code (beginning of class, after long-standing public interfaces, etc.),
-> which can greatly increase the chances of finding matches in different engine bases.
+> For non performance-critical code, try to find the most representative context to insert your code (beginning of class,
+> after long-standing public interfaces, etc.), which can greatly increase the chances of finding matches in different engine bases.
 
 Additionally, for modifying stock engine code, follow these steps:
 * Comment out the original code block (only line comments are supported atm.)
@@ -102,10 +104,10 @@ Where the special tweak is:
 * `-G` Generate/update patches
 * `-C` Clear patches from target files
 * `-A` Apply existing patches and copy all new sources (default action)
-* `--setup-scripts` Generate a set of setup scripts for the specified project
+* `-S` Generate a set of setup scripts for the specified project
 
 > Actions are combinatorial:  
-> i.e. `-G -A` for generate & apply (round trip), `-G -C` for generate & clear (retraction), etc. 
+> e.g. `-G -A` for generate & apply (round trip), `-G -C` for generate & clear (retraction), etc.
 
 ### Modifiers
 
@@ -128,47 +130,47 @@ Where the special tweak is:
 ## CLI Examples
 
 Use the script file matching your operating system:
-* `Crysknife.sh` for Linux
-* `Crysknife.command` for Mac
-* `Crysknife.bat` for Windows
+* `Crysknife.sh -S -p [PROJECT]`
+
+This will generate a few `Setup` scripts to your plugin project directory as the main entry for any operations.
 
 ### New Engine Source Files
 
 Say we are adding a new source file under `Engine/Source/Runtime/Engine/Private` named `MyEnginePlugin.cpp`:
 
 * Create `MyEnginePlugin.cpp` under `${ProjectRoot}/SourcePatch/Runtime/Engine/Private`
-* `./Crysknife.sh` (by default runs the apply action)
+* `Setup.sh` (by default runs the apply action)
 * The source file should be present under the same hierarchy inside engine source directory
 
 ### Modify Existing Engine Source
 
 Say we want to modifying some existing engine source file:
 * Go ahead and modify the engine source directly, remember to add the aforementioned comment guards
-* `./Crysknife.sh -R ${FullPathToModifiedEngineSourceFile}`
-* `./Crysknife.sh -G` afterwards to update all patches before committing
+* `Setup.sh -R ${FullPathToModifiedEngineSourceFile}`
+* `Setup.sh -G` afterwards to update all patches before committing
 
-> During development it is recommended to periodically check the cleared source still works:  
-> `./Crysknife.sh -G -C` (The retraction action)  
+> Before releasing it is recommended to check the cleared source still works: (may require full recompilation)  
+> `Setup.sh -G -C` (The retraction action)  
 > This can be used to ensure all relevant changes are properly guarded.
 
 ### Remove Existing Patch From Engine Source
 
 Say we want to permanently remove all our previous modification from some existing engine source file:
 
-* `./Crysknife.sh -U ${PathToEngineSourceToBeUnpatched}...`
+* `Setup.sh -U ${PathToEngineSourceToBeUnpatched}...`
 * The source file should be un-patched and the relevant patch files will be deleted
 
 If we only want to temporarily remove the patches from all files under `Engine/Source/Runtime/Engine`:
 
-* `./Crysknife.sh -C --if Runtime/Engine` (To un-patch source files)
-* `./Crysknife.sh --if Runtime/Engine` (To re-apply patches)
+* `Setup.sh -C --if Runtime/Engine` (To un-patch source files)
+* `Setup.sh --if Runtime/Engine` (To re-apply patches)
 
 ### Porting To A Completely Different Engine Base
 
-* `./Crysknife.sh`
+* `Setup.sh`
 * Resolve potential conflicts by either adjust the `--content-tolerance` parameter or inspecting
 the reference diff HTML & manually patch in (remember the comment guards)
-* `./Crysknife.sh -G`
+* `Setup.sh -G`
 * A new set of patches matching the current engine version will be generated and ready to be committed
 
 ## Config System
@@ -178,8 +180,8 @@ to specify more complex patching behaviors such as conditional remapping, etc. i
 
 ```ini
 [Global]
-Rule1=Predicate1:Condition1|Condition2
-+Rule1=Predicate3:Condition3,Predicate4:Condition4
+Rule1=Predicate1:Value1|Value2
++Rule1=Predicate3:Value3,Predicate4:Value4
 
 [Path/To/Subdirectory/Or/Filename]
 ScopedRule=Predicate2
@@ -225,6 +227,28 @@ relative file/directory paths can be used to limit the effective scope of the ru
 
 `Always`
 * Always satisfies
+
+## Config Examples
+
+### Conditional Skip
+
+Skip any actions for `astc-encoder` directory if `Engine/Source/ThirdParty/astcenc` already exists:
+
+```ini
+[ThirdParty/astc-encoder]
+SkipIf=Exist:ThirdParty/astcenc
+```
+
+### Flat Debug
+
+Flatten all patch outputs and remap to `Engine/Source/Test`:
+
+```ini
+[Global]
+RemapIf=Always
+RemapTarget=Test
+Flat=True
+```
 
 ## Builtin Source Patches
 
