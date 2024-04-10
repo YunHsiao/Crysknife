@@ -102,7 +102,7 @@ Injector 本身其实很简单，并不会神奇地自动改变任何代码结�
 > 所有行为可以相互组合：  
 > 如指定 `-G -A` 执行生成 + 应用, 指定 `-G -C` 执行生成 + 清除等。 
 
-### 行为修改类
+### 定制类
 
 * `-p [PROJECT]` or `--project [PROJECT]` 插件目录名，也是注释桩中要匹配的名字
 * `-s [DIRECTORY]` or `--src [DIRECTORY]` 自定义 Patch 来源目录

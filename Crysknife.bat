@@ -3,5 +3,12 @@
 
 @echo off
 cd %~dp0Source
-dotnet build >NUL
-dotnet run -- %*
+
+for %%x in (%*) do (
+    if "%%x" == "--skip-build" (
+        set Skip=true
+    )
+)
+
+if "%Skip%" == "" dotnet build -c Release > NUL
+./bin/Release/net6.0/Crysknife %*

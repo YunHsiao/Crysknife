@@ -2,5 +2,12 @@
 # SPDX-License-Identifier: MIT
 
 cd `dirname $0`/Source
-dotnet build > /dev/null
-dotnet run -- "$@"
+
+for Arg in "$@"; do
+    if [[ $Arg = "--skip-build" ]]; then
+        Skip=true
+    fi
+done
+
+[ -z "$Skip" ] && dotnet build -c Release > /dev/null
+./bin/Release/net6.0/Crysknife "$@"
