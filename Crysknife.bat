@@ -11,4 +11,4 @@ for %%x in (%*) do (
 )
 
 if "%Skip%" == "" dotnet build -c Release > NUL
-./bin/Release/net6.0/Crysknife %*
+"./bin/Release/net6.0/Crysknife" %*

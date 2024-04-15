@@ -25,20 +25,6 @@ public enum JobOptions
 
 public class Injector
 {
-    private readonly struct InjectionRegex
-    {
-        public readonly Regex RE;
-        public readonly int Tag;
-        public readonly int Content;
-
-        public InjectionRegex(Regex InRE, int InTag, int InContent)
-        {
-            RE = InRE;
-            Tag = InTag;
-            Content = InContent;
-        }
-    }
-
     private readonly struct ParsedPath
     {
         public readonly string PathTrunc;
@@ -212,11 +198,11 @@ public class Injector
 
     private string Unpatch(string Content)
     {
-        return InjectionRE.Aggregate(Content, (Acc, RE) => RE.RE.Replace(Acc, Match =>
+        return InjectionRE.Aggregate(Content, (Acc, RE) => RE.Replace(Acc, Match =>
         {
-            if (Match.Groups[RE.Tag].Value.StartsWith(ProjectName + '-')) // Restore deletions
+            if (Match.Groups["Tag"].Value.StartsWith(ProjectName + '-')) // Restore deletions
             {
-                return CommentRE.Replace(Match.Groups[RE.Content].Value, ContentMatch => ContentMatch.Groups[1].Value);
+                return CommentRE.Replace(Match.Groups["Content"].Value, ContentMatch => ContentMatch.Groups[1].Value);
             }
             return string.Empty; // Remove injections
         }));
@@ -253,6 +239,7 @@ public class Injector
             File.WriteAllText(TargetPath, ClearedTarget);
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("Patch removed from: " + TargetPath);
+            Target = ClearedTarget;
         }
 
         if (Job.HasFlag(JobType.Apply))
@@ -367,7 +354,7 @@ public class Injector
     private static readonly Regex CommentRE = new (@"^(\s*)//\s*", RegexOptions.Multiline | RegexOptions.Compiled);
     private static readonly Regex EngineVersionRE = new (@"#define\s+ENGINE_MAJOR_VERSION\s+(\d+)\s*#define\s+ENGINE_MINOR_VERSION\s+(\d+)", RegexOptions.Compiled);
 
-    private readonly InjectionRegex[] InjectionRE;
+    private readonly Regex[] InjectionRE;
     private readonly EngineVersion CurrentEngineVersion;
     private ConfirmResult OverrideConfirm;
     private DMPContext PatchTool;
@@ -381,16 +368,16 @@ public class Injector
         DstDirectory = InDstDirectory;
         Options = InOptions;
 
-        string ProjectTag = ProjectName + @"[\w\s:+-]*"; // Allow some comments in between
+        string ProjectTag = ProjectName + @"[\w\s:+-]*?"; // Allow some comments in between
 
-        InjectionRE = new InjectionRegex[]
+        InjectionRE = new Regex[]
         {
-            new(new Regex(string.Format(@"\s*// ({0}): Begin(.*?)// {0}: End", ProjectTag),
-                RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.Compiled), 1, 2), // Multi-line injection
-            new(new Regex($@"^(\s*\S+.*?)\s*// ({ProjectTag})$",
-                RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.Compiled), 2, 1), // Single-line injection
-            new(new Regex($@"^\s*// ({ProjectTag}).*\n(.*)",
-                RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.Compiled), 1, 2) // Next-line injection
+            new(string.Format(@"\s*// (?<Tag>{0}): Begin(?<Content>.*?)// {0}: End\s*?\n", ProjectTag), // Multi-line form
+                RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.Compiled),
+            new($@"^(?<Content>\s*\S+.*?)[^\S\n]*// (?<Tag>{ProjectTag})\n", // Single-line form
+                RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.Compiled),
+            new($@"^\s*// (?<Tag>{ProjectTag})\n(?<Content>.*)\n", // Next-line form
+                RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.Compiled)
         };
         Match VersionMatch = EngineVersionRE.Match(File.ReadAllText(Path.Combine(DstDirectory, "Runtime/Launch/Resources/Version.h")));
         CurrentEngineVersion = EngineVersion.Create(VersionMatch.Groups[1].Value, VersionMatch.Groups[2].Value);
@@ -466,8 +453,6 @@ public class Injector
             if (File.Exists(PatchPath)) continue;
             if (!File.ReadAllText(PatchedPath).Contains($"// {ProjectName}"))
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("Patch file skipped: No valid patch found in " + PatchedPath);
                 continue;
             }
 
