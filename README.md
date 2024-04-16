@@ -179,6 +179,10 @@ Every `SourcePatch` directory can have one config file `Crysknife.ini` at the ro
 to specify more complex patching behaviors such as conditional remapping, etc. in the following framework:
 
 ```ini
+[Switches]
+Switch1=False
+Switch2=True
+
 [Global]
 Rule1=Predicate1:Value1|Value2
 +Rule1=Predicate3:Value3,Predicate4:Value4
@@ -189,6 +193,8 @@ ScopedRule=Predicate2
 
 The global section applies the rule to all subdirectories inside `SourcePatch` folder, while custom sections with
 relative file/directory paths can be used to limit the effective scope of the rules.
+
+The switches section declares custom switch variables that can be referenced from any rule.
 
 ### Supported Rules
 
@@ -209,6 +215,12 @@ relative file/directory paths can be used to limit the effective scope of the ru
 
 `Exist:[FILE|DIRECTORY]...`
 * Satisfies if any of the specified file/directory exists
+
+`IsOn:[SWITCH]...`
+* Satisfies if any of the specified switch is turned on
+
+`IsOff:[SWITCH]...`
+* Satisfies if any of the specified switch is turned off
 
 `Filename:[NAME]...`
 * Satisfies if the input file name matches

@@ -1,0 +1,21 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Crysknife",
+	"Description": "Inject source files & code segments into existing Unreal Engine code base.",
+	"Category": "Other",
+	"CreatedBy": "YunHsiao",
+	"CreatedByURL": "https://github.com/YunHsiao/Crysknife",
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "Crysknife",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

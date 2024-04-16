@@ -2,7 +2,7 @@
 @rem SPDX-License-Identifier: MIT
 
 @echo off
-cd %~dp0Source
+cd %~dp0Crysknife
 
 for %%x in (%*) do (
     if "%%x" == "--skip-build" (

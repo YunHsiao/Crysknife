@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
 # SPDX-License-Identifier: MIT
 
-cd `dirname $0`/Source
+cd `dirname $0`/Crysknife
 
 for Arg in "$@"; do
     if [[ $Arg = "--skip-build" ]]; then

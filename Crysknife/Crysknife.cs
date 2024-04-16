@@ -44,7 +44,7 @@ internal static class Launcher
 
         if (!Arguments.TryGetValue("p", out var Parameters) && !Arguments.TryGetValue("project", out Parameters))
         {
-            Console.Write("Please specify the source project name, where the patches are located.");
+            Console.WriteLine("Please specify the source project name, where the patches are located.");
             return;
         }
 
@@ -81,7 +81,7 @@ internal static class Launcher
         if (Arguments.ContainsKey("A")) Job |= JobType.Apply;
         if (Job == JobType.None) Job = JobType.Apply; // By default do the apply action
 
-        if (Arguments.ContainsKey("S")) { SetupScripts.Generate(RootDirectory, ProjectName); }
+        if (Arguments.ContainsKey("S")) { ProjectSetup.Generate(RootDirectory, ProjectName); }
 
         if (!Arguments.ContainsKey("b") && !Arguments.ContainsKey("no-builtin"))
         {

@@ -170,6 +170,10 @@ Injector 本身其实很简单，并不会神奇地自动改变任何代码结�
 `SourcePatch` 根目录下可以新建一个 `Crysknife.ini` 配置文件，来指定如条件重映射等更复杂的 Patch 行为。配置框架如下：
 
 ```ini
+[Switches]
+Switch1=False
+Switch2=True
+
 [Global]
 Rule1=Predicate1:Value1|Value2
 +Rule1=Predicate3:Value3,Predicate4:Value4
@@ -178,8 +182,10 @@ Rule1=Predicate1:Value1|Value2
 ScopedRule=Predicate2
 ```
 
-Global Section 下的 Rule（规则） 会应用到所有子目录，其他 Section 的 Rule 只会应用到指定子目录下。
-如无特殊声明，每个 Section 可以有多条 Rule，每条 Rule 可以有多个 Predicate（条件），每个 Predicate 可以有多个 Value（值）。
+Global Section 下的规则 (Rule) 会应用到所有子目录，其他 Section 的规则只会应用到指定子目录下。
+如无特殊声明，每个 Section 可以有多条规则，每条规则可以有多个条件 (Predicate)，每个条件可以有多个值 (Value)。
+
+Switches Section 内可任意定义开关变量， 在任意规则内都可引用。
 
 ### 规则
 
@@ -200,6 +206,12 @@ Global Section 下的 Rule（规则） 会应用到所有子目录，其他 Sect
 
 `Exist:[FILE|DIRECTORY]...`
 * 任何指定的文件/目录存在时满足
+
+`IsOn:[SWITCH]...`
+* 任何指定的开关打开时满足
+
+`IsOff:[SWITCH]...`
+* 任何指定的开关关闭时满足
 
 `Filename:[NAME]...`
 * 当前文件名匹配时满足

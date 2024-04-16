@@ -40,7 +40,7 @@ public class InjectionRegex
 
     public InjectionRegex(string ProjectName)
     {
-        string ProjectTag = ProjectName + @"[\w\s:+-]*?"; // Allow some comments in between
+        string ProjectTag = ProjectName + @"[^\n]*?"; // Allow some comments in between
         Forms = new []
         {
             new InjectionRegexForm(ProjectName, string.Format(@"\s*// (?<Tag>{0}): Begin(?<Content>.*?)// {0}: End\s*?\n", ProjectTag),
@@ -58,7 +58,7 @@ public class InjectionRegex
     }
 }
 
-public static class RegexEngine
+public static class RegexUtils
 {
     private static readonly Regex EngineVersionRE = new (@"#define\s+ENGINE_MAJOR_VERSION\s+(\d+)\s*#define\s+ENGINE_MINOR_VERSION\s+(\d+)", RegexOptions.Compiled);
     public static string GetCurrentEngineVersion(string SourceDirectory)
@@ -71,5 +71,12 @@ public static class RegexEngine
     public static string UnifySeparators(string Value)
     {
         return SeparatorRE.Replace(Value, Path.DirectorySeparatorChar.ToString());
+    }
+
+    private static readonly Regex TruthyRE = new ("^(T|On)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    public static bool IsTruthyValue(string Value)
+    {
+        if (int.TryParse(Value, out var Number)) return Number > 0;
+        return TruthyRE.IsMatch(Value);
     }
 }

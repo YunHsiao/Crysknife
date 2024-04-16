@@ -347,7 +347,7 @@ public class Injector
         Options = InOptions;
 
         InjectionRE = new InjectionRegex(ProjectName);
-        CurrentEngineVersion = EngineVersion.Create(RegexEngine.GetCurrentEngineVersion(DstDirectory));
+        CurrentEngineVersion = EngineVersion.Create(RegexUtils.GetCurrentEngineVersion(DstDirectory));
         OverrideConfirm = Options.HasFlag(JobOptions.Force) ? ConfirmResult.Yes | ConfirmResult.ForAll : ConfirmResult.NotDecided;
         CreatePatchTool();
     }
@@ -382,12 +382,12 @@ public class Injector
     public string InclusiveFilter
     {
         get => PrivateInclusiveFilter;
-        set => PrivateInclusiveFilter = RegexEngine.UnifySeparators(value);
+        set => PrivateInclusiveFilter = RegexUtils.UnifySeparators(value);
     }
     public string ExclusiveFilter
     {
         get => PrivateExclusiveFilter;
-        set => PrivateExclusiveFilter = RegexEngine.UnifySeparators(value);
+        set => PrivateExclusiveFilter = RegexUtils.UnifySeparators(value);
     }
 
     public void CreatePatchFile(IEnumerable<string> InputPaths)
