@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
 // SPDX-License-Identifier: MIT
 
-using System.Diagnostics;
 using System.Text.RegularExpressions;
 
 namespace Crysknife;
@@ -21,77 +20,17 @@ internal class InjectionRegexForm
 
     public string Unpatch(string Content)
     {
-        // return RE.Replace(Content, Matched => Replace(
-        //     Matched.Groups["Tag"].Value, Matched.Groups["Content"].Value));
-
-        string Result = "";
-        int CurrentStart = 0;
-
-        foreach (Match Matched in RE.Matches(Content))
-        {
-            Result += Content.Substring(CurrentStart, Matched.Index - CurrentStart);
-            Result += Replace(Matched.Groups["Tag"].Value, Matched.Groups["Content"].Value);
-            CurrentStart = Matched.Index + Matched.Length;
-        }
-        Result += Content.Substring(CurrentStart, Content.Length - CurrentStart);
-        return Result;
+        return RE.Replace(Content, Matched => Replace(
+            Matched.Groups["Tag"].Value, Matched.Groups["Content"].Value));
     }
 
-    protected virtual string Replace(string Tag, string Content)
+    private string Replace(string Tag, string Content)
     {
         if (Tag.StartsWith(ProjectName + '-')) // Restore deletions
         {
             return CommentRE.Replace(Content, ContentMatch => ContentMatch.Groups[1].Value);
         }
         return ""; // Remove injections
-    }
-}
-
-internal class InjectionRegexMultiLineForm : InjectionRegexForm
-{
-    private readonly Regex SeparatorRE;
-
-    public InjectionRegexMultiLineForm(string ProjectName, string ProjectTag)
-        : base(ProjectName, string.Format(@"\s*// (?<Tag>{0}): Begin(?<Content>.*?)// {0}: End\s*?\n", ProjectTag),
-            RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.Compiled)
-    {
-        SeparatorRE = new Regex($"// (?<Tag>{ProjectTag}): (?<State>Begin|End)",
-            RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.Compiled);
-    }
-
-    // Multiple code blocks may be merged together, need to handle them here
-    protected override string Replace(string Tag, string Content)
-    {
-        MatchCollection Matches = SeparatorRE.Matches(Content);
-        if (Matches.Count == 0)
-        {
-            return base.Replace(Tag, Content);
-        }
-
-        string Result = "";
-        int CurrentStart = 0;
-        bool InsideBlock = true;
-
-        foreach (Match Matched in Matches)
-        {
-            switch (Matched.Groups["State"].Value)
-            {
-                case "Begin":
-                    Result += Content.Substring(CurrentStart, Matched.Index - CurrentStart);
-                    Tag = Matched.Groups["Tag"].Value;
-                    Debug.Assert(!InsideBlock);
-                    InsideBlock = true;
-                    break;
-                case "End":
-                    Result += base.Replace(Tag, Content.Substring(CurrentStart, Matched.Index - CurrentStart));
-                    Debug.Assert(InsideBlock);
-                    InsideBlock = false;
-                    break;
-            }
-            CurrentStart = Matched.Index + Matched.Length;
-        }
-
-        return Result;
     }
 }
 
@@ -104,10 +43,11 @@ public class InjectionRegex
         string ProjectTag = ProjectName + @"[\w\s:+-]*?"; // Allow some comments in between
         Forms = new []
         {
-            new InjectionRegexMultiLineForm(ProjectName, ProjectTag), // Multi-line form
-            new InjectionRegexForm(ProjectName, $@"^(?<Content>\s*\S+.*?)[^\S\n]*// (?<Tag>{ProjectTag})\n", 
+            new InjectionRegexForm(ProjectName, string.Format(@"\s*// (?<Tag>{0}): Begin(?<Content>.*?)// {0}: End\s*?\n", ProjectTag),
+                RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.Compiled), // Multi-line form
+            new InjectionRegexForm(ProjectName, $@"^(?<Content>\s*\S+.*?)[^\S\n]*// (?<Tag>{ProjectTag})\n",
                 RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.Compiled), // Single-line form
-            new InjectionRegexForm(ProjectName, $@"^\s*// (?<Tag>{ProjectTag})\n(?<Content>.*)\n", 
+            new InjectionRegexForm(ProjectName, $@"^\s*// (?<Tag>{ProjectTag})\n(?<Content>.*)\n",
                 RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.Compiled) // Next-line form
         };
     }

@@ -504,11 +504,7 @@ public class Injector
             // Remapped patches doesn't make much sense, dump the patch file instead
             if (Pair.Key != DstRelativePath)
             {
-                string PatchDump = Path.Combine(DstDirectory, DstRelativePath + PatchSuffix);
-                File.Copy(SrcPath, PatchDump, true);
-
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Dumped patch: {0} -> {1}", SrcPath, PatchDump);
+                ProcessFile(Job, SrcPath, DstPath + PatchSuffix);
                 continue;
             }
 
