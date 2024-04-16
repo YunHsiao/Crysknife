@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
 // SPDX-License-Identifier: MIT
 
-using System.Text.RegularExpressions;
-
 namespace Crysknife;
 
 [Flags]
@@ -51,12 +49,7 @@ public class Injector
         public static EngineVersion Create(string Value)
         {
             string[] Versions = Value.Split('_');
-            return Create(Versions[0], Versions[1]);
-        }
-
-        public static EngineVersion Create(string Major, string Minor)
-        {
-            return new EngineVersion(int.Parse(Major), int.Parse(Minor));
+            return new EngineVersion(int.Parse(Versions[0]), int.Parse(Versions[1]));
         }
 
         public static readonly EngineVersion Empty = new(0, 0);
@@ -196,22 +189,10 @@ public class Injector
         return ParsedPath.PathTrunc + ".ignore" + ParsedPath.Extensions.First();
     }
 
-    private string Unpatch(string Content)
-    {
-        return InjectionRE.Aggregate(Content, (Acc, RE) => RE.Replace(Acc, Match =>
-        {
-            if (Match.Groups["Tag"].Value.StartsWith(ProjectName + '-')) // Restore deletions
-            {
-                return CommentRE.Replace(Match.Groups["Content"].Value, ContentMatch => ContentMatch.Groups[1].Value);
-            }
-            return string.Empty; // Remove injections
-        }));
-    }
-
     private void ProcessPatch(JobType Job, string PatchPath, string TargetPath)
     {
         string Target = File.ReadAllText(TargetPath);
-        string ClearedTarget = Unpatch(Target);
+        string ClearedTarget = InjectionRE.Unpatch(Target);
         List<DiffMatchPatch.Patch>? Patches = null;
 
         if (Job.HasFlag(JobType.Generate))
@@ -351,10 +332,7 @@ public class Injector
     private float PrivateMatchContentTolerance = 0.5f;
     private int PrivateMatchLineTolerance = int.MaxValue; // Line number may vary significantly
 
-    private static readonly Regex CommentRE = new (@"^(\s*)//\s*", RegexOptions.Multiline | RegexOptions.Compiled);
-    private static readonly Regex EngineVersionRE = new (@"#define\s+ENGINE_MAJOR_VERSION\s+(\d+)\s*#define\s+ENGINE_MINOR_VERSION\s+(\d+)", RegexOptions.Compiled);
-
-    private readonly Regex[] InjectionRE;
+    private readonly InjectionRegex InjectionRE;
     private readonly EngineVersion CurrentEngineVersion;
     private ConfirmResult OverrideConfirm;
     private DMPContext PatchTool;
@@ -368,19 +346,8 @@ public class Injector
         DstDirectory = InDstDirectory;
         Options = InOptions;
 
-        string ProjectTag = ProjectName + @"[\w\s:+-]*?"; // Allow some comments in between
-
-        InjectionRE = new Regex[]
-        {
-            new(string.Format(@"\s*// (?<Tag>{0}): Begin(?<Content>.*?)// {0}: End\s*?\n", ProjectTag), // Multi-line form
-                RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.Compiled),
-            new($@"^(?<Content>\s*\S+.*?)[^\S\n]*// (?<Tag>{ProjectTag})\n", // Single-line form
-                RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.Compiled),
-            new($@"^\s*// (?<Tag>{ProjectTag})\n(?<Content>.*)\n", // Next-line form
-                RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.Compiled)
-        };
-        Match VersionMatch = EngineVersionRE.Match(File.ReadAllText(Path.Combine(DstDirectory, "Runtime/Launch/Resources/Version.h")));
-        CurrentEngineVersion = EngineVersion.Create(VersionMatch.Groups[1].Value, VersionMatch.Groups[2].Value);
+        InjectionRE = new InjectionRegex(ProjectName);
+        CurrentEngineVersion = EngineVersion.Create(RegexEngine.GetCurrentEngineVersion(DstDirectory));
         OverrideConfirm = Options.HasFlag(JobOptions.Force) ? ConfirmResult.Yes | ConfirmResult.ForAll : ConfirmResult.NotDecided;
         CreatePatchTool();
     }
@@ -415,12 +382,12 @@ public class Injector
     public string InclusiveFilter
     {
         get => PrivateInclusiveFilter;
-        set => PrivateInclusiveFilter = Config.SeparatorPatch(value);
+        set => PrivateInclusiveFilter = RegexEngine.UnifySeparators(value);
     }
     public string ExclusiveFilter
     {
         get => PrivateExclusiveFilter;
-        set => PrivateExclusiveFilter = Config.SeparatorPatch(value);
+        set => PrivateExclusiveFilter = RegexEngine.UnifySeparators(value);
     }
 
     public void CreatePatchFile(IEnumerable<string> InputPaths)
@@ -530,8 +497,20 @@ public class Injector
         {
             if (!Config.Remap(Pair.Key, out var DstRelativePath)) continue;
 
-            string SrcPath = Path.Combine(SrcDirectoryOverride, Pair.Key + Pair.Value.Match(CurrentEngineVersion));
+            string PatchSuffix = Pair.Value.Match(CurrentEngineVersion);
+            string SrcPath = Path.Combine(SrcDirectoryOverride, Pair.Key + PatchSuffix);
             string DstPath = Path.Combine(DstDirectory, DstRelativePath);
+
+            // Remapped patches doesn't make much sense, dump the patch file instead
+            if (Pair.Key != DstRelativePath)
+            {
+                string PatchDump = Path.Combine(DstDirectory, DstRelativePath + PatchSuffix);
+                File.Copy(SrcPath, PatchDump, true);
+
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("Dumped patch: {0} -> {1}", SrcPath, PatchDump);
+                continue;
+            }
 
             if (!File.Exists(DstPath))
             {

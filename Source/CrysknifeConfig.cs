@@ -1,8 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
 // SPDX-License-Identifier: MIT
 
-using System.Text.RegularExpressions;
-
 namespace Crysknife;
 
 internal class ConfigPredicate
@@ -123,7 +121,7 @@ internal class ScopedRules
     {
         // Global section affects all targets
         TargetName = SectionName.Equals("Global", StringComparison.OrdinalIgnoreCase) ? "" : SectionName;
-        TargetName = Config.SeparatorPatch(TargetName);
+        TargetName = RegexEngine.UnifySeparators(TargetName);
 
         foreach (ConfigLine Line in Section.Lines)
         {
@@ -137,7 +135,7 @@ internal class ScopedRules
             }
             else if (Line.Key.Equals("RemapTarget", StringComparison.OrdinalIgnoreCase))
             {
-                RemapTarget = Config.SeparatorPatch(Line.Value);
+                RemapTarget = RegexEngine.UnifySeparators(Line.Value);
             }
             else if (Line.Key.Equals("Flat", StringComparison.OrdinalIgnoreCase))
             {
@@ -172,12 +170,6 @@ public class Config
 {
     private static ConfigFile BaseConfig = new();
     private readonly List<ScopedRules> Scopes = new();
-
-    private static readonly Regex SeparatorRE = new (@"[\\/]", RegexOptions.Compiled);
-    public static string SeparatorPatch(string Value)
-    {
-        return SeparatorRE.Replace(Value, Path.DirectorySeparatorChar.ToString());
-    }
 
     public static void Init(string RootDirectory)
     {
