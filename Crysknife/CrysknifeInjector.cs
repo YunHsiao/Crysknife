@@ -183,12 +183,6 @@ public class Injector
         }
     }
 
-    private static string GetPatchDebugOutputPath(string PatchPath)
-    {
-        var ParsedPath = new ParsedPath(PatchPath);
-        return ParsedPath.PathTrunc + ".ignore" + ParsedPath.Extensions.First();
-    }
-
     private void ProcessPatch(JobType Job, string PatchPath, string TargetPath)
     {
         string Target = File.ReadAllText(TargetPath);
@@ -212,11 +206,6 @@ public class Injector
 
         if (Job.HasFlag(JobType.Clear) && ClearedTarget.Length != Target.Length)
         {
-            if (Options.HasFlag(JobOptions.DryRun))
-            {
-                TargetPath = GetPatchDebugOutputPath(PatchPath);
-            }
-
             File.WriteAllText(TargetPath, ClearedTarget);
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("Patch removed from: " + TargetPath);
@@ -229,11 +218,7 @@ public class Injector
                 : PatchTool.Apply(ClearedTarget, PatchPath, out IsSuccess);
             if (Patched == Target) return;
 
-            if (Options.HasFlag(JobOptions.DryRun))
-            {
-                TargetPath = GetPatchDebugOutputPath(PatchPath);
-            }
-            else if (Target.Length != ClearedTarget.Length)
+            if (Target.Length != ClearedTarget.Length)
             {
                 // Apply op is potentially dangerous: Confirm before overriding any new contents.
                 if (!OverrideConfirm.HasFlag(ConfirmResult.ForAll))
@@ -320,6 +305,8 @@ public class Injector
     {
         PatchTool = new DMPContext(PatchContextLength, MatchContentTolerance, MatchLineTolerance);
     }
+
+    private static ConfigFile BaseConfig = new();
 
     private readonly string ProjectName;
     private readonly string SrcDirectory;
@@ -467,10 +454,23 @@ public class Injector
         }
     }
 
-    public void Process(JobType Job, string SrcDirectoryOverride)
+    public static void Init(string RootDirectory)
     {
+        ConfigFile.Init(RootDirectory);
+        string ConfigPath = Path.Combine(RootDirectory, "BaseCrysknife.ini");
+        if (File.Exists(ConfigPath)) BaseConfig = new ConfigFile(ConfigPath);
+    }
+
+    public void Process(JobType Job, string SrcDirectoryOverride, string VariableOverrides)
+    {
+        if (Options.HasFlag(JobOptions.DryRun))
+        {
+            if (VariableOverrides.Length > 0) VariableOverrides += ",";
+            VariableOverrides += $"CRYSKNIFE_DRY_RUN=1,CRYSKNIFE_DRY_RUN_OUTPUT={Path.GetFullPath(Path.Combine(SrcDirectory, ".."))}";
+        }
+
         var Patches = new Dictionary<string, PatchDescription>();
-        var Config = new Config(Path.Combine(SrcDirectoryOverride, "Crysknife.ini"), DstDirectory);
+        var Config = new Config(Path.Combine(SrcDirectoryOverride, "Crysknife.ini"), DstDirectory, BaseConfig, VariableOverrides);
 
         foreach (string SrcPath in Directory.GetFiles(SrcDirectoryOverride, "*", new EnumerationOptions { RecurseSubdirectories = true }))
         {
@@ -495,14 +495,16 @@ public class Injector
 
         foreach (var Pair in Patches)
         {
-            if (!Config.Remap(Pair.Key, out var DstRelativePath)) continue;
-
             string PatchSuffix = Pair.Value.Match(CurrentEngineVersion);
-            string SrcPath = Path.Combine(SrcDirectoryOverride, Pair.Key + PatchSuffix);
-            string DstPath = Path.Combine(DstDirectory, DstRelativePath);
+            string RelativePatch = Pair.Key + PatchSuffix;
+
+            if (!Config.Remap(RelativePatch, out var DstRelativePath)) continue;
+
+            string SrcPath = Path.Combine(SrcDirectoryOverride, RelativePatch);
+            string DstPath = Path.Combine(DstDirectory, DstRelativePath[..^PatchSuffix.Length]);
 
             // Remapped patches doesn't make much sense, dump the patch file instead
-            if (Pair.Key != DstRelativePath)
+            if (RelativePatch != DstRelativePath)
             {
                 ProcessFile(Job, SrcPath, DstPath + PatchSuffix);
                 continue;
@@ -522,8 +524,8 @@ public class Injector
         Console.WriteLine("{0} job done: {1} <=> {2}", Job.ToString(), SrcDirectoryOverride, DstDirectory);
     }
 
-    public void Process(JobType Job)
+    public void Process(JobType Job, string VariableOverrides = "")
     {
-        Process(Job, SrcDirectory);
+        Process(Job, SrcDirectory, VariableOverrides);
     }
 }

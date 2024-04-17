@@ -114,8 +114,9 @@ Where the special tweak is:
 * `-p [PROJECT]` or `--project [PROJECT]` Project name to match in comments
 * `-s [DIRECTORY]` or `--src [DIRECTORY]` Customize the source directory where the patches are located
 * `-d [DIRECTORY]` or `--dst [DIRECTORY]` Customize the destination directory containing target sources to be patched
+* `-v [VAR=VALUE,]...` or `--variable-overrides [VAR=VALUE,]...` Override config variable definitions
 * `-l` or `--link` Make symbolic links instead of copy all the new files
-* `-t` or `--dry-run` Test run, safely executes the action with all engine output remapped to `SourcePatch` directory
+* `-t` or `--dry-run` Test run, safely executes the action with all engine output remapped to project's `Intermediate/DryRunOutput` directory
 * `-f` or `--force` Force override existing files
 * `-b` or `--no-builtin` Skip builtin source patches
 
@@ -179,13 +180,13 @@ Every `SourcePatch` directory can have one config file `Crysknife.ini` at the ro
 to specify more complex patching behaviors such as conditional remapping, etc. in the following framework:
 
 ```ini
-[Switches]
-Switch1=False
-Switch2=True
+[Variables]
+Var1=Value3
+Var2=True
 
 [Global]
 Rule1=Predicate1:Value1|Value2
-+Rule1=Predicate3:Value3,Predicate4:Value4
++Rule1=Predicate3:${Var1},Predicate4:!Value4
 
 [Path/To/Subdirectory/Or/Filename]
 ScopedRule=Predicate2
@@ -194,7 +195,9 @@ ScopedRule=Predicate2
 The global section applies the rule to all subdirectories inside `SourcePatch` folder, while custom sections with
 relative file/directory paths can be used to limit the effective scope of the rules.
 
-The switches section declares custom switch variables that can be referenced from any rule.
+The variables section declares custom variables that can be referenced with `${VariableName}` in any value.
+
+Any value can be preceded by `!` to indicate a reverse predicate (satisfies if condition is not met).
 
 ### Supported Rules
 
@@ -208,24 +211,21 @@ The switches section declares custom switch variables that can be referenced fro
 * The remap destination, which would be replacing the section name part of the input file path
 * Must be specified if `RemapIf` is present
 
-`Flat=True|False`
-* Whether to flatten the folder hierarchy under current scope
+`FlattenIf=[PREDICATE]...`
+* Flatten the folder hierarchy if specified predicates are satisfied
 
 ### Supported Predicates
 
-`Exist:[FILE|DIRECTORY]...`
+`TargetExists:[FILE|DIRECTORY]...`
 * Satisfies if any of the specified file/directory exists
 
-`IsOn:[SWITCH]...`
-* Satisfies if any of the specified switch is turned on
+`IsTruthy:[SWITCH]...`
+* Satisfies if any of the specified value is true
 
-`IsOff:[SWITCH]...`
-* Satisfies if any of the specified switch is turned off
-
-`Filename:[NAME]...`
+`NameMatches:[NAME]...`
 * Satisfies if the input file name matches
 
-`Conjunction:All|Predicates|Root|Exist|Filename...`
+`Conjunctions:All|Predicates|Root|Exist|Filename...`
 * Changes the logical behavior of specified predicate to conjunction (logical AND)
 * `Root` means the logical operations between different predicates
 * `Predicates` means all logical operations inside every defined predicate
@@ -248,7 +248,7 @@ Skip any actions for `astc-encoder` directory if `Engine/Source/ThirdParty/astce
 
 ```ini
 [ThirdParty/astc-encoder]
-SkipIf=Exist:ThirdParty/astcenc
+SkipIf=TargetExists:ThirdParty/astcenc
 ```
 
 ### Flat Debug

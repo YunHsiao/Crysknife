@@ -107,6 +107,7 @@ Injector 本身其实很简单，并不会神奇地自动改变任何代码结�
 * `-p [PROJECT]` or `--project [PROJECT]` 插件目录名，也是注释桩中要匹配的名字
 * `-s [DIRECTORY]` or `--src [DIRECTORY]` 自定义 Patch 来源目录
 * `-d [DIRECTORY]` or `--dst [DIRECTORY]` 自定义引擎源码目录
+* `-v [VAR=VALUE,]...` or `--variable-overrides [VAR=VALUE,]...` 重载 Config 中的变量值
 * `-l` or `--link` 链接而非拷贝新文件
 * `-t` or `--dry-run` 测试要执行的行为，所有输出会被映射回 SourcePatch 目录，作为调试手段
 * `-f` or `--force` 强制覆盖任何已存在的文件
@@ -170,22 +171,24 @@ Injector 本身其实很简单，并不会神奇地自动改变任何代码结�
 `SourcePatch` 根目录下可以新建一个 `Crysknife.ini` 配置文件，来指定如条件重映射等更复杂的 Patch 行为。配置框架如下：
 
 ```ini
-[Switches]
-Switch1=False
-Switch2=True
+[Variables]
+Var1=Value3
+Var2=True
 
 [Global]
 Rule1=Predicate1:Value1|Value2
-+Rule1=Predicate3:Value3,Predicate4:Value4
++Rule1=Predicate3:${Var1},Predicate4:!Value4
 
 [Path/To/Subdirectory/Or/Filename]
 ScopedRule=Predicate2
 ```
 
-Global Section 下的规则 (Rule) 会应用到所有子目录，其他 Section 的规则只会应用到指定子目录下。
-如无特殊声明，每个 Section 可以有多条规则，每条规则可以有多个条件 (Predicate)，每个条件可以有多个值 (Value)。
+Global 作用域 (Section) 下的规则 (Rule) 会应用到所有子目录，其他作用域的规则只会应用到指定子目录下。
+如无特殊声明，每个作用域可以有多条规则，每条规则可以有多个条件 (Predicate)，每个条件可以有多个值 (Value)。
 
-Switches Section 内可任意定义开关变量， 在任意规则内都可引用。
+Variables 作用域内可定义任意变量 (Variable)， 在任意值内都可通过 `${VariableName}` 引用。
+
+任意值都可以添加 `!` 前缀，表示反向条件（条件不成立时满足）。
 
 ### 规则
 
@@ -199,24 +202,21 @@ Switches Section 内可任意定义开关变量， 在任意规则内都可引�
 * 重映射的新路径目标，会直接全文替换目标目录中当前 Section 名字的部分
 * 如果指定了 `RemapIf`，此条必须指定
 
-`Flat=True|False`
-* 是否不保留目录结构，展平所有输出到同一层级
+`FlattenIf=[PREDICATE]...`
+* 如果条件满足，不保留目录结构，展平所有输出到同一层级
 
 ### 条件
 
-`Exist:[FILE|DIRECTORY]...`
+`TargetExists:[FILE|DIRECTORY]...`
 * 任何指定的文件/目录存在时满足
 
-`IsOn:[SWITCH]...`
-* 任何指定的开关打开时满足
+`IsTruthy:[SWITCH]...`
+* 任何指定的值为真时满足
 
-`IsOff:[SWITCH]...`
-* 任何指定的开关关闭时满足
+`NameMatches:[NAME]...`
+* 当前输入文件名匹配时满足
 
-`Filename:[NAME]...`
-* 当前文件名匹配时满足
-
-`Conjunction:All|Predicates|Root|Exist|Filename...`
+`Conjunctions:All|Predicates|Root|Exist|Filename...`
 * 将指定范围的组合逻辑设为“与”
 * `Root` 指所有不同条件间的组合逻辑
 * `Predicates` 指所有定义的条件内的组合逻辑
@@ -239,7 +239,7 @@ Switches Section 内可任意定义开关变量， 在任意规则内都可引�
 
 ```ini
 [ThirdParty/astc-encoder]
-SkipIf=Exist:ThirdParty/astcenc
+SkipIf=TargetExists:ThirdParty/astcenc
 ```
 
 ### 调试输出

@@ -205,6 +205,22 @@ public class ConfigFile
 		}
 	}
 
+	public void AppendFromText(string SectionName, string IniText, ConfigLineAction DefaultAction = ConfigLineAction.Set)
+	{
+		foreach (string Setting in IniText.Split(new [] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+		{
+			SectionKeyRemap.TryGetValue(SectionName, out var CurrentRemap);
+
+			if (!Sections.TryGetValue(SectionName, out var CurrentSection))
+			{
+				CurrentSection = new ConfigFileSection(SectionName);
+				Sections.Add(SectionName, CurrentSection);
+			}
+
+			TryAddConfigLine(CurrentSection, CurrentRemap, "unknown source file", Setting, 0, Setting.Length, DefaultAction, Sections);
+		}
+	}
+
 	private static void TryAddConfigLine(ConfigFileSection Section, IDictionary<string, string>? KeyRemap, string Filename,
 		string Line, int StartIdx, int EndIdx, ConfigLineAction DefaultAction, IDictionary<string, ConfigFileSection> Sections)
 	{

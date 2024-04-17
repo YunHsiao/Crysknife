@@ -8,17 +8,33 @@ internal class ConfigPredicate
     private struct PredicateInstance
     {
         public readonly List<string> Conditions = new();
+        public readonly string Keyword;
         public bool LogicalAnd = false;
-        public PredicateInstance() {}
+
+        public PredicateInstance(string Keyword)
+        {
+            this.Keyword = Keyword;
+        }
         public bool Eval(Func<string, bool> Pred)
         {
-            return LogicalAnd ? Conditions.All(Pred) : Conditions.Any(Pred);
+            var Wrapper = (string Cond) =>
+            {
+                bool Invert = Cond.StartsWith('!');
+                return Invert ? !Pred(Cond[1..]) : Pred(Cond);
+            };
+            return LogicalAnd ? Conditions.All(Wrapper) : Conditions.Any(Wrapper);
         }
     }
 
     private bool Eval(bool Result, bool NewResult)
     {
         return LogicalAnd ? Result && NewResult : Result || NewResult;
+    }
+
+    private bool Eval(bool Result, PredicateInstance Instance, Func<string, bool> Predicate)
+    {
+        if (Result ^ LogicalAnd) return Result; // Early out if possible
+        return Eval(Result, Instance.Conditions.Count > 0 ? Instance.Eval(Predicate) : LogicalAnd);
     }
 
     private static bool ContainsString(IEnumerable<string> Values, string Target)
@@ -30,7 +46,7 @@ internal class ConfigPredicate
     private readonly List<string> FullDesc = new();
     private bool CompileTimePredicate;
     private bool LogicalAnd; // By default all predicates are disjunction
-    private PredicateInstance FilenamePredicates = new();
+    private readonly PredicateInstance FilenamePredicates = new("NameMatches");
 
     private static void Add(string Desc, ConfigLineAction Action, ICollection<string> Target)
     {
@@ -59,89 +75,83 @@ internal class ConfigPredicate
         Add(Desc, Action, Desc.StartsWith("BaseDomain", StringComparison.OrdinalIgnoreCase) ? BaseDesc : FullDesc);
     }
 
-    public void Compile(string RootPath, Dictionary<string, bool> Switches)
+    private void ParsePredicateInstances(IDictionary<string, string> Variables, PredicateInstance[] Instances)
     {
-        var ExistencePredicates = new PredicateInstance();
-        var SwitchOnPredicates = new PredicateInstance();
-        var SwitchOffPredicates = new PredicateInstance();
-
         foreach (var Rule in BaseDesc.Concat(FullDesc).SelectMany(Desc => Desc.Split(',', StringSplitOptions.TrimEntries)))
         {
-            if (Rule.StartsWith("Exist:", StringComparison.OrdinalIgnoreCase))
-            {
-                ExistencePredicates.Conditions.AddRange(Rule[6..].Split('|', StringSplitOptions.TrimEntries));
-            }
-            else if (Rule.StartsWith("IsOn:", StringComparison.OrdinalIgnoreCase))
-            {
-                SwitchOnPredicates.Conditions.AddRange(Rule[5..].Split('|', StringSplitOptions.TrimEntries));
-            }
-            else if (Rule.StartsWith("IsOff:", StringComparison.OrdinalIgnoreCase))
-            {
-                SwitchOffPredicates.Conditions.AddRange(Rule[6..].Split('|', StringSplitOptions.TrimEntries));
-            }
-            else if (Rule.StartsWith("Filename:", StringComparison.OrdinalIgnoreCase))
-            {
-                FilenamePredicates.Conditions.AddRange(Rule[9..].Split('|', StringSplitOptions.TrimEntries));
-            }
-            else if (Rule.StartsWith("Always", StringComparison.OrdinalIgnoreCase))
+            if (Rule.StartsWith("Always", StringComparison.OrdinalIgnoreCase))
             {
                 CompileTimePredicate = Eval(CompileTimePredicate, true);
             }
-            else if (Rule.StartsWith("Conjunction:", StringComparison.OrdinalIgnoreCase))
+            else if (Rule.StartsWith("Conjunctions:", StringComparison.OrdinalIgnoreCase))
             {
-                var Scopes = Rule[12..].Split('|', StringSplitOptions.TrimEntries);
+                var Scopes = Rule[13..].Split('|', StringSplitOptions.TrimEntries);
                 bool AllTrue = ContainsString(Scopes, "All");
                 bool PredicatesTrue = ContainsString(Scopes, "Predicates");
                 if (AllTrue || ContainsString(Scopes, "Root")) CompileTimePredicate = LogicalAnd = true;
-                else if (AllTrue || PredicatesTrue || ContainsString(Scopes, "Exist")) ExistencePredicates.LogicalAnd = true;
-                else if (AllTrue || PredicatesTrue || ContainsString(Scopes, "Filename")) FilenamePredicates.LogicalAnd = true;
+
+                for (int Index = 0; Index < Instances.Length; ++Index)
+                {
+                    if (AllTrue || PredicatesTrue || ContainsString(Scopes, Instances[Index].Keyword))
+                    {
+                        Instances[Index].LogicalAnd = true;
+                    }
+                }
+            }
+            else
+            {
+                int Index = Array.FindIndex(Instances, Instance => Rule.StartsWith(Instance.Keyword + ":", StringComparison.OrdinalIgnoreCase));
+                if (Index >= 0) Instances[Index].Conditions.AddRange(Rule[(Instances[Index].Keyword.Length + 1)..]
+                    .Split('|', StringSplitOptions.TrimEntries)
+                    .Select(Value => RegexUtils.MapVariables(Variables, Value)));
             }
         }
+    }
 
-        CompileTimePredicate = Eval(CompileTimePredicate, SwitchOnPredicates.Eval(Cond =>
+    public void Compile(string RootPath, IDictionary<string, string> Variables)
+    {
+        var ExistencePredicates = new PredicateInstance("TargetExists");
+        var SwitchPredicates = new PredicateInstance("IsTruthy");
+
+        ParsePredicateInstances(Variables, new[]
         {
-            if (Switches.TryGetValue(Cond, out var Value))
-            {
-                return Value;
-            }
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"IsOn condition invalid: '{Cond}' not found");
-            return false;
-        }));
-        CompileTimePredicate = Eval(CompileTimePredicate, SwitchOffPredicates.Eval(Cond =>
-        {
-            if (Switches.TryGetValue(Cond, out var Value))
-            {
-                return !Value;
-            }
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"IsOff condition invalid: '{Cond}' not found");
-            return true;
-        }));
-        CompileTimePredicate = Eval(CompileTimePredicate, ExistencePredicates.Eval(Cond =>
+            ExistencePredicates,
+            SwitchPredicates,
+            FilenamePredicates
+        });
+
+        CompileTimePredicate = Eval(CompileTimePredicate, ExistencePredicates, Cond =>
         {
             string TargetPath = Path.Combine(RootPath, Cond);
             return File.Exists(TargetPath) || Directory.Exists(TargetPath);
-        }));
+        });
+        CompileTimePredicate = Eval(CompileTimePredicate, SwitchPredicates, RegexUtils.IsTruthyValue);
     }
 
     public bool Eval(string Target)
     {
         bool Result = CompileTimePredicate;
-        Result = Eval(Result, FilenamePredicates.Eval(Cond => Path.GetFileName(Target).Contains(Cond, StringComparison.OrdinalIgnoreCase)));
+        Result = Eval(Result, FilenamePredicates, Cond => Path.GetFileName(Target).Contains(Cond, StringComparison.OrdinalIgnoreCase));
         return Result;
     }
+}
+
+internal enum RemapResult
+{
+    None,
+    Skipped,
+    Remapped,
 }
 
 internal class ScopedRules
 {
     private readonly string TargetName;
-    private readonly bool Flat;
     private readonly string RemapTarget = string.Empty;
     private readonly ConfigPredicate RemapRule = new();
     private readonly ConfigPredicate SkipRule = new();
+    private readonly ConfigPredicate FlattenRule = new();
 
-    public ScopedRules(string SectionName, ConfigFileSection Section, string RootPath, Dictionary<string, bool> Switches)
+    public ScopedRules(string SectionName, ConfigFileSection Section, string RootPath, IDictionary<string, string> Variables)
     {
         // Global section affects all targets
         TargetName = SectionName;
@@ -159,16 +169,17 @@ internal class ScopedRules
             }
             else if (Line.Key.Equals("RemapTarget", StringComparison.OrdinalIgnoreCase))
             {
-                RemapTarget = RegexUtils.UnifySeparators(Line.Value);
+                RemapTarget = RegexUtils.UnifySeparators(RegexUtils.MapVariables(Variables, Line.Value));
             }
-            else if (Line.Key.Equals("Flat", StringComparison.OrdinalIgnoreCase))
+            else if (Line.Key.Equals("FlattenIf", StringComparison.OrdinalIgnoreCase))
             {
-                Flat = RegexUtils.IsTruthyValue(Line.Value);
+                FlattenRule.Add(Line.Value, Line.Action);
             }
         }
 
-        SkipRule.Compile(RootPath, Switches);
-        RemapRule.Compile(RootPath, Switches);
+        SkipRule.Compile(RootPath, Variables);
+        RemapRule.Compile(RootPath, Variables);
+        FlattenRule.Compile(RootPath, Variables);
     }
 
     public bool Affects(string Target)
@@ -176,33 +187,33 @@ internal class ScopedRules
         return Target.StartsWith(TargetName, StringComparison.OrdinalIgnoreCase);
     }
 
-    public bool Remap(string Target, out string Result)
+    public RemapResult Remap(string Target, out string Result)
     {
         Result = Target;
-        if (SkipRule.Eval(Target)) return false;
+        if (SkipRule.Eval(Target)) return RemapResult.Skipped;
+        bool ShouldFlatten = FlattenRule.Eval(Target);
 
         if (RemapRule.Eval(Target))
         {
-            Result = Flat ? Path.Combine(RemapTarget, Path.GetFileName(Target)) : 
+            Result = ShouldFlatten ? Path.Combine(RemapTarget, Path.GetFileName(Target)) : 
                 TargetName == string.Empty ? Path.Combine(RemapTarget, Target) : Target.Replace(TargetName, RemapTarget);
+            return RemapResult.Remapped;
         }
-        return true;
+
+        if (ShouldFlatten)
+        {
+            Result = Path.Combine(TargetName, Path.GetFileName(Target));
+            return RemapResult.Remapped;
+        }
+        return RemapResult.None;
     }
 }
 
 public class Config
 {
-    private static ConfigFile BaseConfig = new();
     private readonly List<ScopedRules> Scopes = new();
 
-    public static void Init(string RootDirectory)
-    {
-        ConfigFile.Init(RootDirectory);
-        string ConfigPath = Path.Combine(RootDirectory, "BaseCrysknife.ini");
-        if (File.Exists(ConfigPath)) BaseConfig = new ConfigFile(ConfigPath);
-    }
-
-    public Config(string ConfigPath, string RootPath)
+    public Config(string ConfigPath, string RootPath, ConfigFile BaseConfig, string VariableOverrides)
     {
         ConfigFile Config = File.Exists(ConfigPath) ? new ConfigFile(ConfigPath) : new ConfigFile();
 
@@ -215,16 +226,19 @@ public class Config
             }
         }
 
-        var Switches = new Dictionary<string, bool>();
-        List<string> SectionNames = Config.SectionNames.ToList();
-        string? SwitchSectionName = SectionNames.Find(Name => Name.Equals("Switches", StringComparison.OrdinalIgnoreCase));
-        if (SwitchSectionName != null && Config.TryGetSection(SwitchSectionName, out var Section))
+        // Override variables
+        Config.AppendFromText("Variables", VariableOverrides.Replace("\"", string.Empty));
+
+        var Variables = new Dictionary<string, string>();
+        var SectionNames = Config.SectionNames.ToList();
+        var VariableSectionName = SectionNames.Find(Name => Name.Equals("Variables", StringComparison.OrdinalIgnoreCase));
+        if (VariableSectionName != null && Config.TryGetSection(VariableSectionName, out var Section))
         {
             foreach (ConfigLine Line in Section.Lines)
             {
-                Switches.Add(Line.Key, RegexUtils.IsTruthyValue(Line.Value));
+                Variables[Line.Key] = Line.Value;
             }
-            SectionNames.Remove(SwitchSectionName);
+            SectionNames.Remove(VariableSectionName);
         }
 
         // Parse into scoped rules
@@ -234,7 +248,7 @@ public class Config
             {
                 Scopes.Add(new ScopedRules(
                     SectionName.Equals("Global", StringComparison.OrdinalIgnoreCase) ? "" : SectionName,
-                    Section, RootPath, Switches));
+                    Section, RootPath, Variables));
             }
         }
     }
@@ -245,7 +259,18 @@ public class Config
 
         foreach (var Scope in Scopes.Where(Rules => Rules.Affects(Target)))
         {
-            if (!Scope.Remap(Target, out Result)) return false;
+            switch (Scope.Remap(Target, out var Temp))
+            {
+                case RemapResult.Skipped:
+                    return false;
+                case RemapResult.Remapped:
+                    Result = Temp;
+                    break;
+                case RemapResult.None:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
         return true;
     }

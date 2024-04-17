@@ -52,29 +52,32 @@ internal static class Launcher
         string RootDirectory = Directory.GetCurrentDirectory();
         RootDirectory = RootDirectory[..(RootDirectory.IndexOf(RootFolderName, StringComparison.Ordinal) - 1)];
 
-        Config.Init(Path.Combine(RootDirectory, RootFolderName));
+        Injector.Init(Path.Combine(RootDirectory, RootFolderName));
 
         string ProjectName = Parameters;
         string SrcDirectory = Arguments.TryGetValue("s", out Parameters) || Arguments.TryGetValue("src", out Parameters) ? Parameters : Path.Combine(RootDirectory, ProjectName, "SourcePatch");
         // Assuming we are an engine plugin by default
         string DstDirectory = Arguments.TryGetValue("d", out Parameters) || Arguments.TryGetValue("dst", out Parameters) ? Parameters : Path.GetFullPath(Path.Combine(RootDirectory, "../Source"));
 
+        string VariableOverrides = "";
+        if (Arguments.TryGetValue("v", out Parameters) || Arguments.TryGetValue("variable-overrides", out Parameters)) VariableOverrides = Parameters;
+
         var Options = JobOptions.None;
         if (Arguments.ContainsKey("l") || Arguments.ContainsKey("link")) Options |= JobOptions.Link;
         if (Arguments.ContainsKey("t") || Arguments.ContainsKey("dry-run")) Options |= JobOptions.DryRun;
         if (Arguments.ContainsKey("f") || Arguments.ContainsKey("force")) Options |= JobOptions.Force;
 
-        var Injector = new Injector(ProjectName, SrcDirectory, DstDirectory, Options);
+        var InjectorInstance = new Injector(ProjectName, SrcDirectory, DstDirectory, Options);
         var Job = JobType.None;
 
-        if (Arguments.TryGetValue("if", out Parameters) || Arguments.TryGetValue("inclusive-filter", out Parameters)) Injector.InclusiveFilter = Parameters;
-        if (Arguments.TryGetValue("ef", out Parameters) || Arguments.TryGetValue("exclusive-filter", out Parameters)) Injector.ExclusiveFilter = Parameters;
-        if (Arguments.TryGetValue("pc", out Parameters) || Arguments.TryGetValue("patch-context", out Parameters)) Injector.PatchContextLength = short.Parse(Parameters);
-        if (Arguments.TryGetValue("ct", out Parameters) || Arguments.TryGetValue("content-tolerance", out Parameters)) Injector.MatchContentTolerance = float.Parse(Parameters);
-        if (Arguments.TryGetValue("lt", out Parameters) || Arguments.TryGetValue("line-tolerance", out Parameters)) Injector.MatchLineTolerance = int.Parse(Parameters);
+        if (Arguments.TryGetValue("if", out Parameters) || Arguments.TryGetValue("inclusive-filter", out Parameters)) InjectorInstance.InclusiveFilter = Parameters;
+        if (Arguments.TryGetValue("ef", out Parameters) || Arguments.TryGetValue("exclusive-filter", out Parameters)) InjectorInstance.ExclusiveFilter = Parameters;
+        if (Arguments.TryGetValue("pc", out Parameters) || Arguments.TryGetValue("patch-context", out Parameters)) InjectorInstance.PatchContextLength = short.Parse(Parameters);
+        if (Arguments.TryGetValue("ct", out Parameters) || Arguments.TryGetValue("content-tolerance", out Parameters)) InjectorInstance.MatchContentTolerance = float.Parse(Parameters);
+        if (Arguments.TryGetValue("lt", out Parameters) || Arguments.TryGetValue("line-tolerance", out Parameters)) InjectorInstance.MatchLineTolerance = int.Parse(Parameters);
 
-        if (Arguments.TryGetValue("R", out Parameters)) { Injector.CreatePatchFile(Parameters.Split()); Job = JobType.Generate; }
-        if (Arguments.TryGetValue("U", out Parameters)) { Injector.RemovePatchFile(Parameters.Split()); Job = JobType.Generate; }
+        if (Arguments.TryGetValue("R", out Parameters)) { InjectorInstance.CreatePatchFile(Parameters.Split()); Job = JobType.Generate; }
+        if (Arguments.TryGetValue("U", out Parameters)) { InjectorInstance.RemovePatchFile(Parameters.Split()); Job = JobType.Generate; }
 
         if (Arguments.ContainsKey("G")) Job |= JobType.Generate;
         if (Arguments.ContainsKey("C")) Job |= JobType.Clear;
@@ -86,10 +89,10 @@ internal static class Launcher
         if (!Arguments.ContainsKey("b") && !Arguments.ContainsKey("no-builtin"))
         {
             string BuiltinSourcePatch = Path.Combine(RootDirectory, RootFolderName, "SourcePatch");
-            Injector.Process(Job, BuiltinSourcePatch);   
+            InjectorInstance.Process(Job, BuiltinSourcePatch, VariableOverrides);   
         }
 
-        Injector.Process(Job);
+        InjectorInstance.Process(Job, VariableOverrides);
         Console.ResetColor();
     }
 }

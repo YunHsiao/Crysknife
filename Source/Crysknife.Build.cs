@@ -18,14 +18,18 @@ public class Crysknife : ModuleRules
 		});
 	}
 
-	public static void FillInSourcePatchSwitches(List<string> Definitions, string TargetDirectory)
+	public static void FillInSourcePatchSwitches(List<string> Definitions, string TargetDirectory, string Prefix)
 	{
 		var Config = new ConfigFile(new FileReference(Path.Combine(TargetDirectory, "SourcePatch", "Crysknife.ini")));
-		if (Config.TryGetSection("Switches", out var Switches))
+
+		if (Config.TryGetSection("Variables", out var Switches))
 		{
 			foreach (var Switch in Switches.Lines)
 			{
-				Definitions.Add($"{Switch.Key}={Switch.Value}");
+				if (Switch.Key.StartsWith(Prefix, System.StringComparison.OrdinalIgnoreCase))
+				{
+					Definitions.Add($"{Switch.Key}={Switch.Value}");
+				}
 			}
 		}
 	}

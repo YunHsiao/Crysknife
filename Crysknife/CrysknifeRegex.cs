@@ -79,4 +79,20 @@ public static class RegexUtils
         if (int.TryParse(Value, out var Number)) return Number > 0;
         return TruthyRE.IsMatch(Value);
     }
+
+    private static readonly Regex VariableRE = new (@"\${(\w+)}", RegexOptions.Compiled);
+    public static string MapVariables(IDictionary<string, string> Variables, string Input)
+    {
+        return VariableRE.Replace(Input, Matched =>
+        {
+            string Name = Matched.Groups[1].Value;
+            if (Variables.TryGetValue(Name, out var Value))
+            {
+                return Value;
+            }
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"Invalid variable reference: '{Name}' not found");
+            return Matched.Value;
+        });
+    }
 }
