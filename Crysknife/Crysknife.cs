@@ -55,17 +55,18 @@ internal static class Launcher
         Injector.Init(Path.Combine(RootDirectory, RootFolderName));
 
         string ProjectName = Parameters;
-        string SrcDirectory = Arguments.TryGetValue("s", out Parameters) || Arguments.TryGetValue("src", out Parameters) ? Parameters : Path.Combine(RootDirectory, ProjectName, "SourcePatch");
+        string SrcDirectory = Arguments.TryGetValue("i", out Parameters) || Arguments.TryGetValue("input", out Parameters) ? Parameters : Path.Combine(RootDirectory, ProjectName, "SourcePatch");
         // Assuming we are an engine plugin by default
-        string DstDirectory = Arguments.TryGetValue("d", out Parameters) || Arguments.TryGetValue("dst", out Parameters) ? Parameters : Path.GetFullPath(Path.Combine(RootDirectory, "../Source"));
+        string DstDirectory = Arguments.TryGetValue("o", out Parameters) || Arguments.TryGetValue("output", out Parameters) ? Parameters : Path.GetFullPath(Path.Combine(RootDirectory, "../Source"));
 
         string VariableOverrides = "";
         if (Arguments.TryGetValue("v", out Parameters) || Arguments.TryGetValue("variable-overrides", out Parameters)) VariableOverrides = Parameters;
 
         var Options = JobOptions.None;
         if (Arguments.ContainsKey("l") || Arguments.ContainsKey("link")) Options |= JobOptions.Link;
-        if (Arguments.ContainsKey("t") || Arguments.ContainsKey("dry-run")) Options |= JobOptions.DryRun;
+        if (Arguments.ContainsKey("d") || Arguments.ContainsKey("dry-run")) Options |= JobOptions.DryRun;
         if (Arguments.ContainsKey("f") || Arguments.ContainsKey("force")) Options |= JobOptions.Force;
+        if (Arguments.ContainsKey("t") || Arguments.ContainsKey("treat-patch-as-file")) Options |= JobOptions.TreatPatchAsFile;
 
         var InjectorInstance = new Injector(ProjectName, SrcDirectory, DstDirectory, Options);
         var Job = JobType.None;
@@ -84,9 +85,9 @@ internal static class Launcher
         if (Arguments.ContainsKey("A")) Job |= JobType.Apply;
         if (Job == JobType.None) Job = JobType.Apply; // By default do the apply action
 
-        if (Arguments.ContainsKey("S")) { ProjectSetup.Generate(RootDirectory, ProjectName); }
+        if (Arguments.ContainsKey("S")) { ProjectSetup.Generate(SrcDirectory, ProjectName); }
 
-        if (!Arguments.ContainsKey("b") && !Arguments.ContainsKey("no-builtin"))
+        if (!Arguments.ContainsKey("s") && !Arguments.ContainsKey("skip-builtin"))
         {
             string BuiltinSourcePatch = Path.Combine(RootDirectory, RootFolderName, "SourcePatch");
             InjectorInstance.Process(Job, BuiltinSourcePatch, VariableOverrides);   

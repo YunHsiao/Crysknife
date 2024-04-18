@@ -26,7 +26,7 @@ SPDX-License-Identifier: MIT
 
 > 虽然听起来理想，但创建链接到引擎源码目录会导致实际源文件更新时，编译器无从知晓这个文件要被重新编译，会引起不必要的麻烦，所以拷贝为默认行为。
 
-更复杂的注入行为可以使用 [Config](#Config-System) 系统配置。
+更复杂的注入行为可以使用 [Config](#Config-系统) 系统配置。
 
 # 环境搭建
 
@@ -105,13 +105,14 @@ Injector 本身其实很简单，并不会神奇地自动改变任何代码结�
 ### 定制类
 
 * `-p [PROJECT]` or `--project [PROJECT]` 插件目录名，也是注释桩中要匹配的名字
-* `-s [DIRECTORY]` or `--src [DIRECTORY]` 自定义 Patch 来源目录
-* `-d [DIRECTORY]` or `--dst [DIRECTORY]` 自定义引擎源码目录
+* `-i [DIRECTORY]` or `--input [DIRECTORY]` 自定义 Patch 来源目录
+* `-o [DIRECTORY]` or `--output [DIRECTORY]` 自定义引擎源码目录
 * `-v [VAR=VALUE,]...` or `--variable-overrides [VAR=VALUE,]...` 重载 Config 中的变量值
 * `-l` or `--link` 链接而非拷贝新文件
-* `-t` or `--dry-run` 测试要执行的行为，所有输出会被映射回 SourcePatch 目录，作为调试手段
+* `-d` or `--dry-run` 测试要执行的行为，所有输出会被映射回 SourcePatch 目录，作为调试手段
 * `-f` or `--force` 强制覆盖任何已存在的文件
-* `-b` or `--no-builtin` 跳过所有内置 Patch
+* `-s` or `--skip-builtin` 跳过所有内置 Patch
+* `-t` or `--treat-patch-as-file` 将 Patch 视为普通文件，直接执行拷贝/链接
 
 ### 参数类
 
@@ -228,8 +229,8 @@ Variables 作用域内可定义任意变量 (Variable)， 在任意值内都可�
 * 当且仅当希望覆盖任何 [BaseCrysknife.ini](BaseCrysknife.ini) 中定义的规则时再使用
 * 必须在当前规则的首位定义
 
-`Always`
-* 总是满足
+`Always` / `Never`
+* 总是满足 / 总是不满足
 
 ## Config 用法示例
 

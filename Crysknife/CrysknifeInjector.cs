@@ -19,6 +19,7 @@ public enum JobOptions
     Link = 0x1,
     DryRun = 0x2,
     Force = 0x4,
+    TreatPatchAsFile = 0x8,
 }
 
 public class Injector
@@ -185,13 +186,13 @@ public class Injector
 
     private void ProcessPatch(JobType Job, string PatchPath, string TargetPath)
     {
-        string Target = File.ReadAllText(TargetPath);
-        string ClearedTarget = InjectionRE.Unpatch(Target);
+        string TargetContent = File.ReadAllText(TargetPath);
+        string ClearedTarget = InjectionRE.Unpatch(TargetContent);
         List<DiffMatchPatch.Patch>? Patches = null;
 
         if (Job.HasFlag(JobType.Generate))
         {
-            var Diffs = PatchTool.GenerateDiffs(ClearedTarget, Target);
+            var Diffs = PatchTool.GenerateDiffs(ClearedTarget, TargetContent);
             Patches = PatchTool.GeneratePatches(ClearedTarget, Diffs);
             string Patch = PatchTool.Generate(Patches);
 
@@ -204,26 +205,26 @@ public class Injector
             }
         }
 
-        if (Job.HasFlag(JobType.Clear) && ClearedTarget.Length != Target.Length)
+        if (Job.HasFlag(JobType.Clear) && ClearedTarget.Length != TargetContent.Length)
         {
             File.WriteAllText(TargetPath, ClearedTarget);
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("Patch removed from: " + TargetPath);
-            Target = ClearedTarget;
+            TargetContent = ClearedTarget;
         }
 
         if (Job.HasFlag(JobType.Apply))
         {
             string Patched = Patches != null ? PatchTool.Apply(ClearedTarget, Patches, out var IsSuccess)
                 : PatchTool.Apply(ClearedTarget, PatchPath, out IsSuccess);
-            if (Patched == Target) return;
+            if (Patched == TargetContent) return;
 
-            if (Target.Length != ClearedTarget.Length)
+            if (TargetContent.Length != ClearedTarget.Length)
             {
                 // Apply op is potentially dangerous: Confirm before overriding any new contents.
                 if (!OverrideConfirm.HasFlag(ConfirmResult.ForAll))
                 {
-                    OverrideConfirm = PromptToConfirm($"Override patched file {TargetPath}?");
+                    OverrideConfirm = PromptToConfirm($"Override already patched file {TargetPath}?");
                 }
                 if (OverrideConfirm.HasFlag(ConfirmResult.No)) return;
                 if (OverrideConfirm.HasFlag(ConfirmResult.Abort)) Environment.Exit(1);
@@ -254,8 +255,7 @@ public class Injector
 
         if (Job.HasFlag(JobType.Generate) && Exists && !IsSymLink && !UpToDate)
         {
-            File.Delete(SrcPath);
-            File.Copy(DstPath, SrcPath);
+            File.Copy(DstPath, SrcPath, true);
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("Copied back: {0} <- {1}", SrcPath, DstPath);
@@ -284,17 +284,14 @@ public class Injector
                 }
                 if (OverrideConfirm.HasFlag(ConfirmResult.No)) return;
                 if (OverrideConfirm.HasFlag(ConfirmResult.Abort)) Environment.Exit(1);
-
-                File.Delete(DstPath);
             }
-            else // Create directory if not exist
+            else
             {
-                string? TargetDir = Path.GetDirectoryName(DstPath);
-                if (TargetDir != null && !Directory.Exists(TargetDir)) Directory.CreateDirectory(TargetDir);
+                Utils.EnsureParentDirectoryExists(DstPath);
             }
 
             if (ShouldBeSymLink) File.CreateSymbolicLink(DstPath, SrcPath);
-            else File.Copy(SrcPath, DstPath);
+            else File.Copy(SrcPath, DstPath, true);
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("{0}: {1} -> {2}", ShouldBeSymLink ? "Linked" : "Copied", SrcPath, DstPath);
@@ -334,7 +331,7 @@ public class Injector
         Options = InOptions;
 
         InjectionRE = new InjectionRegex(ProjectName);
-        CurrentEngineVersion = EngineVersion.Create(RegexUtils.GetCurrentEngineVersion(DstDirectory));
+        CurrentEngineVersion = EngineVersion.Create(Utils.GetCurrentEngineVersion(DstDirectory));
         OverrideConfirm = Options.HasFlag(JobOptions.Force) ? ConfirmResult.Yes | ConfirmResult.ForAll : ConfirmResult.NotDecided;
         CreatePatchTool();
     }
@@ -369,12 +366,12 @@ public class Injector
     public string InclusiveFilter
     {
         get => PrivateInclusiveFilter;
-        set => PrivateInclusiveFilter = RegexUtils.UnifySeparators(value);
+        set => PrivateInclusiveFilter = Utils.UnifySeparators(value);
     }
     public string ExclusiveFilter
     {
         get => PrivateExclusiveFilter;
-        set => PrivateExclusiveFilter = RegexUtils.UnifySeparators(value);
+        set => PrivateExclusiveFilter = Utils.UnifySeparators(value);
     }
 
     public void CreatePatchFile(IEnumerable<string> InputPaths)
@@ -489,7 +486,17 @@ public class Injector
             }
             else if (Config.Remap(RelativePath, out var DstRelativePath))
             {
-                ProcessFile(Job, Path.Combine(SrcDirectoryOverride, RelativePath), Path.Combine(DstDirectory, DstRelativePath));
+                string OutputPath = Path.Combine(DstDirectory, DstRelativePath);
+
+                // When dry running, sync with original output path unconditionally
+                if (Options.HasFlag(JobOptions.DryRun) && RelativePath != DstRelativePath)
+                {
+                    string OriginalDstPath = Path.Combine(DstDirectory, RelativePath);
+                    if (File.Exists(OriginalDstPath)) File.Copy(OriginalDstPath, OutputPath, true);
+                    else File.Delete(OutputPath);
+                }
+
+                ProcessFile(Job, SrcPath, OutputPath);
             }
         }
 
@@ -500,24 +507,38 @@ public class Injector
 
             if (!Config.Remap(RelativePatch, out var DstRelativePath)) continue;
 
-            string SrcPath = Path.Combine(SrcDirectoryOverride, RelativePatch);
-            string DstPath = Path.Combine(DstDirectory, DstRelativePath[..^PatchSuffix.Length]);
+            string PatchPath = Path.Combine(SrcDirectoryOverride, RelativePatch);
+            string OutputPath = Path.Combine(DstDirectory, DstRelativePath[..^PatchSuffix.Length]);
 
-            // Remapped patches doesn't make much sense, dump the patch file instead
-            if (RelativePatch != DstRelativePath)
+            if (Options.HasFlag(JobOptions.TreatPatchAsFile))
             {
-                ProcessFile(Job, SrcPath, DstPath + PatchSuffix);
+                ProcessFile(Job, PatchPath, OutputPath + PatchSuffix);
                 continue;
             }
 
-            if (!File.Exists(DstPath))
+            // The original source file have to exist
+            string TargetPath = Path.Combine(DstDirectory, Pair.Key);
+            if (!File.Exists(TargetPath))
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Skipped patch: {0} does not exist!", DstPath);
+                Console.WriteLine("Skipped patch: {0} does not exist!", TargetPath);
                 continue;
             }
 
-            ProcessPatch(Job, SrcPath, DstPath);
+            // When remapping patches, sync from original source if not exist
+            if (TargetPath != OutputPath && !File.Exists(OutputPath))
+            {
+                Utils.EnsureParentDirectoryExists(OutputPath);
+                File.Copy(TargetPath, OutputPath);
+            }
+
+            // When dry running, sync with original output path unconditionally
+            if (Options.HasFlag(JobOptions.DryRun) && TargetPath != OutputPath)
+            {
+                File.Copy(TargetPath, OutputPath, true);
+            }
+
+            ProcessPatch(Job, PatchPath, OutputPath);
         }
 
         Console.ForegroundColor = ConsoleColor.DarkBlue;

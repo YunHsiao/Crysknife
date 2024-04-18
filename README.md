@@ -112,13 +112,14 @@ Where the special tweak is:
 ### Modifiers
 
 * `-p [PROJECT]` or `--project [PROJECT]` Project name to match in comments
-* `-s [DIRECTORY]` or `--src [DIRECTORY]` Customize the source directory where the patches are located
-* `-d [DIRECTORY]` or `--dst [DIRECTORY]` Customize the destination directory containing target sources to be patched
+* `-i [DIRECTORY]` or `--input [DIRECTORY]` Customize the source directory where the patches are located
+* `-o [DIRECTORY]` or `--output [DIRECTORY]` Customize the destination directory containing target sources to be patched
 * `-v [VAR=VALUE,]...` or `--variable-overrides [VAR=VALUE,]...` Override config variable definitions
 * `-l` or `--link` Make symbolic links instead of copy all the new files
-* `-t` or `--dry-run` Test run, safely executes the action with all engine output remapped to project's `Intermediate/DryRunOutput` directory
+* `-d` or `--dry-run` Test run, safely executes the action with all engine output remapped to project's `Intermediate/DryRunOutput` directory
 * `-f` or `--force` Force override existing files
-* `-b` or `--no-builtin` Skip builtin source patches
+* `-s` or `--skip-builtin` Skip builtin source patches
+* `-t` or `--treat-patch-as-file` Treat patches as regular files, copy/link them directly
 
 ### Parameters
 
@@ -237,8 +238,8 @@ Any value can be preceded by `!` to indicate a reverse predicate (satisfies if c
 * Use this iff you want to override base rules defined in [BaseCrysknife.ini](BaseCrysknife.ini)
 * Must be defined at the start of the current rule.
 
-`Always`
-* Always satisfies
+`Always` / `Never`
+* Always / never satisfies
 
 ## Config Examples
 

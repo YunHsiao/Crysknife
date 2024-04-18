@@ -10,11 +10,11 @@ internal class ConfigPredicate
         public readonly List<string> Conditions = new();
         public readonly string Keyword;
         public bool LogicalAnd = false;
-
         public PredicateInstance(string Keyword)
         {
             this.Keyword = Keyword;
         }
+
         public bool Eval(Func<string, bool> Pred)
         {
             var Wrapper = (string Cond) =>
@@ -44,9 +44,9 @@ internal class ConfigPredicate
 
     private readonly List<string> BaseDesc = new();
     private readonly List<string> FullDesc = new();
+    private PredicateInstance[] Predicates = Array.Empty<PredicateInstance>();
     private bool CompileTimePredicate;
     private bool LogicalAnd; // By default all predicates are disjunction
-    private readonly PredicateInstance FilenamePredicates = new("NameMatches");
 
     private static void Add(string Desc, ConfigLineAction Action, ICollection<string> Target)
     {
@@ -75,13 +75,17 @@ internal class ConfigPredicate
         Add(Desc, Action, Desc.StartsWith("BaseDomain", StringComparison.OrdinalIgnoreCase) ? BaseDesc : FullDesc);
     }
 
-    private void ParsePredicateInstances(IDictionary<string, string> Variables, PredicateInstance[] Instances)
+    private void ParsePredicateInstances(IDictionary<string, string> Variables)
     {
         foreach (var Rule in BaseDesc.Concat(FullDesc).SelectMany(Desc => Desc.Split(',', StringSplitOptions.TrimEntries)))
         {
             if (Rule.StartsWith("Always", StringComparison.OrdinalIgnoreCase))
             {
                 CompileTimePredicate = Eval(CompileTimePredicate, true);
+            }
+            else if (Rule.StartsWith("Never", StringComparison.OrdinalIgnoreCase))
+            {
+                CompileTimePredicate = Eval(CompileTimePredicate, false);
             }
             else if (Rule.StartsWith("Conjunctions:", StringComparison.OrdinalIgnoreCase))
             {
@@ -90,48 +94,47 @@ internal class ConfigPredicate
                 bool PredicatesTrue = ContainsString(Scopes, "Predicates");
                 if (AllTrue || ContainsString(Scopes, "Root")) CompileTimePredicate = LogicalAnd = true;
 
-                for (int Index = 0; Index < Instances.Length; ++Index)
+                for (int Index = 0; Index < Predicates.Length; ++Index)
                 {
-                    if (AllTrue || PredicatesTrue || ContainsString(Scopes, Instances[Index].Keyword))
+                    if (AllTrue || PredicatesTrue || ContainsString(Scopes, Predicates[Index].Keyword))
                     {
-                        Instances[Index].LogicalAnd = true;
+                        Predicates[Index].LogicalAnd = true;
                     }
                 }
             }
             else
             {
-                int Index = Array.FindIndex(Instances, Instance => Rule.StartsWith(Instance.Keyword + ":", StringComparison.OrdinalIgnoreCase));
-                if (Index >= 0) Instances[Index].Conditions.AddRange(Rule[(Instances[Index].Keyword.Length + 1)..]
+                int Index = Array.FindIndex(Predicates, Instance => Rule.StartsWith(Instance.Keyword + ":", StringComparison.OrdinalIgnoreCase));
+                if (Index >= 0) Predicates[Index].Conditions.AddRange(Rule[(Predicates[Index].Keyword.Length + 1)..]
                     .Split('|', StringSplitOptions.TrimEntries)
-                    .Select(Value => RegexUtils.MapVariables(Variables, Value)));
+                    .Select(Value => Utils.MapVariables(Variables, Value)));
             }
         }
     }
 
     public void Compile(string RootPath, IDictionary<string, string> Variables)
     {
-        var ExistencePredicates = new PredicateInstance("TargetExists");
-        var SwitchPredicates = new PredicateInstance("IsTruthy");
-
-        ParsePredicateInstances(Variables, new[]
+        Predicates = new []
         {
-            ExistencePredicates,
-            SwitchPredicates,
-            FilenamePredicates
-        });
+            new PredicateInstance("NameMatches"),
+            new PredicateInstance("TargetExists"),
+            new PredicateInstance("IsTruthy"),
+        };
 
-        CompileTimePredicate = Eval(CompileTimePredicate, ExistencePredicates, Cond =>
+        ParsePredicateInstances(Variables);
+
+        CompileTimePredicate = Eval(CompileTimePredicate, Predicates[1], Cond =>
         {
             string TargetPath = Path.Combine(RootPath, Cond);
             return File.Exists(TargetPath) || Directory.Exists(TargetPath);
         });
-        CompileTimePredicate = Eval(CompileTimePredicate, SwitchPredicates, RegexUtils.IsTruthyValue);
+        CompileTimePredicate = Eval(CompileTimePredicate, Predicates[2], Utils.IsTruthyValue);
     }
 
     public bool Eval(string Target)
     {
         bool Result = CompileTimePredicate;
-        Result = Eval(Result, FilenamePredicates, Cond => Path.GetFileName(Target).Contains(Cond, StringComparison.OrdinalIgnoreCase));
+        Result = Eval(Result, Predicates[0], Cond => Path.GetFileName(Target).Contains(Cond, StringComparison.OrdinalIgnoreCase));
         return Result;
     }
 }
@@ -155,7 +158,7 @@ internal class ScopedRules
     {
         // Global section affects all targets
         TargetName = SectionName;
-        TargetName = RegexUtils.UnifySeparators(TargetName);
+        TargetName = Utils.UnifySeparators(TargetName);
 
         foreach (ConfigLine Line in Section.Lines)
         {
@@ -169,7 +172,7 @@ internal class ScopedRules
             }
             else if (Line.Key.Equals("RemapTarget", StringComparison.OrdinalIgnoreCase))
             {
-                RemapTarget = RegexUtils.UnifySeparators(RegexUtils.MapVariables(Variables, Line.Value));
+                RemapTarget = Utils.UnifySeparators(Utils.MapVariables(Variables, Line.Value));
             }
             else if (Line.Key.Equals("FlattenIf", StringComparison.OrdinalIgnoreCase))
             {

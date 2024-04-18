@@ -39,6 +39,12 @@ public static class ProjectSetup
     private static void PatchPluginDescription(string TargetDirectory, string ProjectName)
     {
         string PluginDescFile = Path.Combine(TargetDirectory, ProjectName + ".uplugin");
+        if (!File.Exists(PluginDescFile))
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.Error.WriteLine("Error: Couldn't find plugin description at {0}", PluginDescFile);
+            Environment.Exit(1);
+        }
         var PluginDesc = JsonNode.Parse(File.ReadAllText(PluginDescFile));
         if (PluginDesc == null) return;
 
@@ -63,11 +69,11 @@ public static class ProjectSetup
         Console.WriteLine("Plugin description patched: " + PluginDescFile);
     }
 
-    public static void Generate(string RootDirectory, string ProjectName)
+    public static void Generate(string SourceDirectory, string ProjectName)
     {
-        string TargetDirectory = Path.Combine(RootDirectory, ProjectName);
-        Directory.CreateDirectory(Path.Combine(TargetDirectory, "SourcePatch"));
-        GenerateSetupScripts(TargetDirectory, ProjectName);
+        string TargetDirectory = Path.GetFullPath(Path.Combine(SourceDirectory, ".."));
         PatchPluginDescription(TargetDirectory, ProjectName);
+        GenerateSetupScripts(TargetDirectory, ProjectName);
+        Utils.EnsureParentDirectoryExists(Path.Combine(TargetDirectory, "SourcePatch"));
     }
 }

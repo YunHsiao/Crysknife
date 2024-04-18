@@ -58,7 +58,7 @@ public class InjectionRegex
     }
 }
 
-public static class RegexUtils
+public static class Utils
 {
     private static readonly Regex EngineVersionRE = new (@"#define\s+ENGINE_MAJOR_VERSION\s+(\d+)\s*#define\s+ENGINE_MINOR_VERSION\s+(\d+)", RegexOptions.Compiled);
     public static string GetCurrentEngineVersion(string SourceDirectory)
@@ -94,5 +94,11 @@ public static class RegexUtils
             Console.WriteLine($"Invalid variable reference: '{Name}' not found");
             return Matched.Value;
         });
+    }
+
+    public static void EnsureParentDirectoryExists(string TargetPath)
+    {
+        string? TargetDir = Path.GetDirectoryName(TargetPath);
+        if (TargetDir != null && !Directory.Exists(TargetDir)) Directory.CreateDirectory(TargetDir);
     }
 }
