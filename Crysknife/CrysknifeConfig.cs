@@ -3,50 +3,67 @@
 
 namespace Crysknife;
 
+internal struct ConfigPredicateInstance
+{
+    public readonly bool CompileTime = false;
+
+    public readonly string Keyword;
+    public readonly Func<string, bool> EvalFunc = _ => true;
+    public readonly Func<string, Func<string, bool>> EvalFuncFactory = _ => _ => true;
+
+    public readonly List<string> Conditions = new();
+    public bool LogicalAnd = false;
+
+    public ConfigPredicateInstance(string Keyword, Func<string, Func<string, bool>> EvalFuncFactory)
+    {
+        CompileTime = false;
+        this.Keyword = Keyword;
+        this.EvalFuncFactory = EvalFuncFactory;
+    }
+
+    public ConfigPredicateInstance(string Keyword, Func<string, bool> EvalFunc)
+    {
+        CompileTime = true;
+        this.Keyword = Keyword;
+        this.EvalFunc = EvalFunc;
+    }
+
+    public bool Eval(Func<string, bool> Pred)
+    {
+        var Wrapper = (string Cond) =>
+        {
+            bool Invert = Cond.StartsWith('!');
+            return Invert ? !Pred(Cond[1..]) : Pred(Cond);
+        };
+        return LogicalAnd ? Conditions.All(Wrapper) : Conditions.Any(Wrapper);
+    }
+}
+
 internal class ConfigPredicate
 {
-    private struct PredicateInstance
-    {
-        public readonly List<string> Conditions = new();
-        public readonly string Keyword;
-        public bool LogicalAnd = false;
-        public PredicateInstance(string Keyword)
-        {
-            this.Keyword = Keyword;
-        }
+    private ConfigPredicateInstance[] Predicates = Array.Empty<ConfigPredicateInstance>();
 
-        public bool Eval(Func<string, bool> Pred)
-        {
-            var Wrapper = (string Cond) =>
-            {
-                bool Invert = Cond.StartsWith('!');
-                return Invert ? !Pred(Cond[1..]) : Pred(Cond);
-            };
-            return LogicalAnd ? Conditions.All(Wrapper) : Conditions.Any(Wrapper);
-        }
-    }
+    private readonly List<string> BaseDesc = new();
+    private readonly List<string> FullDesc = new();
+
+    private bool CompileTimePredicate;
+    private bool LogicalAnd; // By default all predicates are disjunction
 
     private bool Eval(bool Result, bool NewResult)
     {
         return LogicalAnd ? Result && NewResult : Result || NewResult;
     }
 
-    private bool Eval(bool Result, PredicateInstance Instance, Func<string, bool> Predicate)
+    private bool Eval(bool Result, ConfigPredicateInstance Instance, Func<string, bool> Pred)
     {
         if (Result ^ LogicalAnd) return Result; // Early out if possible
-        return Eval(Result, Instance.Conditions.Count > 0 ? Instance.Eval(Predicate) : LogicalAnd);
+        return Eval(Result, Instance.Conditions.Count > 0 ? Instance.Eval(Pred) : LogicalAnd);
     }
 
     private static bool ContainsString(IEnumerable<string> Values, string Target)
     {
         return Values.Any(Value => Value.Equals(Target, StringComparison.OrdinalIgnoreCase));
     }
-
-    private readonly List<string> BaseDesc = new();
-    private readonly List<string> FullDesc = new();
-    private PredicateInstance[] Predicates = Array.Empty<PredicateInstance>();
-    private bool CompileTimePredicate;
-    private bool LogicalAnd; // By default all predicates are disjunction
 
     private static void Add(string Desc, ConfigLineAction Action, ICollection<string> Target)
     {
@@ -116,26 +133,32 @@ internal class ConfigPredicate
     {
         Predicates = new []
         {
-            new PredicateInstance("NameMatches"),
-            new PredicateInstance("TargetExists"),
-            new PredicateInstance("IsTruthy"),
+            new ConfigPredicateInstance("NameMatches", Target =>
+                Cond => Path.GetFileName(Target).Contains(Cond, StringComparison.OrdinalIgnoreCase)),
+
+            new ConfigPredicateInstance("TargetExists", Cond =>
+            {
+                string TargetPath = Path.Combine(RootPath, Cond);
+                return File.Exists(TargetPath) || Directory.Exists(TargetPath);
+            }),
+            new ConfigPredicateInstance("IsTruthy", Utils.IsTruthyValue),
         };
 
         ParsePredicateInstances(Variables);
 
-        CompileTimePredicate = Eval(CompileTimePredicate, Predicates[1], Cond =>
+        foreach (var Instance in Predicates)
         {
-            string TargetPath = Path.Combine(RootPath, Cond);
-            return File.Exists(TargetPath) || Directory.Exists(TargetPath);
-        });
-        CompileTimePredicate = Eval(CompileTimePredicate, Predicates[2], Utils.IsTruthyValue);
+            if (Instance.CompileTime)
+            {
+                CompileTimePredicate = Eval(CompileTimePredicate, Instance, Instance.EvalFunc);
+            }
+        }
     }
 
     public bool Eval(string Target)
     {
-        bool Result = CompileTimePredicate;
-        Result = Eval(Result, Predicates[0], Cond => Path.GetFileName(Target).Contains(Cond, StringComparison.OrdinalIgnoreCase));
-        return Result;
+        return Predicates.Where(Instance => !Instance.CompileTime).Aggregate(CompileTimePredicate, (Current, Instance) => 
+            Eval(Current, Instance, Instance.EvalFuncFactory(Target)));
     }
 }
 
@@ -162,17 +185,17 @@ internal class ScopedRules
 
         foreach (ConfigLine Line in Section.Lines)
         {
-            if (Line.Key.Equals("SkipIf", StringComparison.OrdinalIgnoreCase))
+            if (Line.Key.Equals("RemapTarget", StringComparison.OrdinalIgnoreCase))
             {
-                SkipRule.Add(Line.Value, Line.Action);
+                RemapTarget = Utils.UnifySeparators(Utils.MapVariables(Variables, Line.Value));
             }
             else if (Line.Key.Equals("RemapIf", StringComparison.OrdinalIgnoreCase))
             {
                 RemapRule.Add(Line.Value, Line.Action);
             }
-            else if (Line.Key.Equals("RemapTarget", StringComparison.OrdinalIgnoreCase))
+            else if (Line.Key.Equals("SkipIf", StringComparison.OrdinalIgnoreCase))
             {
-                RemapTarget = Utils.UnifySeparators(Utils.MapVariables(Variables, Line.Value));
+                SkipRule.Add(Line.Value, Line.Action);
             }
             else if (Line.Key.Equals("FlattenIf", StringComparison.OrdinalIgnoreCase))
             {
@@ -180,8 +203,8 @@ internal class ScopedRules
             }
         }
 
-        SkipRule.Compile(RootPath, Variables);
         RemapRule.Compile(RootPath, Variables);
+        SkipRule.Compile(RootPath, Variables);
         FlattenRule.Compile(RootPath, Variables);
     }
 
