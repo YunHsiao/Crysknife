@@ -60,9 +60,9 @@ internal class ConfigPredicate
         return Eval(Result, Instance.Conditions.Count > 0 ? Instance.Eval(Pred) : LogicalAnd);
     }
 
-    private static bool ContainsString(IEnumerable<string> Values, string Target)
+    private static bool FindAndRemoveString(List<string> Values, string Target)
     {
-        return Values.Any(Value => Value.Equals(Target, StringComparison.OrdinalIgnoreCase));
+        return Values.RemoveAll(Value => Value.Equals(Target, StringComparison.OrdinalIgnoreCase)) > 0;
     }
 
     private static void Add(string Desc, ConfigLineAction Action, ICollection<string> Target)
@@ -94,7 +94,9 @@ internal class ConfigPredicate
 
     private void ParsePredicateInstances(IDictionary<string, string> Variables)
     {
-        foreach (var Rule in BaseDesc.Concat(FullDesc).SelectMany(Desc => Desc.Split(',', StringSplitOptions.TrimEntries)))
+        const StringSplitOptions SplitOptions = StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries;
+
+        foreach (var Rule in BaseDesc.Concat(FullDesc).SelectMany(Desc => Desc.Split(',', SplitOptions)))
         {
             if (Rule.StartsWith("Always", StringComparison.OrdinalIgnoreCase))
             {
@@ -106,24 +108,28 @@ internal class ConfigPredicate
             }
             else if (Rule.StartsWith("Conjunctions:", StringComparison.OrdinalIgnoreCase))
             {
-                var Scopes = Rule[13..].Split('|', StringSplitOptions.TrimEntries);
-                bool AllTrue = ContainsString(Scopes, "All");
-                bool PredicatesTrue = ContainsString(Scopes, "Predicates");
-                if (AllTrue || ContainsString(Scopes, "Root")) CompileTimePredicate = LogicalAnd = true;
+                var Scopes = Rule[13..].Split('|', SplitOptions).ToList();
+                bool AllTrue = FindAndRemoveString(Scopes, "All");
+                bool PredicatesTrue = FindAndRemoveString(Scopes, "Predicates");
+                if (AllTrue || FindAndRemoveString(Scopes, "Root")) CompileTimePredicate = LogicalAnd = true;
 
                 for (int Index = 0; Index < Predicates.Length; ++Index)
                 {
-                    if (AllTrue || PredicatesTrue || ContainsString(Scopes, Predicates[Index].Keyword))
+                    if (AllTrue || PredicatesTrue || FindAndRemoveString(Scopes, Predicates[Index].Keyword))
                     {
                         Predicates[Index].LogicalAnd = true;
                     }
                 }
+
+                if (Scopes.Count <= 0) continue;
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("Invalid conjunction scope:{0}", Scopes.Aggregate("", (Acc, Cur) => $"{Acc} {Cur}"));
             }
             else
             {
                 int Index = Array.FindIndex(Predicates, Instance => Rule.StartsWith(Instance.Keyword + ":", StringComparison.OrdinalIgnoreCase));
                 if (Index >= 0) Predicates[Index].Conditions.AddRange(Rule[(Predicates[Index].Keyword.Length + 1)..]
-                    .Split('|', StringSplitOptions.TrimEntries)
+                    .Split('|', SplitOptions)
                     .Select(Value => Utils.MapVariables(Variables, Value)));
             }
         }
