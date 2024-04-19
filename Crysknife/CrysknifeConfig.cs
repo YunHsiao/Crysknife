@@ -94,9 +94,7 @@ internal class ConfigPredicate
 
     private void ParsePredicateInstances(IDictionary<string, string> Variables)
     {
-        const StringSplitOptions SplitOptions = StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries;
-
-        foreach (var Rule in BaseDesc.Concat(FullDesc).SelectMany(Desc => Desc.Split(',', SplitOptions)))
+        foreach (var Rule in BaseDesc.Concat(FullDesc).SelectMany(Desc => Desc.Split(',', ScopedRules.SplitOptions)))
         {
             if (Rule.StartsWith("Always", StringComparison.OrdinalIgnoreCase))
             {
@@ -108,7 +106,7 @@ internal class ConfigPredicate
             }
             else if (Rule.StartsWith("Conjunctions:", StringComparison.OrdinalIgnoreCase))
             {
-                var Scopes = Rule[13..].Split('|', SplitOptions).ToList();
+                var Scopes = Rule[13..].Split('|', ScopedRules.SplitOptions).ToList();
                 bool AllTrue = FindAndRemoveString(Scopes, "All");
                 bool PredicatesTrue = FindAndRemoveString(Scopes, "Predicates");
                 if (AllTrue || FindAndRemoveString(Scopes, "Root")) CompileTimePredicate = LogicalAnd = true;
@@ -129,7 +127,7 @@ internal class ConfigPredicate
             {
                 int Index = Array.FindIndex(Predicates, Instance => Rule.StartsWith(Instance.Keyword + ":", StringComparison.OrdinalIgnoreCase));
                 if (Index >= 0) Predicates[Index].Conditions.AddRange(Rule[(Predicates[Index].Keyword.Length + 1)..]
-                    .Split('|', SplitOptions)
+                    .Split('|', ScopedRules.SplitOptions)
                     .Select(Value => Utils.MapVariables(Variables, Value)));
             }
         }
@@ -170,14 +168,17 @@ internal class ConfigPredicate
 
 internal enum RemapResult
 {
-    None,
+    DoNotAffect,
+    AsIs,
     Skipped,
     Remapped,
 }
 
 internal class ScopedRules
 {
-    private readonly string TargetName;
+    public const StringSplitOptions SplitOptions = StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries;
+
+    private readonly string[] TargetNames;
     private readonly string RemapTarget = string.Empty;
     private readonly ConfigPredicate RemapRule = new();
     private readonly ConfigPredicate SkipRule = new();
@@ -186,8 +187,7 @@ internal class ScopedRules
     public ScopedRules(string SectionName, ConfigFileSection Section, string RootPath, IDictionary<string, string> Variables)
     {
         // Global section affects all targets
-        TargetName = SectionName;
-        TargetName = Utils.UnifySeparators(TargetName);
+        TargetNames = SectionName.Split('|', SplitOptions).Select(Utils.UnifySeparators).ToArray();
 
         foreach (ConfigLine Line in Section.Lines)
         {
@@ -214,30 +214,29 @@ internal class ScopedRules
         FlattenRule.Compile(RootPath, Variables);
     }
 
-    public bool Affects(string Target)
-    {
-        return Target.StartsWith(TargetName, StringComparison.OrdinalIgnoreCase);
-    }
-
     public RemapResult Remap(string Target, out string Result)
     {
         Result = Target;
+
+        string? ControllingDomain = Array.Find(TargetNames, TargetName => Target.StartsWith(TargetName, StringComparison.OrdinalIgnoreCase));
+        if (ControllingDomain == null) return RemapResult.DoNotAffect;
+
         if (SkipRule.Eval(Target)) return RemapResult.Skipped;
         bool ShouldFlatten = FlattenRule.Eval(Target);
 
         if (RemapRule.Eval(Target))
         {
             Result = ShouldFlatten ? Path.Combine(RemapTarget, Path.GetFileName(Target)) : 
-                TargetName == string.Empty ? Path.Combine(RemapTarget, Target) : Target.Replace(TargetName, RemapTarget);
+                ControllingDomain == string.Empty ? Path.Combine(RemapTarget, Target) : Target.Replace(ControllingDomain, RemapTarget);
             return RemapResult.Remapped;
         }
 
         if (ShouldFlatten)
         {
-            Result = Path.Combine(TargetName, Path.GetFileName(Target));
+            Result = Path.Combine(ControllingDomain, Path.GetFileName(Target));
             return RemapResult.Remapped;
         }
-        return RemapResult.None;
+        return RemapResult.AsIs;
     }
 }
 
@@ -287,23 +286,32 @@ public class Config
 
     public bool Remap(string Target, out string Result)
     {
+        bool ShouldSkip = false;
         Result = Target;
 
-        foreach (var Scope in Scopes.Where(Rules => Rules.Affects(Target)))
+        foreach (var Scope in Scopes)
         {
             switch (Scope.Remap(Target, out var Temp))
             {
-                case RemapResult.Skipped:
-                    return false;
-                case RemapResult.Remapped:
-                    Result = Temp;
+                case RemapResult.DoNotAffect:
                     break;
-                case RemapResult.None:
+                case RemapResult.AsIs:
+                    ShouldSkip = false;
+                    Result = Target;
+                    break;
+                case RemapResult.Skipped:
+                    ShouldSkip = true;
+                    Result = Target;
+                    break;
+                case RemapResult.Remapped:
+                    ShouldSkip = false;
+                    Result = Temp;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
         }
-        return true;
+
+        return ShouldSkip;
     }
 }

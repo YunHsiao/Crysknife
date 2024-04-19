@@ -17,9 +17,10 @@ public enum JobOptions
 {
     None = 0x0,
     Link = 0x1,
-    DryRun = 0x2,
-    Force = 0x4,
-    TreatPatchAsFile = 0x8,
+    Force = 0x2,
+    DryRun = 0x4,
+    Verbose = 0x8,
+    TreatPatchAsFile = 0x10,
 }
 
 public class Injector

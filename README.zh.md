@@ -9,7 +9,7 @@ SPDX-License-Identifier: MIT
 
 实际上最后的实现往往是完全分散在引擎的各个模块，只能适用于项目内部自己维护的固定版本的引擎仓库，而难以移植到任何其他版本，或其他项目的引擎中。
 
-本项目可以帮助彻底自动化整个“代码注入”的流程，并提供强大的定制能力。不管是内部引擎版本升级，还是将复杂技术产品迁移到任何新的项目代码库，都可以无痛一键部署。
+本项目可以帮助彻底自动化整个“代码注入”的流程，并提供强大的定制能力，使得技术产品可以以扩展的形式真正独立发布和部署，即使功能上涉及直接定制 UE 引擎的已有接口和结构。不管是内部引擎版本升级，还是将复杂技术产品迁移到任何新的项目代码库，都可以无痛一键部署。
 
 背后的工作原理如下：
 
@@ -36,14 +36,14 @@ Engine/Plugins/Crysknife/
 ```
 程序会尝试从指定插件的以下目录搜索 Patch 并应用到 `Engine/Source`:
 ```
-Engine/Plugins/${ProjectName}/SourcePatch/
+Engine/Plugins/${PluginName}/SourcePatch/
 ```
 从 `SourcePatch` 文件夹起的所有相对目录结构默认都会完整保留。
 
 Injector 本身其实很简单，并不会神奇地自动改变任何代码结构，更多的是开发者自己对架构设计的权衡，以下是一些推荐的通用原则：
 * 实现功能时尽量优先依赖引擎内置的插件和回调系统，即使不依赖任何注入也可以做到很多事
 * 尽量把需要注入的代码都拆分到独立的新文件，在引擎源码中的注入点越少越好
-* 根据经验 90% 的注入代码在新文件，其他 10% 在引擎源码可以认为是一个不错的比例
+* 根据经验，90% 的代码可以直接正常写在扩展内，其余注入代码里的 90% 可以组织到新增的引擎文件中
 
 # Patch 语法
 
@@ -52,22 +52,22 @@ Injector 本身其实很简单，并不会神奇地自动改变任何代码结�
 ### 多行形式
 
 ```cpp
-// ${ProjectName}${Comments}: Begin
+// ${PluginName}${Comments}: Begin
 ** YOUR CODE BLOCK HERE **
-// ${ProjectName}: End
+// ${PluginName}: End
 ```
 
 ### 单行形式
 
 ```cpp
-** YOUR ONE-LINER HERE ** // ${ProjectName}${Comments}
+** YOUR ONE-LINER HERE ** // ${PluginName}${Comments}
 ```
 
 ### 下行形式
 注意此形式下注释桩独占一行，行内不可以有任何有效代码：
 
 ```cpp
-// ${ProjectName}${Comments}
+// ${PluginName}${Comments}
 ** YOUR ONE-LINER HERE **
 ```
 
@@ -81,14 +81,21 @@ Injector 本身其实很简单，并不会神奇地自动改变任何代码结�
 这个小变化是：
 
 ```cpp
-// ${ProjectName}-${Comments}
+// ${PluginName}-${Comments}
 ```
 
-注释中项目名字后面的 **减号** 至关重要，它会告诉 Injector 接下来这个代码块是直接来自原版引擎源码的，在应用 Patch 时应该直接通过注释的形式删除。
+注释中扩展名字后面的 **减号** 至关重要，它会告诉 Injector 接下来这个代码块是直接来自原版引擎源码的，在应用 Patch 时应该直接通过注释的形式删除。
 
 > 在多行形式的注释桩中，结尾注释可以省略减号。
 
 ## 命令行参数
+
+* `-P [PLUGIN]` 输入扩展的文件夹名，也是注释桩中要匹配的名字，必须指定
+* `-I [DIRECTORY]` 自定义 Patch 来源目录
+* `-O [DIRECTORY]` 自定义引擎源码目录
+* `-D [VAR=VALUE,]...` 定义 Config 中的变量值
+* `-B` 跳过所有内置 Patch
+* `-S` 生成一系列 Setup 脚本到插件目录，作为一键部署的入口
 
 ### 行为类
 
@@ -97,35 +104,30 @@ Injector 本身其实很简单，并不会神奇地自动改变任何代码结�
 * `-G` 生成 / 更新 Patch
 * `-C` 从引擎源码目录清除任何已应用的 Patch
 * `-A` 拷贝所有新文件，应用所有 Patch 到引擎源码目录（默认行为）
-* `-S` 生成一系列 Setup 脚本到插件目录，作为一键部署的入口
 
 > 所有行为可以相互组合：  
 > 如指定 `-G -A` 执行生成 + 应用, 指定 `-G -C` 执行生成 + 清除等。 
 
 ### 定制类
 
-* `-p [PROJECT]` or `--project [PROJECT]` 插件目录名，也是注释桩中要匹配的名字
-* `-i [DIRECTORY]` or `--input [DIRECTORY]` 自定义 Patch 来源目录
-* `-o [DIRECTORY]` or `--output [DIRECTORY]` 自定义引擎源码目录
-* `-v [VAR=VALUE,]...` or `--variable-overrides [VAR=VALUE,]...` 重载 Config 中的变量值
-* `-l` or `--link` 链接而非拷贝新文件
-* `-d` or `--dry-run` 测试要执行的行为，所有输出会被映射回 SourcePatch 目录，作为调试手段
-* `-f` or `--force` 强制覆盖任何已存在的文件
-* `-s` or `--skip-builtin` 跳过所有内置 Patch
-* `-t` or `--treat-patch-as-file` 将 Patch 视为普通文件，直接执行拷贝/链接
+* `-i [FILTER]` 或 `--inclusive-filter [FILTER]` 所有行为只对指定路径生效
+* `-e [FILTER]` 或 `--exclusive-filter [FILTER]` 所有行为只对指定路径不生效
+* `-l` 或 `--link` 链接而非拷贝新文件
+* `-f` 或 `--force` 强制覆盖任何已存在的文件
+* `-d` 或 `--dry-run` 测试执行，所有输出会被安全映射到扩展目录的 `Intermediates/Crysknife/Playground` 下
+* `-v` 或 `--verbose` 详细 Log 模式
+* `-t` 或 `--treat-patch-as-file` 将 Patch 视为普通文件，直接执行拷贝/链接
 
 ### 参数类
 
-* `--if [FILTER]` or `--inclusive-filter [FILTER]` 只对指定路径生效
-* `--ef [FILTER]` or `--exclusive-filter [FILTER]` 只对指定路径不生效
-* `--pc [LENGTH]` or `--patch-context [LENGTH]` 生成 Patch 时的上下文长度，默认 50
-* `--ct [TOLERANCE]` or `--content-tolerance [TOLERANCE]` 应用 Patch 时的内容匹配阈值，范围 [0, 1]， 默认 0.5
-* `--lt [TOLERANCE]` or `--line-tolerance [TOLERANCE]` 应用 Patch 时的行号匹配阈值，默认无限大（不同版本引擎的行号可能差异巨大）
+* `--patch-context [LENGTH]` 生成 Patch 时的上下文长度，默认 50
+* `--content-tolerance [TOLERANCE]` 应用 Patch 时的内容匹配阈值，范围 [0, 1]， 默认 0.5
+* `--line-tolerance [TOLERANCE]` 应用 Patch 时的行号匹配阈值，默认无限大（不同版本引擎的行号可能差异巨大）
 
 ## 命令行用法示例
 
 首先选择和系统匹配的脚本执行生成部署脚本命令：
-* `Crysknife.sh -S -p [PROJECT]`
+* `Crysknife.sh -P [PLUGIN] -S`
 
 这会在指定的插件目录下生成几个 `Setup` 脚本，作为所有操作的入口。
 
@@ -133,7 +135,7 @@ Injector 本身其实很简单，并不会神奇地自动改变任何代码结�
 
 比如我们要新增一个 `MyEnginePlugin.cpp` 到 `Engine/Source/Runtime/Engine/Private`：
 
-* 在 `${ProjectRoot}/SourcePatch/Runtime/Engine/Private` 目录下创建 `MyEnginePlugin.cpp`
+* 在 `${PluginRoot}/SourcePatch/Runtime/Engine/Private` 目录下创建 `MyEnginePlugin.cpp`
 * `Setup.sh` (默认执行“应用”行为)
 * 新文件应该已在引擎源码的相同目录结构下创建
 
@@ -157,8 +159,8 @@ Injector 本身其实很简单，并不会神奇地自动改变任何代码结�
 
 如果我们希望只临时移除 `Engine/Source/Runtime/Engine` 文件夹内的 Patch:
 
-* `Setup.sh -C --if Runtime/Engine` 清除 Patch
-* `Setup.sh --if Runtime/Engine` 重新应用 Patch
+* `Setup.sh -C -i Runtime/Engine` 清除 Patch
+* `Setup.sh -i Runtime/Engine` 重新应用 Patch
 
 ### 移植修改到完全不同的引擎版本
 
@@ -172,24 +174,38 @@ Injector 本身其实很简单，并不会神奇地自动改变任何代码结�
 `SourcePatch` 根目录下可以新建一个 `Crysknife.ini` 配置文件，来指定如条件重映射等更复杂的 Patch 行为。配置框架如下：
 
 ```ini
+; Declare any variables you need
 [Variables]
-Var1=Value3
+Var1=Value4
 Var2=True
 
+; Applies to all files
 [Global]
+; Multiple conditions are allowed
 Rule1=Predicate1:Value1|Value2
-+Rule1=Predicate3:${Var1},Predicate4:!Value4
+; Or add them in separate lines
++Rule1=Predicate1:Value3
+; Variable references & reverse dependencies
++Rule1=Predicate3:${Var1},Predicate4:!Value5
 
-[Path/To/Subdirectory/Or/Filename]
-ScopedRule=Predicate2
+[Path/To/Dir1]
+; Only apply to specified subdirectory
+ScopedRule1=Predicate2
+
+[Path/To/Dir1/Folder1]
+; This will overrule the parent section
+ScopedRule1=Predicate5
+
+; Multiple directories are allowed
+[Path1|Path2]
 ```
 
-Global 作用域 (Section) 下的规则 (Rule) 会应用到所有子目录，其他作用域的规则只会应用到指定子目录下。
-如无特殊声明，每个作用域可以有多条规则，每条规则可以有多个条件 (Predicate)，每个条件可以有多个值 (Value)。
-
-Variables 作用域内可定义任意变量 (Variable)， 在任意值内都可通过 `${VariableName}` 引用。
-
-任意值都可以添加 `!` 前缀，表示反向条件（条件不成立时满足）。
+* Global 作用域 (Section) 下的规则 (Rule) 会应用到所有子目录，其他作用域的规则只会应用到指定子目录下
+* 可同时声明以 `|` 分割的多个子目录，作用域内规则会对所有子目录生效
+* 如果存在多个作用域都对同一个文件生效，按声明顺序，后者效力会覆盖前者
+* 如无特殊声明，每个作用域可以有多条规则，每条规则可以有多个条件 (Predicate)，每个条件可以有多个值 (Value)
+* Variables 作用域内可定义任意变量 (Variable)， 在任意值内都可通过 `${VariableName}` 引用
+* 任意值都可以添加 `!` 前缀，表示反向条件（条件不成立时满足）
 
 ### 规则
 

@@ -5,16 +5,11 @@ SPDX-License-Identifier: MIT
 
 # Crysknife
 
-When implementing plugins with complex engine-level customizations for Unreal® Engine,
-due to many design decisions of the engine architecture,
-it is very hard, if not impossible to keep away from modifying stock engine files to make everything fully works.
+When implementing plugins with complex engine-level customizations for Unreal® Engine, due to many design decisions of the engine architecture, it is very hard, if not impossible to keep away from modifying stock engine files to make everything fully works.
 
-In fact oftentimes the changes are completely scattered across engine modules,
-which could be fine for one in-house engine base, but extremely hard to port to any other.
+In fact oftentimes the changes are completely scattered across engine modules, which could be fine for one in-house engine base, but extremely hard to port to any other.
 
-This project aims to completely automate the injection process, with powerful customization capabilities. This not only
-enables quick upgrade to newer engine versions, but also essentially making your custom engine features deployable
-to any existing engine code base.
+This project aims to completely automate the injection process, with powerful customization capabilities. This not only enables quick upgrade to newer engine versions, but also essentially making your custom engine features deployable to any existing engine code base as a proper engine plugin.
 
 Here's how it works under the hood:
 
@@ -36,20 +31,20 @@ More complex injection behaviors can be specified with the [config system](#Conf
 
 # Environment Setup
 
-You should clone this project as an engine plugin:
+You should clone this repo as an engine plugin:
 ```
 Engine/Plugins/Crysknife/
 ```
 And code patches will be read from the following directory to `Engine/Source`:
 ```
-Engine/Plugins/${ProjectName}/SourcePatch/
+Engine/Plugins/${PluginName}/SourcePatch/
 ```
 All relative structures from the `SourcePatch` directory will be preserved.
 
 The injector itself doesn't magically change the way your code is organized. Here are the recommended general principles:
 * Only inject sources when there is no way around, you can still go very far with only the builtin plugin system
 * Try to move as much code as possible to separate new files instead of embedding them inline into existing engine base
-* Empirically 90% of the code in new source files is considered a good ratio
+* Empirically 90% of the code can be written inside plugin itself, 90% of the rest injections can be organized into new engine source files
 
 # Patch Syntax
 
@@ -58,22 +53,22 @@ For changes in existing engine files we detect & inject in the following forms (
 ### Multi-line
 
 ```cpp
-// ${ProjectName}${Comments}: Begin
+// ${PluginName}${Comments}: Begin
 ** YOUR CODE BLOCK HERE **
-// ${ProjectName}: End
+// ${PluginName}: End
 ```
 
 ### Single-line
 
 ```cpp
-** YOUR ONE-LINER HERE ** // ${ProjectName}${Comments}
+** YOUR ONE-LINER HERE ** // ${PluginName}${Comments}
 ```
 
 ### Next-line
 Note that there can be no code at the same line with the comment guard:
 
 ```cpp
-// ${ProjectName}${Comments}
+// ${PluginName}${Comments}
 ** YOUR ONE-LINER HERE **
 ```
 
@@ -88,14 +83,21 @@ Additionally, for modifying stock engine code, follow these steps:
 Where the special tweak is:
 
 ```cpp
-// ${ProjectName}-${Comments}
+// ${PluginName}-${Comments}
 ```
 
-**The minus sign** after the project name is enough to tell the injector that the surrounding code segment is directly from stock engine source, essentially making it a deletion block.
+**The minus sign** after the plugin name is enough to tell the injector that the surrounding code segment is directly from stock engine source, essentially making it a deletion block.
 
 > The minus sign can be omitted in the ending comment for multi-line guards.
 
 ## Command Line Interface
+
+* `-P [PLUGIN]` The input plugin folder name (also as the comment guard tag), always required.
+* `-I [DIRECTORY]` Customize the source directory where the patches are located
+* `-O [DIRECTORY]` Customize the destination directory containing target sources to be patched
+* `-D [VAR=VALUE,]...` Define config variables
+* `-B` Skip actions on builtin source patches
+* `-S` Generate a set of setup scripts for the specified plugin
 
 ### Actions
 
@@ -104,43 +106,38 @@ Where the special tweak is:
 * `-G` Generate/update patches
 * `-C` Clear patches from target files
 * `-A` Apply existing patches and copy all new sources (default action)
-* `-S` Generate a set of setup scripts for the specified project
 
 > Actions are combinatorial:  
 > e.g. `-G -A` for generate & apply (round trip), `-G -C` for generate & clear (retraction), etc.
 
 ### Modifiers
 
-* `-p [PROJECT]` or `--project [PROJECT]` Project name to match in comments
-* `-i [DIRECTORY]` or `--input [DIRECTORY]` Customize the source directory where the patches are located
-* `-o [DIRECTORY]` or `--output [DIRECTORY]` Customize the destination directory containing target sources to be patched
-* `-v [VAR=VALUE,]...` or `--variable-overrides [VAR=VALUE,]...` Override config variable definitions
+* `-i [FILTER]` or `--inclusive-filter [FILTER]` Inclusive target path filter for all actions
+* `-e [FILTER]` or `-exclusive-filter [FILTER]` Exclusive target path filter for all actions
 * `-l` or `--link` Make symbolic links instead of copy all the new files
-* `-d` or `--dry-run` Test run, safely executes the action with all engine output remapped to project's `Intermediate/DryRunOutput` directory
 * `-f` or `--force` Force override existing files
-* `-s` or `--skip-builtin` Skip builtin source patches
+* `-d` or `--dry-run` Test run, safely executes the action with all engine output remapped to plugin's `Intermediate/Crysknife/Playground` directory
+* `-v` or `--verbose` Log more verbosely about everything
 * `-t` or `--treat-patch-as-file` Treat patches as regular files, copy/link them directly
 
 ### Parameters
 
-* `--if [FILTER]` or `--inclusive-filter [FILTER]` Inclusive target path filter
-* `--ef [FILTER]` or `--exclusive-filter [FILTER]` Exclusive target path filter
-* `--pc [LENGTH]` or `--patch-context [LENGTH]` Patch context length when generating patches, default to 50
-* `--ct [TOLERANCE]` or `--content-tolerance [TOLERANCE]` Content tolerance in [0, 1] when matching sources, default to 0.5
-* `--lt [TOLERANCE]` or `--line-tolerance [TOLERANCE]` Line tolerance when matching sources, default to infinity (line numbers may vary significantly between engine versions)
+* `--patch-context [LENGTH]` Patch context length when generating patches, default to 50
+* `--content-tolerance [TOLERANCE]` Content tolerance in [0, 1] when matching sources, default to 0.5
+* `--line-tolerance [TOLERANCE]` Line tolerance when matching sources, default to infinity (line numbers may vary significantly between engine versions)
 
 ## CLI Examples
 
-Use the script file matching your operating system:
-* `Crysknife.sh -S -p [PROJECT]`
+For first-time setup you should use the script file matching your operating system and run:
+* `Crysknife.sh -P [PLUGIN] -S`
 
-This will generate a few `Setup` scripts to your plugin project directory as the main entry for any operations.
+This will generate a few `Setup` scripts to your plugin directory as the main entry for any operations.
 
 ### New Engine Source Files
 
 Say we are adding a new source file under `Engine/Source/Runtime/Engine/Private` named `MyEnginePlugin.cpp`:
 
-* Create `MyEnginePlugin.cpp` under `${ProjectRoot}/SourcePatch/Runtime/Engine/Private`
+* Create `MyEnginePlugin.cpp` under `${PluginRoot}/SourcePatch/Runtime/Engine/Private`
 * `Setup.sh` (by default runs the apply action)
 * The source file should be present under the same hierarchy inside engine source directory
 
@@ -164,14 +161,13 @@ Say we want to permanently remove all our previous modification from some existi
 
 If we only want to temporarily remove the patches from all files under `Engine/Source/Runtime/Engine`:
 
-* `Setup.sh -C --if Runtime/Engine` (To un-patch source files)
-* `Setup.sh --if Runtime/Engine` (To re-apply patches)
+* `Setup.sh -C -i Runtime/Engine` (To un-patch source files)
+* `Setup.sh -i Runtime/Engine` (To re-apply patches)
 
 ### Porting To A Completely Different Engine Base
 
 * `Setup.sh`
-* Resolve potential conflicts by either adjust the `--content-tolerance` parameter or inspecting
-the reference diff HTML & manually patch in (remember the comment guards)
+* Resolve potential conflicts by either adjust the `--content-tolerance` parameter or inspecting the reference diff HTML & manually patch in (remember the comment guards)
 * `Setup.sh -G`
 * A new set of patches matching the current engine version will be generated and ready to be committed
 
@@ -181,24 +177,37 @@ Every `SourcePatch` directory can have one config file `Crysknife.ini` at the ro
 to specify more complex patching behaviors such as conditional remapping, etc. in the following framework:
 
 ```ini
+; Declare any variables you need
 [Variables]
-Var1=Value3
+Var1=Value4
 Var2=True
 
+; Applies to all files
 [Global]
+; Multiple conditions are allowed
 Rule1=Predicate1:Value1|Value2
-+Rule1=Predicate3:${Var1},Predicate4:!Value4
+; Or add them in separate lines
++Rule1=Predicate1:Value3
+; Variable references & reverse dependencies
++Rule1=Predicate3:${Var1},Predicate4:!Value5
 
-[Path/To/Subdirectory/Or/Filename]
-ScopedRule=Predicate2
+[Path/To/Dir1]
+; Only apply to specified subdirectory
+ScopedRule1=Predicate2
+
+[Path/To/Dir1/Folder1]
+; This will overrule the parent section
+ScopedRule1=Predicate5
+
+; Multiple directories are allowed
+[Path1|Path2]
 ```
 
-The global section applies the rule to all subdirectories inside `SourcePatch` folder, while custom sections with
-relative file/directory paths can be used to limit the effective scope of the rules.
-
-The variables section declares custom variables that can be referenced with `${VariableName}` in any value.
-
-Any value can be preceded by `!` to indicate a reverse predicate (satisfies if condition is not met).
+* The global section applies the rule to all subdirectories inside `SourcePatch` folder, while custom sections with relative file/directory paths can be used to limit the effective scope of the rules.
+* Multiple subdirectories can be specified within one section title, separated with `|`. Scoped rules will apply to all subdirectories. 
+* If multiple sections affect the same file, the latter (in declaration order) will always overrule the former.
+* The variables section declares custom variables that can be referenced with `${VariableName}` in any value.
+* Any value can be preceded by `!` to indicate a reverse predicate (satisfies if condition is not met).
 
 ### Supported Rules
 
