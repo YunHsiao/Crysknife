@@ -101,4 +101,29 @@ public static class Utils
         string? TargetDir = Path.GetDirectoryName(TargetPath);
         if (TargetDir != null && !Directory.Exists(TargetDir)) Directory.CreateDirectory(TargetDir);
     }
+
+    public const StringSplitOptions SplitOptions = StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries;
+
+    public static bool FindAndRemoveString(List<string> Values, string Target)
+    {
+        return Values.RemoveAll(Value => Value.Equals(Target, StringComparison.OrdinalIgnoreCase)) > 0;
+    }
+    
+    public static bool GetContentIfStartsWith(string Str, string Prefix, out string Content)
+    {
+        if (Str.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            Content = Str[Prefix.Length..];
+            return true;
+        }
+
+        Content = Str;
+        return false;
+    }
+    
+    public static string GetContentIfStartsWith(string Str, string Prefix)
+    {
+        GetContentIfStartsWith(Str, Prefix, out var Content);
+        return Content;
+    }
 }

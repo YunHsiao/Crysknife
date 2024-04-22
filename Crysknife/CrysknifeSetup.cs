@@ -10,13 +10,13 @@ public static class ProjectSetup
 {
     private static readonly string WindowsTemplate = @"
         @echo off
-        ""%~dp0..\Crysknife\Crysknife.bat"" -p {0} %*
+        ""%~dp0..\Crysknife\Crysknife.bat"" -P {0} %*
         pause
     ".Replace("    ", string.Empty);
 
     private static readonly string LinuxTemplate = @"
         DIR=`cd ""$(dirname ""$0"")""; pwd`
-        ""$DIR/../Crysknife/Crysknife.sh"" -p {0} ""$@""
+        ""$DIR/../Crysknife/Crysknife.sh"" -P {0} ""$@""
     ".Replace("    ", string.Empty).Replace("\r\n", "\n");
 
     private static void GenerateSetupScripts(string TargetDirectory, string ProjectName)

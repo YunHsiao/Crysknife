@@ -52,13 +52,6 @@ public class ConfigFileSection
 
 public class ConfigFile
 {
-	private readonly Dictionary<string, ConfigFileSection> Sections = new (StringComparer.InvariantCultureIgnoreCase);
-
-	// Remap of config names/sections
-	private static readonly Dictionary<string, string> SectionNameRemap = new();
-	private static readonly Dictionary<string, Dictionary<string, string>> SectionKeyRemap = new();
-	private static readonly HashSet<string> WarnedKeys = new(StringComparer.InvariantCultureIgnoreCase);
-
 	private static string RemapSectionOrKey(IDictionary<string, string>? Remap, string Key, string Context)
 	{
 		if (Remap == null) return Key;
@@ -70,59 +63,9 @@ public class ConfigFile
 		return Remapped;
 	}
 
-	public static void Init(string RootDirectory)
-	{
-		Dictionary<string, ConfigFileSection> Sections = new(StringComparer.InvariantCultureIgnoreCase);
-		try
-		{
-			// read the special ConfigRedirects.ini file into sections
-			string ConfigRemapFile = Path.Combine(RootDirectory, "ConfigRedirects.ini");
-			if (File.Exists(ConfigRemapFile))
-			{
-				ReadIntoSections(ConfigRemapFile, Sections, ConfigLineAction.Set);
-			}
-		}
-		catch (Exception)
-		{
-			// Make ConfigFile when EngineDirectory is unknown a warning since ConfigRemapFile cannot be read in this case; e.g. Assemblies outside Engine that depend on ConfigFile
-			Console.ForegroundColor = ConsoleColor.Yellow;
-			Console.WriteLine("Failed to read ConfigRemapFile into Sections");
-		}
-
-		// walk over the sections, where all but the special SectionNameRemap section is a section of keys to remap in that same section
-		foreach (var Pair in Sections)
-		{
-			// remember a remap for section names
-			if (Pair.Key.Equals("SectionNameRemap", StringComparison.InvariantCultureIgnoreCase))
-			{
-				foreach (ConfigLine Line in Pair.Value.Lines)
-				{
-					SectionNameRemap.Add(Line.Key, Line.Value);
-				}
-			}
-			else
-			{
-				// any other section is rmembered by the section name here, and each key/value pair is a remap for the given section
-				Dictionary<string, string> KeyRemap = new(StringComparer.InvariantCultureIgnoreCase);
-				SectionKeyRemap.Add(Pair.Key, KeyRemap);
-				foreach (ConfigLine Line in Pair.Value.Lines)
-				{
-					KeyRemap.Add(Line.Key, Line.Value);
-				}
-			}
-		}
-	}
-
-	public ConfigFile() {}
-
-	public ConfigFile(string Location, ConfigLineAction DefaultAction = ConfigLineAction.Set)
-	{
-		ReadIntoSections(Location, Sections, DefaultAction);
-	}
-
 	private static void ReadIntoSections(string Location, IDictionary<string, ConfigFileSection> Sections, ConfigLineAction DefaultAction)
 	{
-		using StreamReader Reader = new StreamReader(Location);
+		using StreamReader Reader = new(Location);
 		ConfigFileSection? CurrentSection = null;
 		Dictionary<string, string>? CurrentRemap = null;
 
@@ -202,22 +145,6 @@ public class ConfigFile
 				// Otherwise just ignore it
 				break;
 			}
-		}
-	}
-
-	public void AppendFromText(string SectionName, string IniText, ConfigLineAction DefaultAction = ConfigLineAction.Set)
-	{
-		foreach (string Setting in IniText.Split(new [] { ',' }, StringSplitOptions.RemoveEmptyEntries))
-		{
-			SectionKeyRemap.TryGetValue(SectionName, out var CurrentRemap);
-
-			if (!Sections.TryGetValue(SectionName, out var CurrentSection))
-			{
-				CurrentSection = new ConfigFileSection(SectionName);
-				Sections.Add(SectionName, CurrentSection);
-			}
-
-			TryAddConfigLine(CurrentSection, CurrentRemap, "unknown source file", Setting, 0, Setting.Length, DefaultAction, Sections);
 		}
 	}
 
@@ -311,6 +238,92 @@ public class ConfigFile
 		}
 
 		Section.Lines.Add(new ConfigLine(Action, NewKey, Value));
+	}
+
+	private readonly Dictionary<string, ConfigFileSection> Sections = new (StringComparer.InvariantCultureIgnoreCase);
+
+	// Remap of config names/sections
+	private static readonly Dictionary<string, string> SectionNameRemap = new();
+	private static readonly Dictionary<string, Dictionary<string, string>> SectionKeyRemap = new();
+	private static readonly HashSet<string> WarnedKeys = new(StringComparer.InvariantCultureIgnoreCase);
+
+	public static void Init(string RootDirectory)
+	{
+		Dictionary<string, ConfigFileSection> Sections = new(StringComparer.InvariantCultureIgnoreCase);
+		try
+		{
+			// read the special ConfigRedirects.ini file into sections
+			string ConfigRemapFile = Path.Combine(RootDirectory, "ConfigRedirects.ini");
+			if (File.Exists(ConfigRemapFile))
+			{
+				ReadIntoSections(ConfigRemapFile, Sections, ConfigLineAction.Set);
+			}
+		}
+		catch (Exception)
+		{
+			// Make ConfigFile when EngineDirectory is unknown a warning since ConfigRemapFile cannot be read in this case; e.g. Assemblies outside Engine that depend on ConfigFile
+			Console.ForegroundColor = ConsoleColor.Yellow;
+			Console.WriteLine("Failed to read ConfigRemapFile into Sections");
+		}
+
+		// walk over the sections, where all but the special SectionNameRemap section is a section of keys to remap in that same section
+		foreach (var Pair in Sections)
+		{
+			// remember a remap for section names
+			if (Pair.Key.Equals("SectionNameRemap", StringComparison.InvariantCultureIgnoreCase))
+			{
+				foreach (ConfigLine Line in Pair.Value.Lines)
+				{
+					SectionNameRemap.Add(Line.Key, Line.Value);
+				}
+			}
+			else
+			{
+				// any other section is rmembered by the section name here, and each key/value pair is a remap for the given section
+				Dictionary<string, string> KeyRemap = new(StringComparer.InvariantCultureIgnoreCase);
+				SectionKeyRemap.Add(Pair.Key, KeyRemap);
+				foreach (ConfigLine Line in Pair.Value.Lines)
+				{
+					KeyRemap.Add(Line.Key, Line.Value);
+				}
+			}
+		}
+	}
+
+	public ConfigFile() {}
+
+	public ConfigFile(string Location, ConfigLineAction DefaultAction = ConfigLineAction.Set)
+	{
+		ReadIntoSections(Location, Sections, DefaultAction);
+	}
+
+	public ConfigFile(string Location, ConfigFile BaseConfig, ConfigLineAction DefaultAction = ConfigLineAction.Set)
+	{
+		// Merge base config sections first to preserve key order
+		foreach (string SectionName in BaseConfig.SectionNames)
+		{
+			if (BaseConfig.TryGetSection(SectionName, out var BaseSection))
+			{
+				FindOrAddSection(SectionName).Lines.InsertRange(0, BaseSection.Lines);
+			}
+		}
+		ReadIntoSections(Location, Sections, DefaultAction);
+	}
+
+	public void AppendFromText(string SectionName, string IniText, ConfigLineAction DefaultAction = ConfigLineAction.Set)
+	{
+		foreach (string Setting in IniText.Split(',', StringSplitOptions.RemoveEmptyEntries))
+		{
+			SectionKeyRemap.TryGetValue(SectionName, out var CurrentRemap);
+
+			if (!Sections.TryGetValue(SectionName, out var CurrentSection))
+			{
+				CurrentSection = new ConfigFileSection(SectionName);
+				Sections.Add(SectionName, CurrentSection);
+			}
+
+			TryAddConfigLine(CurrentSection, CurrentRemap, "unknown source file", Setting, 0, Setting.Length, DefaultAction, Sections);
+		}
 	}
 
 	public IEnumerable<string> SectionNames => Sections.Keys;

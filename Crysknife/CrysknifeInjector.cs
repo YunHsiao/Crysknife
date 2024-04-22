@@ -470,6 +470,15 @@ public class Injector
         var Patches = new Dictionary<string, PatchDescription>();
         var Config = new Config(Path.Combine(SrcDirectoryOverride, "Crysknife.ini"), DstDirectory, BaseConfig, VariableOverrides);
 
+        bool VerboseLogging = Options.HasFlag(JobOptions.Verbose);
+        if (VerboseLogging)
+        {
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.WriteLine($"Processing '{SrcDirectoryOverride}' Using Config:");
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine(Config);
+        }
+
         foreach (string SrcPath in Directory.GetFiles(SrcDirectoryOverride, "*", new EnumerationOptions { RecurseSubdirectories = true }))
         {
             string RelativePath = Path.GetRelativePath(SrcDirectoryOverride, SrcPath);
@@ -485,13 +494,14 @@ public class Injector
                 if (!Patches.ContainsKey(RelativePath)) Patches.Add(RelativePath, new PatchDescription());
                 Patches[RelativePath].Add(ParsedRelativePath);
             }
-            else if (Config.Remap(RelativePath, out var DstRelativePath))
+            else if (Config.Remap(RelativePath, out var DstRelativePath, VerboseLogging))
             {
                 string OutputPath = Path.Combine(DstDirectory, DstRelativePath);
 
                 // When dry running, sync with original output path unconditionally
                 if (Options.HasFlag(JobOptions.DryRun) && RelativePath != DstRelativePath)
                 {
+                    Utils.EnsureParentDirectoryExists(OutputPath);
                     string OriginalDstPath = Path.Combine(DstDirectory, RelativePath);
                     if (File.Exists(OriginalDstPath)) File.Copy(OriginalDstPath, OutputPath, true);
                     else File.Delete(OutputPath);
@@ -506,7 +516,7 @@ public class Injector
             string PatchSuffix = Pair.Value.Match(CurrentEngineVersion);
             string RelativePatch = Pair.Key + PatchSuffix;
 
-            if (!Config.Remap(RelativePatch, out var DstRelativePath)) continue;
+            if (!Config.Remap(RelativePatch, out var DstRelativePath, VerboseLogging)) continue;
 
             string PatchPath = Path.Combine(SrcDirectoryOverride, RelativePatch);
             string OutputPath = Path.Combine(DstDirectory, DstRelativePath[..^PatchSuffix.Length]);

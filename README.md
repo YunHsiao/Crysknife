@@ -195,9 +195,9 @@ Rule1=Predicate1:Value1|Value2
 ; Only apply to specified subdirectory
 ScopedRule1=Predicate2
 
+; This scope automatically extends from the above parent scope
 [Path/To/Dir1/Folder1]
-; This will overrule the parent section
-ScopedRule1=Predicate5
+ScopedRule2=Predicate5
 
 ; Multiple directories are allowed
 [Path1|Path2]
@@ -205,7 +205,7 @@ ScopedRule1=Predicate5
 
 * The global section applies the rule to all subdirectories inside `SourcePatch` folder, while custom sections with relative file/directory paths can be used to limit the effective scope of the rules.
 * Multiple subdirectories can be specified within one section title, separated with `|`. Scoped rules will apply to all subdirectories. 
-* If multiple sections affect the same file, the latter (in declaration order) will always overrule the former.
+* If multiple sections affect the same file, the inner (path) section will automatically extends from the outer section.
 * The variables section declares custom variables that can be referenced with `${VariableName}` in any value.
 * Any value can be preceded by `!` to indicate a reverse predicate (satisfies if condition is not met).
 
@@ -235,7 +235,7 @@ ScopedRule1=Predicate5
 `NameMatches:[NAME]...`
 * Satisfies if the input file name matches
 
-`Conjunctions:All|Predicates|Root|Exist|Filename...`
+`Conjunctions:All|Predicates|Root|TargetExists|IsTruthy|NameMatches...`
 * Changes the logical behavior of specified predicate to conjunction (logical AND)
 * `Root` means the logical operations between different predicates
 * `Predicates` means all logical operations inside every defined predicate

@@ -192,9 +192,9 @@ Rule1=Predicate1:Value1|Value2
 ; Only apply to specified subdirectory
 ScopedRule1=Predicate2
 
+; This scope automatically extends from the above parent scope
 [Path/To/Dir1/Folder1]
-; This will overrule the parent section
-ScopedRule1=Predicate5
+ScopedRule2=Predicate5
 
 ; Multiple directories are allowed
 [Path1|Path2]
@@ -202,7 +202,7 @@ ScopedRule1=Predicate5
 
 * Global 作用域 (Section) 下的规则 (Rule) 会应用到所有子目录，其他作用域的规则只会应用到指定子目录下
 * 可同时声明以 `|` 分割的多个子目录，作用域内规则会对所有子目录生效
-* 如果存在多个作用域都对同一个文件生效，按声明顺序，后者效力会覆盖前者
+* 如果存在多个作用域都对同一个文件生效，根据指定的路径层级，内层配置自动继承外层配置
 * 如无特殊声明，每个作用域可以有多条规则，每条规则可以有多个条件 (Predicate)，每个条件可以有多个值 (Value)
 * Variables 作用域内可定义任意变量 (Variable)， 在任意值内都可通过 `${VariableName}` 引用
 * 任意值都可以添加 `!` 前缀，表示反向条件（条件不成立时满足）
@@ -233,7 +233,7 @@ ScopedRule1=Predicate5
 `NameMatches:[NAME]...`
 * 当前输入文件名匹配时满足
 
-`Conjunctions:All|Predicates|Root|Exist|Filename...`
+`Conjunctions:All|Predicates|Root|TargetExists|IsTruthy|NameMatches...`
 * 将指定范围的组合逻辑设为“与”
 * `Root` 指所有不同条件间的组合逻辑
 * `Predicates` 指所有定义的条件内的组合逻辑
@@ -241,7 +241,7 @@ ScopedRule1=Predicate5
 * 默认所有条件内和条件之间都是逻辑或关系
 
 `^BaseDomain`
-* 表明当前规则在基础作用域生效，也只能被基础作用域的指令覆盖
+* 表明当前行的条件在基作用域生效，也只能被基作用域的指令覆盖
 * 当且仅当希望覆盖任何 [BaseCrysknife.ini](BaseCrysknife.ini) 中定义的规则时再使用
 * 必须在当前规则的首位定义
 

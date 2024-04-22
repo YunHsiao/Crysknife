@@ -1,27 +1,29 @@
 ﻿// SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
 // SPDX-License-Identifier: MIT
 
+using System.Diagnostics;
+
 namespace Crysknife;
 
-internal struct ConfigPredicateInstance
+internal class ConfigPredicate
 {
-    public readonly bool CompileTime = false;
+    public readonly bool CompileTime;
 
     public readonly string Keyword;
     public readonly Func<string, bool> EvalFunc = _ => true;
     public readonly Func<string, Func<string, bool>> EvalFuncFactory = _ => _ => true;
 
-    public readonly List<string> Conditions = new();
-    public bool LogicalAnd = false;
+    private readonly List<string> Conditions = new();
+    private bool LogicalAnd;
 
-    public ConfigPredicateInstance(string Keyword, Func<string, Func<string, bool>> EvalFuncFactory)
+    public ConfigPredicate(string Keyword, Func<string, Func<string, bool>> EvalFuncFactory)
     {
         CompileTime = false;
         this.Keyword = Keyword;
         this.EvalFuncFactory = EvalFuncFactory;
     }
 
-    public ConfigPredicateInstance(string Keyword, Func<string, bool> EvalFunc)
+    public ConfigPredicate(string Keyword, Func<string, bool> EvalFunc)
     {
         CompileTime = true;
         this.Keyword = Keyword;
@@ -37,16 +39,35 @@ internal struct ConfigPredicateInstance
         };
         return LogicalAnd ? Conditions.All(Wrapper) : Conditions.Any(Wrapper);
     }
+
+    public bool IsValid()
+    {
+        return Conditions.Count > 0;
+    }
+
+    public void RequireConjunction()
+    {
+        LogicalAnd = true;
+    }
+
+    public void AddRange(IEnumerable<string> Input)
+    {
+        Conditions.AddRange(Input);
+    }
+
+    public override string ToString()
+    {
+        string LogicOp = LogicalAnd ? "Conjunction|" : "";
+        return IsValid() ? $"{Keyword}:{LogicOp}{string.Join('|', Conditions)}" : string.Empty;
+    }
 }
 
-internal class ConfigPredicate
+internal class ConfigPredicates
 {
-    private ConfigPredicateInstance[] Predicates = Array.Empty<ConfigPredicateInstance>();
+    private readonly List<string> Descriptions = new();
 
-    private readonly List<string> BaseDesc = new();
-    private readonly List<string> FullDesc = new();
-
-    private bool CompileTimePredicate;
+    private ConfigPredicate[] Predicates = Array.Empty<ConfigPredicate>();
+    private bool CompileTimeCondition;
     private bool LogicalAnd; // By default all predicates are disjunction
 
     private bool Eval(bool Result, bool NewResult)
@@ -54,115 +75,157 @@ internal class ConfigPredicate
         return LogicalAnd ? Result && NewResult : Result || NewResult;
     }
 
-    private bool Eval(bool Result, ConfigPredicateInstance Instance, Func<string, bool> Pred)
+    private bool Eval(bool Result, ConfigPredicate Predicate, Func<string, bool> Pred)
     {
         if (Result ^ LogicalAnd) return Result; // Early out if possible
-        return Eval(Result, Instance.Conditions.Count > 0 ? Instance.Eval(Pred) : LogicalAnd);
+        return Eval(Result, Predicate.IsValid() ? Predicate.Eval(Pred) : LogicalAnd);
     }
 
-    private static bool FindAndRemoveString(List<string> Values, string Target)
+    public bool Eval(string Target)
     {
-        return Values.RemoveAll(Value => Value.Equals(Target, StringComparison.OrdinalIgnoreCase)) > 0;
+        return Predicates.Where(Predicate => !Predicate.CompileTime).Aggregate(CompileTimeCondition, (Current, Predicate) => 
+            Eval(Current, Predicate, Predicate.EvalFuncFactory(Target)));
     }
 
-    private static void Add(string Desc, ConfigLineAction Action, ICollection<string> Target)
+    public void Add(string Desc, ConfigLineAction Action)
     {
         switch (Action)
         {
             case ConfigLineAction.Set:
-                Target.Clear();
-                Target.Add(Desc);
-                break;
+                Descriptions.Clear();
+                goto case ConfigLineAction.Add;
             case ConfigLineAction.Add:
-                Target.Add(Desc);
+                Descriptions.Add(Desc);
                 break;
             case ConfigLineAction.RemoveKey:
-                Target.Clear();
+                Descriptions.Clear();
                 break;
             case ConfigLineAction.RemoveKeyValue:
-                Target.Remove(Desc);
+                Descriptions.Remove(Desc);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(Action), Action, null);
         }
     }
 
-    public void Add(string Desc, ConfigLineAction Action)
+    public void Compile(string RootPath, IDictionary<string, string> Variables)
     {
-        Add(Desc, Action, Desc.StartsWith("BaseDomain", StringComparison.OrdinalIgnoreCase) ? BaseDesc : FullDesc);
-    }
+        Predicates = new[]
+        {
+            new ConfigPredicate("NameMatches", Target => Cond => 
+                Path.GetFileName(Target).Contains(Cond, StringComparison.OrdinalIgnoreCase)),
 
-    private void ParsePredicateInstances(IDictionary<string, string> Variables)
-    {
-        foreach (var Rule in BaseDesc.Concat(FullDesc).SelectMany(Desc => Desc.Split(',', ScopedRules.SplitOptions)))
+            new ConfigPredicate("TargetExists", Cond =>
+            {
+                string TargetPath = Path.Combine(RootPath, Cond);
+                return File.Exists(TargetPath) || Directory.Exists(TargetPath);
+            }),
+            new ConfigPredicate("IsTruthy", Utils.IsTruthyValue),
+        };
+
+        foreach (var Rule in Descriptions.SelectMany(Desc => Desc.Split(',', Utils.SplitOptions)))
         {
             if (Rule.StartsWith("Always", StringComparison.OrdinalIgnoreCase))
             {
-                CompileTimePredicate = Eval(CompileTimePredicate, true);
+                CompileTimeCondition = Eval(CompileTimeCondition, true);
             }
             else if (Rule.StartsWith("Never", StringComparison.OrdinalIgnoreCase))
             {
-                CompileTimePredicate = Eval(CompileTimePredicate, false);
+                CompileTimeCondition = Eval(CompileTimeCondition, false);
             }
-            else if (Rule.StartsWith("Conjunctions:", StringComparison.OrdinalIgnoreCase))
+            else if (Utils.GetContentIfStartsWith(Rule, "Conjunctions:", out var Content))
             {
-                var Scopes = Rule[13..].Split('|', ScopedRules.SplitOptions).ToList();
-                bool AllTrue = FindAndRemoveString(Scopes, "All");
-                bool PredicatesTrue = FindAndRemoveString(Scopes, "Predicates");
-                if (AllTrue || FindAndRemoveString(Scopes, "Root")) CompileTimePredicate = LogicalAnd = true;
+                var Scopes = Content.Split('|', Utils.SplitOptions).ToList();
+                bool AllTrue = Utils.FindAndRemoveString(Scopes, "All");
+                bool PredicatesTrue = Utils.FindAndRemoveString(Scopes, "Predicates");
+                if (AllTrue || Utils.FindAndRemoveString(Scopes, "Root")) CompileTimeCondition = LogicalAnd = true;
 
-                for (int Index = 0; Index < Predicates.Length; ++Index)
+                foreach (var Predicate in Predicates)
                 {
-                    if (AllTrue || PredicatesTrue || FindAndRemoveString(Scopes, Predicates[Index].Keyword))
+                    if (AllTrue || PredicatesTrue || Utils.FindAndRemoveString(Scopes, Predicate.Keyword))
                     {
-                        Predicates[Index].LogicalAnd = true;
+                        Predicate.RequireConjunction();
                     }
                 }
 
                 if (Scopes.Count <= 0) continue;
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("Invalid conjunction scope:{0}", Scopes.Aggregate("", (Acc, Cur) => $"{Acc} {Cur}"));
+                Console.WriteLine("Config: Invalid conjunction scope: {0}", string.Join(' ', Scopes));
             }
             else
             {
-                int Index = Array.FindIndex(Predicates, Instance => Rule.StartsWith(Instance.Keyword + ":", StringComparison.OrdinalIgnoreCase));
-                if (Index >= 0) Predicates[Index].Conditions.AddRange(Rule[(Predicates[Index].Keyword.Length + 1)..]
-                    .Split('|', ScopedRules.SplitOptions)
+                var Predicate = Array.Find(Predicates,Predicate => Rule.StartsWith(Predicate.Keyword + ":", StringComparison.OrdinalIgnoreCase));
+                if (Predicate == null)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine("Config: Invalid predicate name: {0}", Rule);
+                    continue;
+                }
+                Predicate.AddRange(Rule[(Predicate.Keyword.Length + 1)..]
+                    .Split('|', Utils.SplitOptions)
                     .Select(Value => Utils.MapVariables(Variables, Value)));
             }
+        }
+
+        foreach (var Predicate in Predicates)
+        {
+            if (Predicate.CompileTime)
+            {
+                CompileTimeCondition = Eval(CompileTimeCondition, Predicate, Predicate.EvalFunc);
+            }
+        }
+    }
+
+    public override string ToString()
+    {
+        return (LogicalAnd ? "Conjunction," : "") + string.Join(',', Predicates.Select(Predicate => Predicate.ToString())
+            .Where(Predicate => Predicate.Length > 0));
+    }
+}
+
+internal class ConfigRule
+{
+    private readonly ConfigPredicates BasePredicates = new();
+    private readonly ConfigPredicates UserPredicates = new();
+    public readonly string Keyword;
+
+    public ConfigRule(string Keyword)
+    {
+        this.Keyword = Keyword;
+    }
+
+    public void Add(string Desc, ConfigLineAction Action)
+    {
+        if (Utils.GetContentIfStartsWith(Desc, "BaseDomain", out var Content))
+        {
+            BasePredicates.Add(Utils.GetContentIfStartsWith(Content, ","), Action);
+        }
+        else
+        {
+            UserPredicates.Add(Desc, Action);
         }
     }
 
     public void Compile(string RootPath, IDictionary<string, string> Variables)
     {
-        Predicates = new []
-        {
-            new ConfigPredicateInstance("NameMatches", Target =>
-                Cond => Path.GetFileName(Target).Contains(Cond, StringComparison.OrdinalIgnoreCase)),
-
-            new ConfigPredicateInstance("TargetExists", Cond =>
-            {
-                string TargetPath = Path.Combine(RootPath, Cond);
-                return File.Exists(TargetPath) || Directory.Exists(TargetPath);
-            }),
-            new ConfigPredicateInstance("IsTruthy", Utils.IsTruthyValue),
-        };
-
-        ParsePredicateInstances(Variables);
-
-        foreach (var Instance in Predicates)
-        {
-            if (Instance.CompileTime)
-            {
-                CompileTimePredicate = Eval(CompileTimePredicate, Instance, Instance.EvalFunc);
-            }
-        }
+        BasePredicates.Compile(RootPath, Variables);
+        UserPredicates.Compile(RootPath, Variables);
     }
 
     public bool Eval(string Target)
     {
-        return Predicates.Where(Instance => !Instance.CompileTime).Aggregate(CompileTimePredicate, (Current, Instance) => 
-            Eval(Current, Instance, Instance.EvalFuncFactory(Target)));
+        return BasePredicates.Eval(Target) || UserPredicates.Eval(Target);
+    }
+
+    public override string ToString()
+    {
+        string BaseDump = BasePredicates.ToString();
+        if (BaseDump.Length > 0) BaseDump = $"{Keyword}=BaseDomain,{BaseDump}";
+
+        string UserDump = UserPredicates.ToString();
+        if (UserDump.Length > 0) UserDump = $"{Keyword}={UserDump}";
+
+        return string.Join('\n', BaseDump, UserDump).Trim();
     }
 }
 
@@ -174,20 +237,23 @@ internal enum RemapResult
     Remapped,
 }
 
-internal class ScopedRules
+internal class ConfigSection
 {
-    public const StringSplitOptions SplitOptions = StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries;
-
     private readonly string[] TargetNames;
-    private readonly string RemapTarget = string.Empty;
-    private readonly ConfigPredicate RemapRule = new();
-    private readonly ConfigPredicate SkipRule = new();
-    private readonly ConfigPredicate FlattenRule = new();
 
-    public ScopedRules(string SectionName, ConfigFileSection Section, string RootPath, IDictionary<string, string> Variables)
+    private readonly string RemapTarget = string.Empty;
+    private readonly ConfigRule[] Rules;
+
+    public ConfigSection(ConfigFileSection Section, string SectionName, string RootPath, IDictionary<string, string> Variables)
     {
-        // Global section affects all targets
-        TargetNames = SectionName.Split('|', SplitOptions).Select(Utils.UnifySeparators).ToArray();
+        TargetNames = GetTargetNames(SectionName).ToArray();
+
+        Rules = new[]
+        {
+            new ConfigRule("SkipIf"),
+            new ConfigRule("FlattenIf"),
+            new ConfigRule("RemapIf"),
+        };
 
         foreach (ConfigLine Line in Section.Lines)
         {
@@ -195,36 +261,55 @@ internal class ScopedRules
             {
                 RemapTarget = Utils.UnifySeparators(Utils.MapVariables(Variables, Line.Value));
             }
-            else if (Line.Key.Equals("RemapIf", StringComparison.OrdinalIgnoreCase))
+            else
             {
-                RemapRule.Add(Line.Value, Line.Action);
-            }
-            else if (Line.Key.Equals("SkipIf", StringComparison.OrdinalIgnoreCase))
-            {
-                SkipRule.Add(Line.Value, Line.Action);
-            }
-            else if (Line.Key.Equals("FlattenIf", StringComparison.OrdinalIgnoreCase))
-            {
-                FlattenRule.Add(Line.Value, Line.Action);
+                var Rule = Array.Find(Rules, Rule => Line.Key.Equals(Rule.Keyword, StringComparison.OrdinalIgnoreCase));
+                if (Rule == null)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"Config: Unsupported rule '{Line.Key}'");
+                    continue;
+                }
+                Rule.Add(Line.Value, Line.Action);
             }
         }
 
-        RemapRule.Compile(RootPath, Variables);
-        SkipRule.Compile(RootPath, Variables);
-        FlattenRule.Compile(RootPath, Variables);
+        foreach (ConfigRule Rule in Rules)
+        {
+            Rule.Compile(RootPath, Variables);
+        }
     }
 
-    public RemapResult Remap(string Target, out string Result)
+    public RemapResult Remap(string Target, out string Result, bool VerboseLogging)
     {
         Result = Target;
-
-        string? ControllingDomain = Array.Find(TargetNames, TargetName => Target.StartsWith(TargetName, StringComparison.OrdinalIgnoreCase));
+        var ControllingDomain = Array.Find(TargetNames, TargetName => Target.StartsWith(TargetName, StringComparison.OrdinalIgnoreCase));
         if (ControllingDomain == null) return RemapResult.DoNotAffect;
 
-        if (SkipRule.Eval(Target)) return RemapResult.Skipped;
-        bool ShouldFlatten = FlattenRule.Eval(Target);
+        bool ShouldSkip = Rules[0].Eval(Target);
+        if (VerboseLogging && ShouldSkip)
+        {
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.WriteLine($"Config: Skipped '{Target}' due to [{GetSectionName()}] skipping conditions");
+        }
 
-        if (RemapRule.Eval(Target))
+        if (ShouldSkip) return RemapResult.Skipped;
+
+        bool ShouldFlatten = Rules[1].Eval(Target);
+        if (ShouldFlatten && VerboseLogging)
+        {
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.WriteLine($"Config: Flattened '{Target}' due to [{GetSectionName()}] flatten conditions");
+        }
+
+        bool ShouldRemap = Rules[2].Eval(Target);
+        if (ShouldRemap && VerboseLogging)
+        {
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.WriteLine($"Config: Remapped '{Target}' due to [{GetSectionName()}] remap conditions");
+        }
+
+        if (ShouldRemap)
         {
             Result = ShouldFlatten ? Path.Combine(RemapTarget, Path.GetFileName(Target)) : 
                 ControllingDomain == string.Empty ? Path.Combine(RemapTarget, Target) : Target.Replace(ControllingDomain, RemapTarget);
@@ -238,80 +323,195 @@ internal class ScopedRules
         }
         return RemapResult.AsIs;
     }
+
+    private string GetSectionName()
+    {
+        return string.Join('|', TargetNames.Select(Name => Name.Length > 0 ? Name : "Global"));
+    }
+
+    public override string ToString()
+    {
+        string Predicates = string.Join('\n', Rules.Select(Predicate => Predicate.ToString())
+            .Where(Predicate => Predicate.Length > 0));
+        return $"[{GetSectionName()}]\n{Predicates}";
+    }
+    
+    public IEnumerable<string> GetTargetNames()
+    {
+        return TargetNames;
+    }
+
+    public static IEnumerable<string> GetTargetNames(string SectionName)
+    {
+        return SectionName.Split('|', Utils.SplitOptions).Select(Name => // Global section affects all targets
+            Name.Equals("Global", StringComparison.OrdinalIgnoreCase) ? "" : Utils.UnifySeparators(Name));
+    }
+}
+
+internal class ConfigSectionHierarchy
+{
+    private class ConfigFileSectionNode
+    {
+        public readonly ConfigFileSection Source;
+        public readonly List<ConfigFileSection> AppliedParents = new();
+
+        public int LinkedIndex = -1;
+
+        public ConfigFileSectionNode(ConfigFileSection Source)
+        {
+            this.Source = Source;
+        }
+    }
+
+    private ConfigFileSectionNode? Section;
+    private readonly Dictionary<string, ConfigSectionHierarchy> Children = new ();
+
+    public void InheritancePatch(ConfigFileSection? Parent)
+    {
+        if (Section != null)
+        {
+            if (Parent != null && !Section.AppliedParents.Contains(Parent))
+            {
+                Section.Source.Lines.InsertRange(0, Parent.Lines);
+                Section.AppliedParents.Add(Parent);
+            }
+            Parent = Section.Source;
+        }
+
+        foreach (var Pair in Children)
+        {
+            Pair.Value.InheritancePatch(Parent);
+        }
+    }
+
+    private static ConfigFileSectionNode? GetNearestNode(ConfigSectionHierarchy Root, string Target)
+    {
+        var Node = Root;
+        var Section = Root.Section;
+
+        foreach (string Folder in Target.Split(Path.DirectorySeparatorChar, Utils.SplitOptions))
+        {
+            if (!Node.Children.TryGetValue(Folder, out var Child)) break;
+            if (Child.Section != null) Section = Child.Section;
+            Node = Child;
+        }
+
+        return Section;
+    }
+
+    public static int? GetNearestSection(ConfigSectionHierarchy Root, string Target)
+    {
+        return GetNearestNode(Root, Target)?.LinkedIndex;
+    }
+
+    public static void Link(ConfigSectionHierarchy Root, List<ConfigSection> Sections)
+    {
+        for (int Index = 0; Index < Sections.Count; ++Index)
+        {
+            foreach (string Target in Sections[Index].GetTargetNames())
+            {
+                var Node = GetNearestNode(Root, Target)!;
+                Debug.Assert(Node != null && (Node.LinkedIndex < 0 || Node.LinkedIndex == Index));
+                Node.LinkedIndex = Index;
+            }
+        }
+    }
+
+    public static ConfigSectionHierarchy Build(ConfigFile Config, IEnumerable<string> SectionNames)
+    {
+        var Root = new ConfigSectionHierarchy();
+
+        foreach (string SectionName in SectionNames)
+        {
+            if (!Config.TryGetSection(SectionName, out var Section)) continue;
+            var SectionNode = new ConfigFileSectionNode(Section); 
+
+            foreach (string TargetName in ConfigSection.GetTargetNames(SectionName))
+            {
+                if (TargetName.Length == 0)
+                {
+                    Root.Section = SectionNode;
+                    continue;
+                }
+
+                TargetName.Split(Path.DirectorySeparatorChar, Utils.SplitOptions)
+                    .Aggregate(Root, (Current, Folder) =>
+                    {
+                        if (Current.Children.TryGetValue(Folder, out var Child)) return Child;
+                        Child = new ConfigSectionHierarchy();
+                        Current.Children.Add(Folder, Child);
+                        return Child;
+                    })
+                    .Section = SectionNode;
+            }
+        }
+        return Root;
+    }
 }
 
 public class Config
 {
-    private readonly List<ScopedRules> Scopes = new();
+    private readonly List<ConfigSection> Sections = new();
+    private readonly ConfigSectionHierarchy Hierarchy;
 
     public Config(string ConfigPath, string RootPath, ConfigFile BaseConfig, string VariableOverrides)
     {
-        ConfigFile Config = File.Exists(ConfigPath) ? new ConfigFile(ConfigPath) : new ConfigFile();
-
-        // Merge base config sections
-        foreach (string SectionName in BaseConfig.SectionNames)
-        {
-            if (BaseConfig.TryGetSection(SectionName, out var BaseSection))
-            {
-                Config.FindOrAddSection(SectionName).Lines.InsertRange(0, BaseSection.Lines);
-            }
-        }
+        ConfigFile Config = File.Exists(ConfigPath) ? new ConfigFile(ConfigPath, BaseConfig) : BaseConfig;
 
         // Override variables
         Config.AppendFromText("Variables", VariableOverrides.Replace("\"", string.Empty));
 
+        // Gather variables
         var Variables = new Dictionary<string, string>();
         var SectionNames = Config.SectionNames.ToList();
-        var VariableSectionName = SectionNames.Find(Name => Name.Equals("Variables", StringComparison.OrdinalIgnoreCase));
-        if (VariableSectionName != null && Config.TryGetSection(VariableSectionName, out var Section))
+        var VariableSecIndex = SectionNames.FindIndex(Name => Name.Equals("Variables", StringComparison.OrdinalIgnoreCase));
+        if (VariableSecIndex >= 0 && Config.TryGetSection(SectionNames[VariableSecIndex], out var Section))
         {
             foreach (ConfigLine Line in Section.Lines)
             {
                 Variables[Line.Key] = Line.Value;
             }
-            SectionNames.Remove(VariableSectionName);
+            SectionNames.RemoveAt(VariableSecIndex);
         }
+
+        // Build inheritance chain
+        Hierarchy = ConfigSectionHierarchy.Build(Config, SectionNames);
+        Hierarchy.InheritancePatch(null);
 
         // Parse into scoped rules
         foreach (string SectionName in SectionNames)
         {
             if (Config.TryGetSection(SectionName, out Section))
             {
-                Scopes.Add(new ScopedRules(
-                    SectionName.Equals("Global", StringComparison.OrdinalIgnoreCase) ? "" : SectionName,
-                    Section, RootPath, Variables));
+                Sections.Add(new ConfigSection(Section, SectionName, RootPath, Variables));
             }
+        }
+        ConfigSectionHierarchy.Link(Hierarchy, Sections);
+    }
+
+    public bool Remap(string Target, out string Result, bool VerboseLogging = false)
+    {
+        Result = Target;
+        var NearestSectionIndex = ConfigSectionHierarchy.GetNearestSection(Hierarchy, Target);
+        if (NearestSectionIndex == null) return true; // As-is if no rule is found
+
+        switch (Sections[NearestSectionIndex.Value].Remap(Target, out var Temp, VerboseLogging))
+        {
+            case RemapResult.AsIs:
+                return true;
+            case RemapResult.Skipped:
+                return false;
+            case RemapResult.Remapped:
+                Result = Temp;
+                return true;
+            case RemapResult.DoNotAffect:
+            default:
+                throw new ArgumentOutOfRangeException();
         }
     }
 
-    public bool Remap(string Target, out string Result)
+    public override string ToString()
     {
-        bool ShouldSkip = false;
-        Result = Target;
-
-        foreach (var Scope in Scopes)
-        {
-            switch (Scope.Remap(Target, out var Temp))
-            {
-                case RemapResult.DoNotAffect:
-                    break;
-                case RemapResult.AsIs:
-                    ShouldSkip = false;
-                    Result = Target;
-                    break;
-                case RemapResult.Skipped:
-                    ShouldSkip = true;
-                    Result = Target;
-                    break;
-                case RemapResult.Remapped:
-                    ShouldSkip = false;
-                    Result = Temp;
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
-
-        return ShouldSkip;
+        return string.Join('\n', Sections);
     }
 }
