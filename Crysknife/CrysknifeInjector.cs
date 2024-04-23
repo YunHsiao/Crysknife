@@ -461,10 +461,14 @@ public class Injector
 
     public void Process(JobType Job, string SrcDirectoryOverride, string VariableOverrides)
     {
+        string BuiltinVariables = $"CRYSKNIFE_INPUT_DIRECTORY={SrcDirectoryOverride},CRYSKNIFE_OUTPUT_DIRECTORY={DstDirectory}";
+        if (VariableOverrides.Length > 0) BuiltinVariables += ",";
+        VariableOverrides = BuiltinVariables + VariableOverrides;
+
         if (Options.HasFlag(JobOptions.DryRun))
         {
             if (VariableOverrides.Length > 0) VariableOverrides += ",";
-            VariableOverrides += $"CRYSKNIFE_DRY_RUN=1,CRYSKNIFE_DRY_RUN_OUTPUT={Path.GetFullPath(Path.Combine(SrcDirectory, ".."))}";
+            VariableOverrides += $"CRYSKNIFE_DRY_RUN=1";
         }
 
         var Patches = new Dictionary<string, PatchDescription>();

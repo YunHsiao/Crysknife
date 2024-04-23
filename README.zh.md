@@ -28,24 +28,32 @@ SPDX-License-Identifier: MIT
 
 更复杂的注入行为可以使用 [Config](#Config-系统) 系统配置。
 
-# 环境搭建
+## 环境搭建
 
-将仓库 Clone 到引擎插件目录：
-```
+将仓库 Clone 到引擎扩展目录：
+```bash
 Engine/Plugins/Crysknife/
 ```
-程序会尝试从指定插件的以下目录搜索 Patch 并应用到 `Engine/Source`:
+
+选择和系统匹配的脚本执行生成部署脚本命令：
+```bash
+Crysknife.sh -P ${PluginName} -S
 ```
+
+这会在指定的扩展目录下生成几个 `Setup` 脚本，作为所有操作的入口。
+
+程序会尝试从指定扩展的以下目录搜索 Patch 并应用到 `Engine/Source`:
+```bash
 Engine/Plugins/${PluginName}/SourcePatch/
 ```
 从 `SourcePatch` 文件夹起的所有相对目录结构默认都会完整保留。
 
 Injector 本身其实很简单，并不会神奇地自动改变任何代码结构，更多的是开发者自己对架构设计的权衡，以下是一些推荐的通用原则：
-* 实现功能时尽量优先依赖引擎内置的插件和回调系统，即使不依赖任何注入也可以做到很多事
+* 实现功能时尽量优先依赖引擎内置的扩展和回调系统，即使不依赖任何注入也可以做到很多事
 * 尽量把需要注入的代码都拆分到独立的新文件，在引擎源码中的注入点越少越好
-* 根据经验，90% 的代码可以直接正常写在扩展内，其余注入代码里的 90% 可以组织到新增的引擎文件中
+* 根据经验，90% 的代码可以直接正常写在扩展内，其余注入代码里的 90% 可以组织到新的引擎文件中
 
-# Patch 语法
+## Patch 语法
 
 在引擎源码中新增代码，需要遵守固定的语法规则才可以被 Injector 识别，所有修改都要加注释桩：
 
@@ -95,7 +103,7 @@ Injector 本身其实很简单，并不会神奇地自动改变任何代码结�
 * `-O [DIRECTORY]` 自定义引擎源码目录
 * `-D [VAR=VALUE,]...` 定义 Config 中的变量值
 * `-B` 跳过所有内置 Patch
-* `-S` 生成一系列 Setup 脚本到插件目录，作为一键部署的入口
+* `-S` 生成一系列 Setup 脚本到扩展目录，作为一键部署的入口
 
 ### 行为类
 
@@ -126,12 +134,8 @@ Injector 本身其实很简单，并不会神奇地自动改变任何代码结�
 
 ## 命令行用法示例
 
-首先选择和系统匹配的脚本执行生成部署脚本命令：
-* `Crysknife.sh -P [PLUGIN] -S`
-
-这会在指定的插件目录下生成几个 `Setup` 脚本，作为所有操作的入口。
-
-### 新增文件到引擎源码
+<details>
+<summary>新增文件到引擎源码</summary>
 
 比如我们要新增一个 `MyEnginePlugin.cpp` 到 `Engine/Source/Runtime/Engine/Private`：
 
@@ -139,7 +143,10 @@ Injector 本身其实很简单，并不会神奇地自动改变任何代码结�
 * `Setup.sh` (默认执行“应用”行为)
 * 新文件应该已在引擎源码的相同目录结构下创建
 
-### 修改现有引擎源码
+</details>
+
+<details>
+<summary>修改现有引擎源码</summary>
 
 比如我们要修改某个已有的引擎源文件：
 * 直接进入这个源文件做修改，记得加入注释桩
@@ -150,7 +157,10 @@ Injector 本身其实很简单，并不会神奇地自动改变任何代码结�
 > `Setup.sh -G -C` 生成 + 清除  
 > 可以用来确认所有相关的修改都加了注释桩
 
-### 从引擎源码移除 Patch
+</details>
+
+<details>
+<summary>从引擎源码移除 Patch</summary>
 
 比如我们希望彻底移除某个文件的 Patch：
 
@@ -162,12 +172,17 @@ Injector 本身其实很简单，并不会神奇地自动改变任何代码结�
 * `Setup.sh -C -i Runtime/Engine` 清除 Patch
 * `Setup.sh -i Runtime/Engine` 重新应用 Patch
 
-### 移植修改到完全不同的引擎版本
+</details>
+
+<details>
+<summary>移植修改到完全不同的引擎版本</summary>
 
 * `Setup.sh`
 * 可通过调整 `--content-tolerance` 参数或手动对照 Diff HTML 处理出现的冲突
 * `Setup.sh -G`
 * 一套匹配当前引擎版本的新的 Patch 应已在 SourcePatch 目录生成
+
+</details>
 
 ## Config 系统
 
@@ -189,7 +204,7 @@ Rule1=Predicate1:Value1|Value2
 +Rule1=Predicate3:${Var1},Predicate4:!Value5
 
 [Path/To/Dir1]
-; Only apply to specified subdirectory
+; Only apply to the specified subdirectory
 ScopedRule1=Predicate2
 
 ; This scope automatically extends from the above parent scope
@@ -248,20 +263,29 @@ ScopedRule2=Predicate5
 `Always` / `Never`
 * 总是满足 / 总是不满足
 
+### 内置变量
+
+* `CRYSKNIFE_INPUT_DIRECTORY`: 源扩展 `SourcePatch` 目录的完整路径
+* `CRYSKNIFE_OUTPUT_DIRECTORY`: 目标引擎 `Source` 目录的完整路径
+
 ## Config 用法示例
 
-### 条件跳过
+<details>
+<summary>条件跳过</summary>
 
-判断如果存在 `Engine/Source/ThirdParty/astcenc` 目录，就跳过执行对 `astc-encoder` 目录的任何行为：
+如果目标目录不存在就跳过执行：
 
 ```ini
-[ThirdParty/astc-encoder]
-SkipIf=TargetExists:ThirdParty/astcenc
+[Programs/UnrealHeaderTool]
+SkipIf=TargetExists:!Programs/UnrealHeaderTool
 ```
 
-### 调试输出
+</details>
 
-将所有 Patch 展平目录结构重映射输出到 `Engine/Source/Test` 目录：
+<details>
+<summary>展平重映射</summary>
+
+将所有 Patch 展平目录结构重映射输出：
 
 ```ini
 [Global]
@@ -269,6 +293,10 @@ RemapIf=Always
 RemapTarget=Test
 Flat=True
 ```
+
+> 类似机制可通过 Dry Run 模式 (`-d`) 直接使用。
+
+</details>
 
 ## 内置 Patch
 

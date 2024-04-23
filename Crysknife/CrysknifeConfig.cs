@@ -260,6 +260,7 @@ internal class ConfigSection
             if (Line.Key.Equals("RemapTarget", StringComparison.OrdinalIgnoreCase))
             {
                 RemapTarget = Utils.UnifySeparators(Utils.MapVariables(Variables, Line.Value));
+                if (Path.IsPathFullyQualified(RemapTarget)) RemapTarget = Path.GetFullPath(RemapTarget);
             }
             else
             {
@@ -333,9 +334,9 @@ internal class ConfigSection
     {
         string Predicates = string.Join('\n', Rules.Select(Predicate => Predicate.ToString())
             .Where(Predicate => Predicate.Length > 0));
-        return $"[{GetSectionName()}]\n{Predicates}";
+        return $"[{GetSectionName()}]\n{Predicates}\nRemapTarget:{RemapTarget}";
     }
-    
+
     public IEnumerable<string> GetTargetNames()
     {
         return TargetNames;
