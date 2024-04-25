@@ -1,13 +1,38 @@
 # SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
 # SPDX-License-Identifier: MIT
 
-cd `dirname $0`/Crysknife
+ROOTDIR=`cd "$(dirname "$0")"; pwd`
+cd $ROOTDIR/Crysknife
 
-for Arg in "$@"; do
-    if [[ $Arg = "--skip-build" ]]; then
-        Skip=true
-    fi
+for (( i=1; i<=$#; i++)); do
+  case ${!i} in
+    --skip-build) Skip=true;;
+    --loc) Loc=true;;
+    -P)
+      j=$((i+1))
+      Project=${!j}
+      ;;
+  esac
 done
 
 [ -z "$Skip" ] && dotnet build -c Release > /dev/null
 ./bin/Release/net6.0/Crysknife "$@"
+
+if [ ! -z "$Loc" ]; then
+    cd $ROOTDIR/../$Project
+    SOURCE=`find . -path './Source/*.*' -not -path "./Source/ThirdParty/*" | xargs wc -l`
+    if [ "$(uname)" == "Darwin" ]; then
+        NEW=`find -E . -regex './SourcePatch/.*\.(cpp|h)' | xargs wc -l`
+    else
+        NEW=`find . -regex './SourcePatch/.*\.\(cpp\|h\)' | xargs wc -l`
+    fi
+    PATCH=`find . -path './SourcePatch/*.patch' | xargs wc -l`
+
+    S=`awk '/total/{k+=$1}END{print k}' <<< "$SOURCE"`
+    N=`awk '/total/{k+=$1}END{print k}' <<< "$NEW"`
+    P=`awk '/total/{k+=$1}END{print int(k/3)}' <<< "$PATCH"`
+
+    printf '%s : %s\n' 'Plugin Complete LOC' $S
+    printf '%s : %s\n' 'Engine Addition LOC' $N
+    printf '%s : %s\n' 'Engine Patched  LOC' $P
+fi

@@ -18,7 +18,7 @@ public class Crysknife : ModuleRules
 		});
 	}
 
-	public static void FillInSourcePatchSwitches(List<string> Definitions, string TargetDirectory, string Prefix)
+	public static void FillInConfigVariables(List<string> Definitions, string TargetDirectory, string Prefix)
 	{
 		var Config = new ConfigFile(new FileReference(Path.Combine(TargetDirectory, "SourcePatch", "Crysknife.ini")));
 
