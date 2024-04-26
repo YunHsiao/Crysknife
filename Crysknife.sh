@@ -26,13 +26,12 @@ if [ ! -z "$Loc" ]; then
     else
         NEW=`find . -regex './SourcePatch/.*\.\(cpp\|h\)' | xargs wc -l`
     fi
-    PATCH=`find . -path './SourcePatch/*.patch' | xargs wc -l`
+    P=`find . -path './SourcePatch/*.patch' | xargs grep ^+ | grep -o %0a | wc -l`
 
     S=`awk '/total/{k+=$1}END{print k}' <<< "$SOURCE"`
     N=`awk '/total/{k+=$1}END{print k}' <<< "$NEW"`
-    P=`awk '/total/{k+=$1}END{print int(k/3)}' <<< "$PATCH"`
 
-    printf '%s : %s\n' 'Plugin Complete LOC' $S
-    printf '%s : %s\n' 'Engine Addition LOC' $N
-    printf '%s : %s\n' 'Engine Patched  LOC' $P
+    printf '%20s : %s\n' 'Plugin Source LOC' $S
+    printf '%20s : %s\n' 'Engine New File LOC' $N
+    printf '%20s : %s\n' 'Engine Patched LOC' $P
 fi

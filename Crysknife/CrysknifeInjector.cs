@@ -195,8 +195,22 @@ public class Injector
         {
             var Diffs = PatchTool.GenerateDiffs(ClearedTarget, TargetContent);
             Patches = PatchTool.GeneratePatches(ClearedTarget, Diffs);
-            string Patch = PatchTool.Generate(Patches);
 
+            if (Patches.Count == 0)
+            {
+                if (!AutoClearConfirm.HasFlag(ConfirmResult.ForAll))
+                {
+                    AutoClearConfirm = PromptToConfirm($"Couldn't find any patch from '{TargetPath}', remove?");
+                }
+                if (AutoClearConfirm.HasFlag(ConfirmResult.Abort)) Environment.Exit(1);
+                if (AutoClearConfirm.HasFlag(ConfirmResult.Yes))
+                {
+                    RemovePatchFile(TargetPath);
+                    return;
+                }
+            }
+
+            string Patch = PatchTool.Generate(Patches);
             if (!File.Exists(PatchPath) || File.ReadAllText(PatchPath) != Patch)
             {
                 File.WriteAllText(PatchPath + ".html", PatchTool.GetHtml(Diffs));
@@ -320,6 +334,7 @@ public class Injector
     private readonly InjectionRegex InjectionRE;
     private readonly EngineVersion CurrentEngineVersion;
     private ConfirmResult OverrideConfirm;
+    private ConfirmResult AutoClearConfirm;
     private DMPContext PatchTool;
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -375,7 +390,7 @@ public class Injector
         set => PrivateExclusiveFilter = Utils.UnifySeparators(value);
     }
 
-    public void CreatePatchFile(IEnumerable<string> InputPaths)
+    public void CreatePatchFile(params string[] InputPaths)
     {
         var PatchedPaths = new List<string>();
 
@@ -415,7 +430,7 @@ public class Injector
         }
     }
 
-    public void RemovePatchFile(IEnumerable<string> InputPaths)
+    public void RemovePatchFile(params string[] InputPaths)
     {
         var PatchedPaths = new List<string>();
 
@@ -485,9 +500,9 @@ public class Injector
 
         foreach (string SrcPath in Directory.GetFiles(SrcDirectoryOverride, "*", new EnumerationOptions { RecurseSubdirectories = true }))
         {
-            string RelativePath = Path.GetRelativePath(SrcDirectoryOverride, SrcPath);
-            if (!RelativePath.Contains(InclusiveFilter) || RelativePath.Contains(ExclusiveFilter)) continue;
+            if (!SrcPath.Contains(InclusiveFilter) || SrcPath.Contains(ExclusiveFilter)) continue;
 
+            string RelativePath = Path.GetRelativePath(SrcDirectoryOverride, SrcPath);
             var ParsedRelativePath = new ParsedPath(RelativePath);
             if (ParsedRelativePath.Extensions.Last() == ".patch") // Patch existing files
             {
