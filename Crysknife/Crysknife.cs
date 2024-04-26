@@ -46,10 +46,11 @@ internal static class Launcher
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("Please specify the plugin name, where the source patches are located.");
+            Utils.Abort();
             return;
         }
 
-        string RootFolderName = "Crysknife";
+        const string RootFolderName = "Crysknife";
         string RootDirectory = Directory.GetCurrentDirectory();
         RootDirectory = RootDirectory[..(RootDirectory.IndexOf(RootFolderName, StringComparison.Ordinal) - 1)];
 

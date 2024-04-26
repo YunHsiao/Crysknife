@@ -43,7 +43,7 @@ public static class ProjectSetup
         {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.Error.WriteLine("Error: Couldn't find plugin description at {0}", PluginDescFile);
-            Environment.Exit(1);
+            Utils.Abort();
         }
         var PluginDesc = JsonNode.Parse(File.ReadAllText(PluginDescFile));
         if (PluginDesc == null) return;

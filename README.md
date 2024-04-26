@@ -274,8 +274,6 @@ ScopedRule2=Predicate5
 <details>
 <summary>Conditional Skip</summary>
 
-### Conditional Skip
-
 Skip any actions if the directory does not already exist:
 
 ```ini
@@ -287,8 +285,6 @@ SkipIf=TargetExists:!Programs/UnrealHeaderTool
 
 <details>
 <summary>Flat Remap</summary>
-
-### Flat Remap
 
 Flatten all patch outputs and remap:
 
@@ -307,6 +303,6 @@ Flat=True
 
 We included some useful utilities in the built-in `SourcePatch` folder, which can provide some interesting trade-offs.
 
-|                                   Include Path                                   | Module |                                Comment                                |
+|                                     Include Path                                 | Module |                                Comment                                |
 |:--------------------------------------------------------------------------------:|:------:|:---------------------------------------------------------------------:|
 | [Misc/PrivateAccessor.h](SourcePatch/Runtime/Core/Public/Misc/PrivateAccessor.h) |  Core  | A tiny library for accessing private members from non-friend contexts |

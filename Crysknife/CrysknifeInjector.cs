@@ -110,7 +110,6 @@ public class Injector
         Yes = 0x1,
         No = 0x2,
         ForAll = 0x4,
-        Abort = 0x8,
     }
     private static ConfirmResult PromptToConfirm(string Message)
     {
@@ -125,13 +124,18 @@ public class Injector
 
         } while (Response is not (ConsoleKey.Y or ConsoleKey.N or ConsoleKey.A or ConsoleKey.Z or ConsoleKey.C));
 
+        if (Response == ConsoleKey.C)
+        {
+            Utils.Abort();
+        }
+
         return Response switch
         {
             ConsoleKey.Y => ConfirmResult.Yes,
             ConsoleKey.N => ConfirmResult.No,
             ConsoleKey.A => ConfirmResult.Yes | ConfirmResult.ForAll,
             ConsoleKey.Z => ConfirmResult.No | ConfirmResult.ForAll,
-            _ => ConfirmResult.Abort
+            _ => ConfirmResult.No
         };
     }
 
@@ -202,7 +206,6 @@ public class Injector
                 {
                     AutoClearConfirm = PromptToConfirm($"Couldn't find any patch from '{TargetPath}', remove?");
                 }
-                if (AutoClearConfirm.HasFlag(ConfirmResult.Abort)) Environment.Exit(1);
                 if (AutoClearConfirm.HasFlag(ConfirmResult.Yes))
                 {
                     RemovePatchFile(TargetPath);
@@ -242,7 +245,6 @@ public class Injector
                     OverrideConfirm = PromptToConfirm($"Override already patched file {TargetPath}?");
                 }
                 if (OverrideConfirm.HasFlag(ConfirmResult.No)) return;
-                if (OverrideConfirm.HasFlag(ConfirmResult.Abort)) Environment.Exit(1);
             }
 
             File.WriteAllText(TargetPath, Patched);
@@ -270,11 +272,12 @@ public class Injector
 
         if (Job.HasFlag(JobType.Generate) && Exists && !IsSymLink && !UpToDate)
         {
-            File.Copy(DstPath, SrcPath, true);
-
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("Copied back: {0} <- {1}", SrcPath, DstPath);
-            UpToDate = true;
+            if (Utils.FileAccessGuard(() => File.Copy(DstPath, SrcPath, true), SrcPath))
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("Copied back: {0} <- {1}", SrcPath, DstPath);
+                UpToDate = true;
+            }
         }
 
         if (Job.HasFlag(JobType.Clear) && Exists)
@@ -298,18 +301,19 @@ public class Injector
                     OverrideConfirm = PromptToConfirm($"Override existing file {DstPath}?");
                 }
                 if (OverrideConfirm.HasFlag(ConfirmResult.No)) return;
-                if (OverrideConfirm.HasFlag(ConfirmResult.Abort)) Environment.Exit(1);
             }
             else
             {
                 Utils.EnsureParentDirectoryExists(DstPath);
             }
 
-            if (ShouldBeSymLink) File.CreateSymbolicLink(DstPath, SrcPath);
-            else File.Copy(SrcPath, DstPath, true);
-
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("{0}: {1} -> {2}", ShouldBeSymLink ? "Linked" : "Copied", SrcPath, DstPath);
+            if (ShouldBeSymLink ? 
+                Utils.FileAccessGuard(() => File.CreateSymbolicLink(DstPath, SrcPath), DstPath) : 
+                Utils.FileAccessGuard(() => File.Copy(SrcPath, DstPath, true), DstPath))
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("{0}: {1} -> {2}", ShouldBeSymLink ? "Linked" : "Copied", SrcPath, DstPath);
+            }
         }
     }
 
@@ -522,7 +526,7 @@ public class Injector
                 {
                     Utils.EnsureParentDirectoryExists(OutputPath);
                     string OriginalDstPath = Path.Combine(DstDirectory, RelativePath);
-                    if (File.Exists(OriginalDstPath)) File.Copy(OriginalDstPath, OutputPath, true);
+                    if (File.Exists(OriginalDstPath)) Utils.FileAccessGuard(() => File.Copy(OriginalDstPath, OutputPath, true), OutputPath);
                     else File.Delete(OutputPath);
                 }
 
@@ -559,13 +563,13 @@ public class Injector
             if (TargetPath != OutputPath && !File.Exists(OutputPath))
             {
                 Utils.EnsureParentDirectoryExists(OutputPath);
-                File.Copy(TargetPath, OutputPath);
+                Utils.FileAccessGuard(() => File.Copy(TargetPath, OutputPath), OutputPath);
             }
 
             // When dry running, sync with original output path unconditionally
             if (Options.HasFlag(JobOptions.DryRun) && TargetPath != OutputPath)
             {
-                File.Copy(TargetPath, OutputPath, true);
+                Utils.FileAccessGuard(() => File.Copy(TargetPath, OutputPath, true), OutputPath);
             }
 
             ProcessPatch(Job, PatchPath, OutputPath);

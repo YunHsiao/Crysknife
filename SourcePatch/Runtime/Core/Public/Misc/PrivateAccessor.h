@@ -22,21 +22,7 @@ struct TRob
 template<typename Type, Type& Output, Type Input>
 TRob<Type, Output, Input> TRob<Type, Output, Input>::Obj;
 
-template<typename OwnerType, typename VariableType>
-using TMemberVariableType = VariableType(OwnerType::*);
-
-template<typename OwnerType, typename ReturnType, typename... Args>
-using TMemberFunctionType = ReturnType(OwnerType::*)(Args...);
-
-template<typename OwnerType, typename ReturnType, typename... Args>
-using TConstMemberFunctionType = ReturnType(OwnerType::*)(Args...) const;
-
-template<typename VariableType>
-using TStaticVariableType = VariableType*;
-
-template<typename ReturnType, typename... Args>
-using TStaticFunctionType = ReturnType(*)(Args...);
-
+// Where the magic happens
 #define INIT_PRIVATE_ACCESSOR(Name, Value) template struct TRob<decltype(Name), Name, &Value>
 
 #define DEFINE_PRIVATE_ACCESSOR(Name, Value, Type, ...) \
@@ -45,10 +31,24 @@ using TStaticFunctionType = ReturnType(*)(Args...);
 
 /****************************** Syntactic Sugars ******************************/
 
+template<typename OwnerType, typename VariableType>
+using TMemberVariableType = VariableType(OwnerType::*);
 #define DEFINE_PRIVATE_ACCESSOR_VARIABLE(Name, Class, VariableType, VariableName) DEFINE_PRIVATE_ACCESSOR(Name, Class::VariableName, TMemberVariableType, Class, VariableType)
-#define DEFINE_PRIVATE_ACCESSOR_STATIC_VARIABLE(Name, Class, VariableType, VariableName) DEFINE_PRIVATE_ACCESSOR(Name, Class::VariableName, TStaticVariableType, VariableType)
+
+template<typename OwnerType, typename ReturnType, typename... Args>
+using TMemberFunctionType = ReturnType(OwnerType::*)(Args...);
 #define DEFINE_PRIVATE_ACCESSOR_FUNCTION(Name, Class, ReturnType, FunctionName, ...) DEFINE_PRIVATE_ACCESSOR(Name, Class::FunctionName, TMemberFunctionType, Class, ReturnType, __VA_ARGS__)
+
+template<typename OwnerType, typename ReturnType, typename... Args>
+using TConstMemberFunctionType = ReturnType(OwnerType::*)(Args...) const;
 #define DEFINE_PRIVATE_ACCESSOR_CONST_FUNCTION(Name, Class, ReturnType, FunctionName, ...) DEFINE_PRIVATE_ACCESSOR(Name, Class::FunctionName, TConstMemberFunctionType, Class, ReturnType, __VA_ARGS__)
+
+template<typename VariableType>
+using TStaticVariableType = VariableType*;
+#define DEFINE_PRIVATE_ACCESSOR_STATIC_VARIABLE(Name, Class, VariableType, VariableName) DEFINE_PRIVATE_ACCESSOR(Name, Class::VariableName, TStaticVariableType, VariableType)
+
+template<typename ReturnType, typename... Args>
+using TStaticFunctionType = ReturnType(*)(Args...);
 #define DEFINE_PRIVATE_ACCESSOR_STATIC_FUNCTION(Name, Class, ReturnType, FunctionName, ...) DEFINE_PRIVATE_ACCESSOR(Name, Class::FunctionName, TStaticFunctionType, ReturnType, __VA_ARGS__)
 
 #define PRIVATE_ACCESS_OBJ(Obj, Name) (Obj.*Name)

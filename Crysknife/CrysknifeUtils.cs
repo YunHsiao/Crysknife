@@ -126,4 +126,26 @@ public static class Utils
         GetContentIfStartsWith(Str, Prefix, out var Content);
         return Content;
     }
+    
+    public static bool FileAccessGuard(Action Action, string Dest)
+    {
+        try
+        {
+            Action();
+        }
+        catch
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("Failed to access '{0}', is the file read-only?", Dest);
+            return false;
+        }
+
+        return true;
+    }
+
+    public static void Abort()
+    {
+        Console.ResetColor();
+        Environment.Exit(1);
+    }
 }
