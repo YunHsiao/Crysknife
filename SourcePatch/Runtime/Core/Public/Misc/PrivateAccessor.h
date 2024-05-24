@@ -22,8 +22,8 @@ struct TRob
 template<typename Type, Type& Output, Type Input>
 TRob<Type, Output, Input> TRob<Type, Output, Input>::Obj;
 
-// Where the magic happens
-#define INIT_PRIVATE_ACCESSOR(Name, Value) template struct TRob<decltype(Name), Name, &Value>
+#define INIT_PRIVATE_ACCESSOR(Name, Value) \
+	template struct TRob<decltype(Name), Name, &Value> // <-- Where the magic happens
 
 #define DEFINE_PRIVATE_ACCESSOR(Name, Value, Type, ...) \
 	static Type<__VA_ARGS__> Name; \
@@ -33,23 +33,28 @@ TRob<Type, Output, Input> TRob<Type, Output, Input>::Obj;
 
 template<typename OwnerType, typename VariableType>
 using TMemberVariableType = VariableType(OwnerType::*);
-#define DEFINE_PRIVATE_ACCESSOR_VARIABLE(Name, Class, VariableType, VariableName) DEFINE_PRIVATE_ACCESSOR(Name, Class::VariableName, TMemberVariableType, Class, VariableType)
+#define DEFINE_PRIVATE_ACCESSOR_VARIABLE(Name, Class, VariableType, VariableName) \
+	DEFINE_PRIVATE_ACCESSOR(Name, Class::VariableName, TMemberVariableType, Class, VariableType)
 
 template<typename OwnerType, typename ReturnType, typename... Args>
 using TMemberFunctionType = ReturnType(OwnerType::*)(Args...);
-#define DEFINE_PRIVATE_ACCESSOR_FUNCTION(Name, Class, ReturnType, FunctionName, ...) DEFINE_PRIVATE_ACCESSOR(Name, Class::FunctionName, TMemberFunctionType, Class, ReturnType, __VA_ARGS__)
+#define DEFINE_PRIVATE_ACCESSOR_FUNCTION(Name, Class, ReturnType, FunctionName, ...) \
+	DEFINE_PRIVATE_ACCESSOR(Name, Class::FunctionName, TMemberFunctionType, Class, ReturnType, __VA_ARGS__)
 
 template<typename OwnerType, typename ReturnType, typename... Args>
 using TConstMemberFunctionType = ReturnType(OwnerType::*)(Args...) const;
-#define DEFINE_PRIVATE_ACCESSOR_CONST_FUNCTION(Name, Class, ReturnType, FunctionName, ...) DEFINE_PRIVATE_ACCESSOR(Name, Class::FunctionName, TConstMemberFunctionType, Class, ReturnType, __VA_ARGS__)
+#define DEFINE_PRIVATE_ACCESSOR_CONST_FUNCTION(Name, Class, ReturnType, FunctionName, ...) \
+	DEFINE_PRIVATE_ACCESSOR(Name, Class::FunctionName, TConstMemberFunctionType, Class, ReturnType, __VA_ARGS__)
 
 template<typename VariableType>
 using TStaticVariableType = VariableType*;
-#define DEFINE_PRIVATE_ACCESSOR_STATIC_VARIABLE(Name, Class, VariableType, VariableName) DEFINE_PRIVATE_ACCESSOR(Name, Class::VariableName, TStaticVariableType, VariableType)
+#define DEFINE_PRIVATE_ACCESSOR_STATIC_VARIABLE(Name, Class, VariableType, VariableName) \
+	DEFINE_PRIVATE_ACCESSOR(Name, Class::VariableName, TStaticVariableType, VariableType)
 
 template<typename ReturnType, typename... Args>
 using TStaticFunctionType = ReturnType(*)(Args...);
-#define DEFINE_PRIVATE_ACCESSOR_STATIC_FUNCTION(Name, Class, ReturnType, FunctionName, ...) DEFINE_PRIVATE_ACCESSOR(Name, Class::FunctionName, TStaticFunctionType, ReturnType, __VA_ARGS__)
+#define DEFINE_PRIVATE_ACCESSOR_STATIC_FUNCTION(Name, Class, ReturnType, FunctionName, ...) \
+	DEFINE_PRIVATE_ACCESSOR(Name, Class::FunctionName, TStaticFunctionType, ReturnType, __VA_ARGS__)
 
 #define PRIVATE_ACCESS_OBJ(Obj, Name) (Obj.*Name)
 #define PRIVATE_ACCESS_PTR(Ptr, Name) (Ptr->*Name)
@@ -88,8 +93,10 @@ DEFINE_PRIVATE_ACCESSOR_STATIC_FUNCTION(TestClassRegister, FTestClass, bool, Reg
 DEFINE_PRIVATE_ACCESSOR_VARIABLE(TestClassValue, FTestClass, int32_t, Value);
 DEFINE_PRIVATE_ACCESSOR_FUNCTION(TestClassIncrement, FTestClass, void, Increment);
 
-using FTestClassIndexMap = std::map<const FTestClass*, int32_t>; // Alias complex type names so we can pass them to macros
-DEFINE_PRIVATE_ACCESSOR_CONST_FUNCTION(TestClassRegister2, FTestClass, void, Register, FTestClassIndexMap&); // Overloaded functions also works
+// Alias complex type names so we can pass them to macros
+using FTestClassIndexMap = std::map<const FTestClass*, int32_t>;
+// Overloaded functions also works
+DEFINE_PRIVATE_ACCESSOR_CONST_FUNCTION(TestClassRegister2, FTestClass, void, Register, FTestClassIndexMap&);
 
 // Use it anywhere!
 

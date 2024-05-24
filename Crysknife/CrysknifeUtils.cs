@@ -108,7 +108,7 @@ public static class Utils
     {
         return Values.RemoveAll(Value => Value.Equals(Target, StringComparison.OrdinalIgnoreCase)) > 0;
     }
-    
+
     public static bool GetContentIfStartsWith(string Str, string Prefix, out string Content)
     {
         if (Str.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase))
@@ -120,13 +120,13 @@ public static class Utils
         Content = Str;
         return false;
     }
-    
+
     public static string GetContentIfStartsWith(string Str, string Prefix)
     {
         GetContentIfStartsWith(Str, Prefix, out var Content);
         return Content;
     }
-    
+
     public static bool FileAccessGuard(Action Action, string Dest)
     {
         try

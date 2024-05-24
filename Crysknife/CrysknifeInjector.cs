@@ -307,8 +307,8 @@ public class Injector
                 Utils.EnsureParentDirectoryExists(DstPath);
             }
 
-            if (ShouldBeSymLink ? 
-                Utils.FileAccessGuard(() => File.CreateSymbolicLink(DstPath, SrcPath), DstPath) : 
+            if (ShouldBeSymLink ?
+                Utils.FileAccessGuard(() => File.CreateSymbolicLink(DstPath, SrcPath), DstPath) :
                 Utils.FileAccessGuard(() => File.Copy(SrcPath, DstPath, true), DstPath))
             {
                 Console.ForegroundColor = ConsoleColor.Green;
@@ -480,18 +480,18 @@ public class Injector
 
     public void Process(JobType Job, string SrcDirectoryOverride, string VariableOverrides)
     {
-        string BuiltinVariables = $"CRYSKNIFE_INPUT_DIRECTORY={SrcDirectoryOverride},CRYSKNIFE_OUTPUT_DIRECTORY={DstDirectory}";
-        if (VariableOverrides.Length > 0) BuiltinVariables += ",";
-        VariableOverrides = BuiltinVariables + VariableOverrides;
+        string BuiltinVariables = $"CRYSKNIFE_OUTPUT_DIRECTORY={DstDirectory},CRYSKNIFE_INPUT_DIRECTORY={SrcDirectoryOverride}";
 
         if (Options.HasFlag(JobOptions.DryRun))
         {
-            if (VariableOverrides.Length > 0) VariableOverrides += ",";
-            VariableOverrides += $"CRYSKNIFE_DRY_RUN=1";
+            BuiltinVariables = string.Join(',', BuiltinVariables, "CRYSKNIFE_DRY_RUN=1");
         }
+
+        VariableOverrides = string.Join(',', BuiltinVariables, VariableOverrides);
 
         var Patches = new Dictionary<string, PatchDescription>();
         var Config = new Config(Path.Combine(SrcDirectoryOverride, "Crysknife.ini"), DstDirectory, BaseConfig, VariableOverrides);
+        File.WriteAllText(Path.Combine(SrcDirectoryOverride, "CrysknifeCache.ini"), Config.ToString());
 
         bool VerboseLogging = Options.HasFlag(JobOptions.Verbose);
         if (VerboseLogging)

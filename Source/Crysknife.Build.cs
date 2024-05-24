@@ -20,7 +20,7 @@ public class Crysknife : ModuleRules
 
 	public static void FillInConfigVariables(List<string> Definitions, string TargetDirectory, string Prefix)
 	{
-		var Config = new ConfigFile(new FileReference(Path.Combine(TargetDirectory, "SourcePatch", "Crysknife.ini")));
+		var Config = new ConfigFile(new FileReference(Path.Combine(TargetDirectory, "SourcePatch", "CrysknifeCache.ini")));
 
 		if (Config.TryGetSection("Variables", out var Switches))
 		{

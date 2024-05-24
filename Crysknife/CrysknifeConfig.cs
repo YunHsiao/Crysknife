@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
+// SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
 // SPDX-License-Identifier: MIT
 
 using System.Diagnostics;
@@ -83,7 +83,7 @@ internal class ConfigPredicates
 
     public bool Eval(string Target)
     {
-        return Predicates.Where(Predicate => !Predicate.CompileTime).Aggregate(CompileTimeCondition, (Current, Predicate) => 
+        return Predicates.Where(Predicate => !Predicate.CompileTime).Aggregate(CompileTimeCondition, (Current, Predicate) =>
             Eval(Current, Predicate, Predicate.EvalFuncFactory(Target)));
     }
 
@@ -112,7 +112,7 @@ internal class ConfigPredicates
     {
         Predicates = new[]
         {
-            new ConfigPredicate("NameMatches", Target => Cond => 
+            new ConfigPredicate("NameMatches", Target => Cond =>
                 Path.GetFileName(Target).Contains(Cond, StringComparison.OrdinalIgnoreCase)),
 
             new ConfigPredicate("TargetExists", Cond =>
@@ -223,7 +223,11 @@ internal class ConfigRule
         if (BaseDump.Length > 0) BaseDump = $"{Keyword}=BaseDomain,{BaseDump}";
 
         string UserDump = UserPredicates.ToString();
-        if (UserDump.Length > 0) UserDump = $"{Keyword}={UserDump}";
+        if (UserDump.Length > 0)
+        {
+            string Prefix = BaseDump.Length > 0 ? "+" : "";
+            UserDump = $"{Prefix}{Keyword}={UserDump}";
+        }
 
         return string.Join('\n', BaseDump, UserDump).Trim();
     }
@@ -312,7 +316,7 @@ internal class ConfigSection
 
         if (ShouldRemap)
         {
-            Result = ShouldFlatten ? Path.Combine(RemapTarget, Path.GetFileName(Target)) : 
+            Result = ShouldFlatten ? Path.Combine(RemapTarget, Path.GetFileName(Target)) :
                 ControllingDomain == string.Empty ? Path.Combine(RemapTarget, Target) : Target.Replace(ControllingDomain, RemapTarget);
             return RemapResult.Remapped;
         }
@@ -334,7 +338,7 @@ internal class ConfigSection
     {
         string Predicates = string.Join('\n', Rules.Select(Predicate => Predicate.ToString())
             .Where(Predicate => Predicate.Length > 0));
-        return $"[{GetSectionName()}]\n{Predicates}\nRemapTarget:{RemapTarget}";
+        return $"[{GetSectionName()}]\n{Predicates}\nRemapTarget={RemapTarget}";
     }
 
     public IEnumerable<string> GetTargetNames()
@@ -425,7 +429,7 @@ internal class ConfigSectionHierarchy
         foreach (string SectionName in SectionNames)
         {
             if (!Config.TryGetSection(SectionName, out var Section)) continue;
-            var SectionNode = new ConfigFileSectionNode(Section); 
+            var SectionNode = new ConfigFileSectionNode(Section);
 
             foreach (string TargetName in ConfigSection.GetTargetNames(SectionName))
             {
@@ -454,6 +458,7 @@ public class Config
 {
     private readonly List<ConfigSection> Sections = new();
     private readonly ConfigSectionHierarchy Hierarchy;
+    private readonly Dictionary<string, string> Variables = new();
 
     public Config(string ConfigPath, string RootPath, ConfigFile BaseConfig, string VariableOverrides)
     {
@@ -463,7 +468,6 @@ public class Config
         Config.AppendFromText("Variables", VariableOverrides.Replace("\"", string.Empty));
 
         // Gather variables
-        var Variables = new Dictionary<string, string>();
         var SectionNames = Config.SectionNames.ToList();
         var VariableSecIndex = SectionNames.FindIndex(Name => Name.Equals("Variables", StringComparison.OrdinalIgnoreCase));
         if (VariableSecIndex >= 0 && Config.TryGetSection(SectionNames[VariableSecIndex], out var Section))
@@ -511,8 +515,17 @@ public class Config
         }
     }
 
+    private string DumpVariables()
+    {
+        return "[Variables]\n" + Variables.Aggregate("", (Current, Pair) =>
+        {
+            string Expr = $"{Pair.Key}={Pair.Value}\n";
+            return Pair.Key.StartsWith("Crysknife", StringComparison.OrdinalIgnoreCase) ? Expr + Current : Current + Expr;
+        });
+    }
+
     public override string ToString()
     {
-        return string.Join('\n', Sections);
+        return DumpVariables() + '\n' + string.Join("\n\n", Sections);
     }
 }

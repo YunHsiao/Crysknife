@@ -93,7 +93,7 @@ internal static class Launcher
         if (!Arguments.ContainsKey("B"))
         {
             string BuiltinSourcePatch = Path.Combine(RootDirectory, RootFolderName, "SourcePatch");
-            InjectorInstance.Process(Job, BuiltinSourcePatch, VariableOverrides);   
+            InjectorInstance.Process(Job, BuiltinSourcePatch, VariableOverrides);
         }
 
         InjectorInstance.Process(Job, VariableOverrides);
