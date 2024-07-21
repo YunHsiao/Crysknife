@@ -4,6 +4,7 @@
 using UnrealBuildTool;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using EpicGames.Core;
 
 public class Crysknife : ModuleRules
@@ -18,9 +19,23 @@ public class Crysknife : ModuleRules
 		});
 	}
 
+	private static readonly Regex TruthyRE = new ("^(T|On)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+	private static bool IsTruthyValue(string Value)
+	{
+		if (int.TryParse(Value, out var Number)) return Number > 0;
+		return TruthyRE.IsMatch(Value);
+	}
+
 	public static void FillInConfigVariables(List<string> Definitions, string TargetDirectory, string Prefix)
 	{
-		var Config = new ConfigFile(new FileReference(Path.Combine(TargetDirectory, "SourcePatch", "CrysknifeCache.ini")));
+		bool NotYetApplied = false;
+		string ConfigPath = Path.Combine(TargetDirectory, "SourcePatch", "CrysknifeCache.ini");
+		if (!File.Exists(ConfigPath))
+		{
+			ConfigPath = Path.Combine(TargetDirectory, "SourcePatch", "Crysknife.ini");
+			NotYetApplied = true;
+		}
+		var Config = new ConfigFile(new FileReference(ConfigPath));
 
 		if (Config.TryGetSection("Variables", out var Switches))
 		{
@@ -28,7 +43,9 @@ public class Crysknife : ModuleRules
 			{
 				if (Switch.Key.StartsWith(Prefix, System.StringComparison.OrdinalIgnoreCase))
 				{
-					Definitions.Add($"{Switch.Key}={Switch.Value}");
+					string Value = Switch.Value;
+					if (NotYetApplied && IsTruthyValue(Value)) Value = "0";
+					Definitions.Add($"{Switch.Key}={Value}");
 				}
 			}
 		}

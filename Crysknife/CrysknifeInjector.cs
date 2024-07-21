@@ -270,9 +270,22 @@ public class Injector
         bool IsSymLink = Exists && new FileInfo(DstPath).Attributes.HasFlag(FileAttributes.ReparsePoint);
         bool UpToDate = Exists && !IsSymLink && File.ReadAllText(SrcPath) == File.ReadAllText(DstPath);
 
-        if (Job.HasFlag(JobType.Generate) && Exists && !IsSymLink && !UpToDate)
+        if (Job.HasFlag(JobType.Generate) && !IsSymLink && !UpToDate)
         {
-            if (Utils.FileAccessGuard(() => File.Copy(DstPath, SrcPath, true), SrcPath))
+            if (!Exists)
+            {
+                if (!AutoClearConfirm.HasFlag(ConfirmResult.ForAll))
+                {
+                    AutoClearConfirm = PromptToConfirm($"Couldn't find target file '{DstPath}', remove the source patch?");
+                }
+                if (AutoClearConfirm.HasFlag(ConfirmResult.Yes))
+                {
+                    File.Delete(SrcPath);
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine("Source patch removed: {0}", SrcPath);
+                }
+            }
+            else if (Utils.FileAccessGuard(() => File.Copy(DstPath, SrcPath, true), SrcPath))
             {
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Copied back: {0} <- {1}", SrcPath, DstPath);

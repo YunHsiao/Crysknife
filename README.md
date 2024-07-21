@@ -51,7 +51,7 @@ All relative structures from the `SourcePatch` directory will be preserved.
 The injector itself doesn't magically change the way your code is organized. Here are the recommended general principles:
 * Only inject sources when there is no way around it, you can still go very far with only the builtin plugin system
 * Try to move as much code as possible to separate new files instead of embedding them inline into the existing engine base
-* Empirically 90% of the code can be written inside the plugin itself, and 90% of the rest injections can be organized into new engine source files
+* Empirically more than 90% of the code can be written inside the plugin itself, and more than half of the rest injections can be organized into new engine source files
 
 ## Patch Syntax
 
