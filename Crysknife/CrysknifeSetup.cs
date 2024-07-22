@@ -69,11 +69,56 @@ public static class ProjectSetup
         Console.WriteLine("Plugin description patched: " + PluginDescFile);
     }
 
-    public static void Generate(string SourceDirectory, string ProjectName)
+    private static readonly string ConfigTemplate = @"
+        [Variables]
+        ; Enable patching engine editor source code
+        {0}_EDITOR=1
+        ; Enable patching engine runtime source code
+        {0}_RUNTIME=1
+
+        [Dependencies]
+        Crysknife=CRYSKNIFE_RUNTIME=${{{0}_RUNTIME}}
+        +Crysknife=CRYSKNIFE_EDITOR=${{{0}_EDITOR}}
+
+        [Runtime|Developer]
+        ; All predicates should be satisfied to skip
+        SkipIf=Conjunctions:Root
+        ; If the switch is off...
+        +SkipIf=IsTruthy:!${{{0}_RUNTIME}}
+        ; And the input is a patch...
+        +SkipIf=NameMatches:.patch
+        ; Or those that require the patches to compile
+
+        [Editor|Programs]
+        ; All predicates should be satisfied to skip
+        SkipIf=Conjunctions:Root
+        ; If the switch is off...
+        +SkipIf=IsTruthy:!${{{0}_EDITOR}}
+        ; And the input is a patch...
+        +SkipIf=NameMatches:.patch
+        ; Or those that require the patches to compile
+    ".Replace("    ", string.Empty);
+
+    private static void WriteDefaultConfig(string SourcePatchDirectory, string ProjectName)
     {
-        string TargetDirectory = Path.GetFullPath(Path.Combine(SourceDirectory, ".."));
+        string ConfigPath = Path.Combine(SourcePatchDirectory, "Crysknife.ini");
+        if (File.Exists(ConfigPath)) return;
+        File.WriteAllText(ConfigPath, string.Format(ConfigTemplate, ProjectName.ToUpper()));
+    }
+
+    private static string EngineRoot = string.Empty;
+    public static void Init(string RootDirectory)
+    {
+        EngineRoot = RootDirectory;
+    }
+
+    public static void Generate(string ProjectName)
+    {
+        string TargetDirectory = Path.Combine(EngineRoot, "Plugins", ProjectName);
         PatchPluginDescription(TargetDirectory, ProjectName);
         GenerateSetupScripts(TargetDirectory, ProjectName);
-        Utils.EnsureParentDirectoryExists(Path.Combine(TargetDirectory, "SourcePatch"));
+        string SourcePatchDirectory = Path.Combine(TargetDirectory, "SourcePatch");
+        Utils.EnsureParentDirectoryExists(SourcePatchDirectory);
+        WriteDefaultConfig(SourcePatchDirectory, ProjectName);
     }
 }

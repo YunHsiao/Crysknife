@@ -25,9 +25,65 @@ public enum JobOptions
 
 public class Injector
 {
+    private readonly struct InjectionRegexGroup
+    {
+        private readonly List<InjectionRegex> RegexList = new();
+
+        public InjectionRegexGroup(string Parent, IEnumerable<string>? Children)
+        {
+            RegexList.Add(new InjectionRegex(Parent));
+
+            if (Children == null) return;
+            foreach (var Child in Children)
+            {
+                RegexList.Add(new InjectionRegex(Child));
+            }
+        }
+
+        private static string Unpatch(string Content, IEnumerable<InjectionRegex> Regexes)
+        {
+            return Regexes.Aggregate(Content, (Current, Regex) => Regex.Unpatch(Current));
+        }
+
+        public string StripChildren(string Content)
+        {
+            return Unpatch(Content, RegexList.Where((_, Index) => Index != 0));
+        }
+
+        public string Unpatch(string Content)
+        {
+            return Unpatch(Content, RegexList);
+        }
+    }
+
+    private readonly struct SourcePatchInfo
+    {
+        public readonly string ProjectName;
+        public readonly string CommentTag;
+        public readonly string Directory;
+        public readonly InjectionRegexGroup PatchRegex;
+
+        public static string GetDirectory(string ProjectName)
+        {
+            return Path.Combine(EngineRoot, "Plugins", ProjectName, "SourcePatch");
+        }
+
+        private SourcePatchInfo(string ProjectName, string Directory, ConfigSystem? Config = null)
+        {
+            this.ProjectName = ProjectName;
+            this.Directory = Directory;
+            CommentTag = Config?.GetCommentTag() ?? ProjectName;
+            PatchRegex = new InjectionRegexGroup(CommentTag, Config?.Children);
+        }
+
+        public SourcePatchInfo(string ProjectName, ConfigSystem? Config = null)
+            : this(ProjectName, GetDirectory(ProjectName), Config)
+        {}
+    }
+
     private readonly struct ParsedPath
     {
-        public readonly string PathTrunc;
+        private readonly string PathTrunc;
         public readonly List<string> Extensions = new();
 
         public ParsedPath(string InputPath)
@@ -40,6 +96,16 @@ public class Injector
                 Extension = Path.GetExtension(InputPath);
             }
             PathTrunc = InputPath;
+        }
+
+        public string Trim(int NumExtensions)
+        {
+            string Result = PathTrunc;
+            for (int Index = 0; Index < Extensions.Count - NumExtensions; ++Index)
+            {
+                Result += Extensions[Index];
+            }
+            return Result;
         }
     }
 
@@ -189,10 +255,11 @@ public class Injector
         }
     }
 
-    private void ProcessPatch(JobType Job, string PatchPath, string TargetPath)
+    private void ProcessPatch(JobType Job, string PatchPath, string TargetPath, InjectionRegexGroup PatchRegex)
     {
         string TargetContent = File.ReadAllText(TargetPath);
-        string ClearedTarget = InjectionRE.Unpatch(TargetContent);
+        TargetContent = PatchRegex.StripChildren(TargetContent);
+        string ClearedTarget = PatchRegex.Unpatch(TargetContent);
         List<DiffMatchPatch.Patch>? Patches = null;
 
         if (Job.HasFlag(JobType.Generate))
@@ -208,7 +275,7 @@ public class Injector
                 }
                 if (AutoClearConfirm.HasFlag(ConfirmResult.Yes))
                 {
-                    RemovePatchFile(TargetPath);
+                    UnregisterSourcePatch(TargetPath);
                     return;
                 }
             }
@@ -335,11 +402,7 @@ public class Injector
         PatchTool = new DMPContext(PatchContextLength, MatchContentTolerance, MatchLineTolerance);
     }
 
-    private static ConfigFile BaseConfig = new();
-
-    private readonly string ProjectName;
-    private readonly string SrcDirectory;
-    private readonly string DstDirectory;
+    private readonly string SourceDirectory;
     private readonly JobOptions Options;
 
     private string PrivateInclusiveFilter = string.Empty;
@@ -348,7 +411,8 @@ public class Injector
     private float PrivateMatchContentTolerance = 0.5f;
     private int PrivateMatchLineTolerance = int.MaxValue; // Line number may vary significantly
 
-    private readonly InjectionRegex InjectionRE;
+    private readonly ConfigSystem DefaultConfig;
+    private readonly SourcePatchInfo DefaultSourcePatch;
     private readonly EngineVersion CurrentEngineVersion;
     private ConfirmResult OverrideConfirm;
     private ConfirmResult AutoClearConfirm;
@@ -356,17 +420,21 @@ public class Injector
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    public Injector(string InProjectName, string InSrcDirectory, string InDstDirectory, JobOptions InOptions)
+    public Injector(string ProjectName, string VariableOverrides, JobOptions Options)
     {
-        ProjectName = InProjectName;
-        SrcDirectory = InSrcDirectory;
-        DstDirectory = InDstDirectory;
-        Options = InOptions;
+        SourceDirectory = Path.Combine(EngineRoot, "Source");
+        this.Options = Options;
 
-        InjectionRE = new InjectionRegex(ProjectName);
-        CurrentEngineVersion = EngineVersion.Create(Utils.GetCurrentEngineVersion(DstDirectory));
+        CurrentEngineVersion = EngineVersion.Create(Utils.GetCurrentEngineVersion(SourceDirectory));
         OverrideConfirm = Options.HasFlag(JobOptions.Force) ? ConfirmResult.Yes | ConfirmResult.ForAll : ConfirmResult.NotDecided;
         CreatePatchTool();
+
+        string PatchDirectory = SourcePatchInfo.GetDirectory(ProjectName);
+        string BuiltinVariables = $"CRYSKNIFE_SOURCE_DIRECTORY={SourceDirectory},CRYSKNIFE_PATCH_DIRECTORY={PatchDirectory}";
+        if (Options.HasFlag(JobOptions.DryRun)) BuiltinVariables = string.Join(',', BuiltinVariables, "CRYSKNIFE_DRY_RUN=1");
+        VariableOverrides = string.Join(',', BuiltinVariables, VariableOverrides);
+        DefaultConfig = ConfigSystem.Create(ProjectName, VariableOverrides);
+        DefaultSourcePatch = new SourcePatchInfo(ProjectName, DefaultConfig);
     }
 
     public short PatchContextLength
@@ -407,76 +475,114 @@ public class Injector
         set => PrivateExclusiveFilter = Utils.UnifySeparators(value);
     }
 
-    public void CreatePatchFile(params string[] InputPaths)
+    private void DispatchHelper(Action<SourcePatchInfo, ConfigSystem> Action, bool ParentFirst)
     {
-        var PatchedPaths = new List<string>();
-
-        foreach (string InputPath in InputPaths)
+        if (ParentFirst)
         {
-            if (Path.GetExtension(InputPath) != string.Empty)
+            foreach (var Pair in DefaultConfig.Dependencies)
             {
-                string FilePath = InputPath;
-                if (!File.Exists(FilePath)) FilePath = Path.Combine(DstDirectory, FilePath);
-                if (!File.Exists(FilePath)) continue;
-                PatchedPaths.Add(FilePath);
+                var SourcePatch = new SourcePatchInfo(Pair.Key, Pair.Value);
+                Action(SourcePatch, Pair.Value);
             }
-            else
-            {
-                string DirPath = InputPath;
-                if (!Directory.Exists(DirPath)) DirPath = Path.Combine(DstDirectory, DirPath);
-                if (!Directory.Exists(DirPath)) continue;
-                PatchedPaths.AddRange(Directory.GetFiles(DirPath, "*", new EnumerationOptions { RecurseSubdirectories = true })
-                    .Where(PatchedPath => Path.GetExtension(PatchedPath) is ".cpp" or ".h"));
-            }
+            Action(DefaultSourcePatch, DefaultConfig);
         }
-
-        foreach (string PatchedPath in PatchedPaths)
+        else
         {
-            string RelativePath = Path.GetRelativePath(DstDirectory, PatchedPath);
-            string PatchPath = Path.Combine(SrcDirectory, RelativePath + PatchDescription.MakeExtension(CurrentEngineVersion));
-            if (File.Exists(PatchPath)) continue;
-            if (!File.ReadAllText(PatchedPath).Contains($"// {ProjectName}"))
+            Action(DefaultSourcePatch, DefaultConfig);
+            foreach (var Pair in DefaultConfig.Dependencies.Reverse())
             {
-                continue;
+                var SourcePatch = new SourcePatchInfo(Pair.Key, Pair.Value);
+                Action(SourcePatch, Pair.Value);
             }
-
-            Directory.GetParent(PatchPath)?.Create();
-            File.Create(PatchPath).Close();
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("Patch file created: " + PatchPath);
         }
     }
 
-    public void RemovePatchFile(params string[] InputPaths)
+    private void RegisterSourcePatch(SourcePatchInfo SourcePatch, string InputPaths)
     {
         var PatchedPaths = new List<string>();
 
-        foreach (string InputPath in InputPaths)
+        foreach (string InputPath in InputPaths.Split())
         {
             if (Path.GetExtension(InputPath) != string.Empty)
             {
                 string FilePath = InputPath;
-                if (!File.Exists(FilePath)) FilePath = Path.Combine(DstDirectory, FilePath);
+                if (!File.Exists(FilePath)) FilePath = Path.Combine(SourceDirectory, FilePath);
                 if (!File.Exists(FilePath)) continue;
                 PatchedPaths.Add(FilePath);
             }
             else
             {
                 string DirPath = InputPath;
-                if (!Directory.Exists(DirPath)) DirPath = Path.Combine(DstDirectory, DirPath);
+                if (!Directory.Exists(DirPath)) DirPath = Path.Combine(SourceDirectory, DirPath);
                 if (!Directory.Exists(DirPath)) continue;
-                PatchedPaths.AddRange(Directory.GetFiles(DirPath, "*", new EnumerationOptions { RecurseSubdirectories = true })
-                    .Where(PatchedPath => Path.GetExtension(PatchedPath) is ".cpp" or ".h"));
+                PatchedPaths.AddRange(Directory.GetFiles(DirPath, "*", new EnumerationOptions
+                    { RecurseSubdirectories = true }).Where(Utils.CanBePatched));
             }
         }
 
         foreach (string PatchedPath in PatchedPaths)
         {
-            string RelativePath = Path.GetRelativePath(DstDirectory, PatchedPath);
-            string PatchPath = Path.Combine(SrcDirectory, RelativePath + PatchDescription.MakeExtension(CurrentEngineVersion));
+            string RelativePath = Path.GetRelativePath(SourceDirectory, PatchedPath);
+            string PatchPath = Path.Combine(SourcePatch.Directory, RelativePath);
+
+            // Register any file contains the project name
+            if (!File.Exists(PatchPath) && Path.GetFileName(PatchedPath).Contains(SourcePatch.ProjectName))
+            {
+                goto Register;
+            }
+
+            // Or new patched files
+            PatchPath += PatchDescription.MakeExtension(CurrentEngineVersion);
+            if (!File.Exists(PatchPath) && File.ReadAllText(PatchedPath).Contains($"// {SourcePatch.CommentTag}"))
+            {
+                goto Register;
+            }
+
+            continue;
+
+            Register:
+            Directory.GetParent(PatchPath)?.Create();
+            File.Create(PatchPath).Close();
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("New source patch registered: " + PatchPath);
+        }
+    }
+
+    public void RegisterSourcePatch(string InputPaths)
+    {
+        DispatchHelper((SourcePatch, _) => RegisterSourcePatch(SourcePatch, InputPaths), true);
+    }
+
+    private void UnregisterSourcePatch(SourcePatchInfo SourcePatch, string InputPaths)
+    {
+        var PatchedPaths = new List<string>();
+
+        foreach (string InputPath in InputPaths.Split())
+        {
+            if (Path.GetExtension(InputPath) != string.Empty)
+            {
+                string FilePath = InputPath;
+                if (!File.Exists(FilePath)) FilePath = Path.Combine(SourceDirectory, FilePath);
+                if (!File.Exists(FilePath)) continue;
+                PatchedPaths.Add(FilePath);
+            }
+            else
+            {
+                string DirPath = InputPath;
+                if (!Directory.Exists(DirPath)) DirPath = Path.Combine(SourceDirectory, DirPath);
+                if (!Directory.Exists(DirPath)) continue;
+                PatchedPaths.AddRange(Directory.GetFiles(DirPath, "*", new EnumerationOptions
+                    { RecurseSubdirectories = true }).Where(Utils.CanBePatched));
+            }
+        }
+
+        foreach (string PatchedPath in PatchedPaths)
+        {
+            string RelativePath = Path.GetRelativePath(SourceDirectory, PatchedPath);
+            string PatchPath = Path.Combine(SourcePatch.Directory, RelativePath + PatchDescription.MakeExtension(CurrentEngineVersion));
             if (!File.Exists(PatchPath)) continue;
 
-            ProcessPatch(JobType.Clear, PatchPath, PatchedPath);
+            ProcessPatch(JobType.Clear, PatchPath, PatchedPath, SourcePatch.PatchRegex);
             File.Delete(PatchPath);
             File.Delete(PatchPath + ".html");
             Console.ForegroundColor = ConsoleColor.Yellow;
@@ -484,47 +590,48 @@ public class Injector
         }
     }
 
-    public static void Init(string RootDirectory)
+    public void UnregisterSourcePatch(string InputPaths)
     {
-        ConfigFile.Init(RootDirectory);
-        string ConfigPath = Path.Combine(RootDirectory, "BaseCrysknife.ini");
-        if (File.Exists(ConfigPath)) BaseConfig = new ConfigFile(ConfigPath);
+        DispatchHelper((SourcePatch, _) => UnregisterSourcePatch(SourcePatch, InputPaths), false);
     }
 
-    public void Process(JobType Job, string SrcDirectoryOverride, string VariableOverrides)
+    private static string EngineRoot = string.Empty;
+    public static void Init(string RootDirectory)
     {
-        string BuiltinVariables = $"CRYSKNIFE_OUTPUT_DIRECTORY={DstDirectory},CRYSKNIFE_INPUT_DIRECTORY={SrcDirectoryOverride}";
+        EngineRoot = RootDirectory;
+        ConfigSystem.Init(RootDirectory);
+        ProjectSetup.Init(RootDirectory);
+    }
 
-        if (Options.HasFlag(JobOptions.DryRun))
-        {
-            BuiltinVariables = string.Join(',', BuiltinVariables, "CRYSKNIFE_DRY_RUN=1");
-        }
+    public void GenerateSetupScripts()
+    {
+        ProjectSetup.Generate(DefaultSourcePatch.ProjectName);
+    }
 
-        VariableOverrides = string.Join(',', BuiltinVariables, VariableOverrides);
-
-        var Patches = new Dictionary<string, PatchDescription>();
-        var Config = new Config(Path.Combine(SrcDirectoryOverride, "Crysknife.ini"), DstDirectory, BaseConfig, VariableOverrides);
-        File.WriteAllText(Path.Combine(SrcDirectoryOverride, "CrysknifeCache.ini"), Config.ToString());
+    private void Process(SourcePatchInfo SourcePatch, ConfigSystem Config, JobType Job)
+    {
+        File.WriteAllText(Path.Combine(SourcePatch.Directory, "CrysknifeCache.ini"), Config.ToString());
 
         bool VerboseLogging = Options.HasFlag(JobOptions.Verbose);
         if (VerboseLogging)
         {
             Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine($"Processing '{SrcDirectoryOverride}' Using Config:");
+            Console.WriteLine($"Processing '{DefaultSourcePatch.Directory}' Using Config:");
             Console.ForegroundColor = ConsoleColor.DarkGray;
             Console.WriteLine(Config);
         }
 
-        foreach (string SrcPath in Directory.GetFiles(SrcDirectoryOverride, "*", new EnumerationOptions { RecurseSubdirectories = true }))
+        var Patches = new Dictionary<string, PatchDescription>();
+        foreach (string SrcPath in Directory.GetFiles(SourcePatch.Directory, "*", new EnumerationOptions { RecurseSubdirectories = true }))
         {
             if (!SrcPath.Contains(InclusiveFilter) || SrcPath.Contains(ExclusiveFilter)) continue;
 
-            string RelativePath = Path.GetRelativePath(SrcDirectoryOverride, SrcPath);
+            string RelativePath = Path.GetRelativePath(SourcePatch.Directory, SrcPath);
             var ParsedRelativePath = new ParsedPath(RelativePath);
             if (ParsedRelativePath.Extensions.Last() == ".patch") // Patch existing files
             {
-                RelativePath = ParsedRelativePath.PathTrunc + ParsedRelativePath.Extensions.First();
-                string DstPath = Path.Combine(DstDirectory, RelativePath);
+                RelativePath = ParsedRelativePath.Trim(2);
+                string DstPath = Path.Combine(SourceDirectory, RelativePath);
                 if (!File.Exists(DstPath)) continue;
 
                 if (!Patches.ContainsKey(RelativePath)) Patches.Add(RelativePath, new PatchDescription());
@@ -532,13 +639,13 @@ public class Injector
             }
             else if (Config.Remap(RelativePath, out var DstRelativePath, VerboseLogging))
             {
-                string OutputPath = Path.Combine(DstDirectory, DstRelativePath);
+                string OutputPath = Path.Combine(SourceDirectory, DstRelativePath);
 
                 // When dry running, sync with original output path unconditionally
                 if (Options.HasFlag(JobOptions.DryRun) && RelativePath != DstRelativePath)
                 {
                     Utils.EnsureParentDirectoryExists(OutputPath);
-                    string OriginalDstPath = Path.Combine(DstDirectory, RelativePath);
+                    string OriginalDstPath = Path.Combine(SourceDirectory, RelativePath);
                     if (File.Exists(OriginalDstPath)) Utils.FileAccessGuard(() => File.Copy(OriginalDstPath, OutputPath, true), OutputPath);
                     else File.Delete(OutputPath);
                 }
@@ -554,8 +661,8 @@ public class Injector
 
             if (!Config.Remap(RelativePatch, out var DstRelativePath, VerboseLogging)) continue;
 
-            string PatchPath = Path.Combine(SrcDirectoryOverride, RelativePatch);
-            string OutputPath = Path.Combine(DstDirectory, DstRelativePath[..^PatchSuffix.Length]);
+            string PatchPath = Path.Combine(SourcePatch.Directory, RelativePatch);
+            string OutputPath = Path.Combine(SourceDirectory, DstRelativePath[..^PatchSuffix.Length]);
 
             if (Options.HasFlag(JobOptions.TreatPatchAsFile))
             {
@@ -564,7 +671,7 @@ public class Injector
             }
 
             // The original source file have to exist
-            string TargetPath = Path.Combine(DstDirectory, Pair.Key);
+            string TargetPath = Path.Combine(SourceDirectory, Pair.Key);
             if (!File.Exists(TargetPath))
             {
                 Console.ForegroundColor = ConsoleColor.Red;
@@ -585,15 +692,15 @@ public class Injector
                 Utils.FileAccessGuard(() => File.Copy(TargetPath, OutputPath, true), OutputPath);
             }
 
-            ProcessPatch(Job, PatchPath, OutputPath);
+            ProcessPatch(Job, PatchPath, OutputPath, SourcePatch.PatchRegex);
         }
 
         Console.ForegroundColor = ConsoleColor.DarkBlue;
-        Console.WriteLine("{0} job done: {1} <=> {2}", Job.ToString(), SrcDirectoryOverride, DstDirectory);
+        Console.WriteLine("{0} job done: {1} <=> {2}", Job.ToString(), SourcePatch.Directory, SourceDirectory);
     }
 
-    public void Process(JobType Job, string VariableOverrides = "")
+    public void Process(JobType Job)
     {
-        Process(Job, SrcDirectory, VariableOverrides);
+        DispatchHelper((SourcePatch, Config) => Process(SourcePatch, Config, Job), Job != JobType.Clear);
     }
 }

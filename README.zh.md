@@ -48,7 +48,7 @@ Engine/Plugins/${PluginName}/SourcePatch/
 ```
 从 `SourcePatch` 文件夹起的所有相对目录结构默认都会完整保留。
 
-Injector 本身其实很简单，并不会神奇地自动改变任何代码结构，更多的是开发者自己对架构设计的权衡，以下是一些推荐的通用原则：
+Injector 本身相对简单直接，并不会神奇地自动改变任何代码结构，更多的是开发者自己对架构设计的权衡，以下是一些推荐的通用原则：
 * 实现功能时尽量优先依赖引擎内置的扩展和回调系统，即使不依赖任何注入也可以做到很多事
 * 尽量把需要注入的代码都拆分到独立的新文件，在引擎源码中的注入点越少越好
 * 根据经验，超过 90% 的代码可以直接正常写在扩展内，其余注入代码里超过一半可以组织到新的引擎文件中
@@ -60,24 +60,26 @@ Injector 本身其实很简单，并不会神奇地自动改变任何代码结�
 ### 多行形式
 
 ```cpp
-// ${PluginName}${Comments}: Begin
+// ${Tag}${Comments}: Begin
 ** YOUR CODE BLOCK HERE **
-// ${PluginName}: End
+// ${Tag}: End
 ```
 
 ### 单行形式
 
 ```cpp
-** YOUR ONE-LINER HERE ** // ${PluginName}${Comments}
+** YOUR ONE-LINER HERE ** // ${Tag}${Comments}
 ```
 
 ### 下行形式
 注意此形式下注释桩独占一行，行内不可以有任何有效代码：
 
 ```cpp
-// ${PluginName}${Comments}
+// ${Tag}${Comments}
 ** YOUR ONE-LINER HERE **
 ```
+
+注释桩的 Tag 默认为扩展文件夹名，如果需要可以通过 [Config 系统](#内置变量) 修改。
 
 > 如果不影响性能的话，尽量选择最有代表性的注入点，如类的开始，长期存在的公开接口后等，可以大大提高在不同版本的引擎间自动匹配 Patch 的成功率。
 
@@ -89,7 +91,7 @@ Injector 本身其实很简单，并不会神奇地自动改变任何代码结�
 这个小变化是：
 
 ```cpp
-// ${PluginName}-${Comments}
+// ${Tag}-${Comments}
 ```
 
 注释中扩展名字后面的 **减号** 至关重要，它会告诉 Injector 接下来这个代码块是直接来自原版引擎源码的，在应用 Patch 时应该直接通过注释的形式删除。
@@ -98,11 +100,8 @@ Injector 本身其实很简单，并不会神奇地自动改变任何代码结�
 
 ## 命令行参数
 
-* `-P [PLUGIN]` 输入扩展的文件夹名，也是注释桩中要匹配的名字，必须指定
-* `-I [DIRECTORY]` 自定义 Patch 来源目录
-* `-O [DIRECTORY]` 自定义引擎源码目录
+* `-P [PLUGIN]` 输入扩展的文件夹名，默认也是注释桩中要匹配的关键词，必须指定
 * `-D [VAR=VALUE,]...` 定义 Config 中的变量值
-* `-B` 跳过所有内置 Patch
 * `-S` 生成一系列 Setup 脚本到扩展目录，作为一键部署的入口
 
 ### 行为类
@@ -194,6 +193,13 @@ Injector 本身其实很简单，并不会神奇地自动改变任何代码结�
 Var1=Value4
 Var2=True
 
+; Declare source patch in other plugins that you will depend on
+[Dependencies]
+; Variables can be overridden with your own ones
+Plugin1=Var3=${Var2}
+; It's okay to have no overrides
+Plugin2=
+
 ; Applies to all files
 [Global]
 ; Multiple conditions are allowed
@@ -221,6 +227,7 @@ ScopedRule2=Predicate5
 * 如无特殊声明，每个作用域可以有多条规则，每条规则可以有多个条件 (Predicate)，每个条件可以有多个值 (Value)
 * Variables 作用域内可定义任意变量 (Variable)， 在任意值内都可通过 `${VariableName}` 引用
 * 任意值都可以添加 `!` 前缀，表示反向条件（条件不成立时满足）
+* Dependencies 作用域内可用于指定对其他引擎扩展内的 Patch 的依赖，以提供对多扩展架构的无缝支持
 
 ### 规则
 
@@ -265,8 +272,9 @@ ScopedRule2=Predicate5
 
 ### 内置变量
 
-* `CRYSKNIFE_INPUT_DIRECTORY`: 源扩展 `SourcePatch` 目录的完整路径
-* `CRYSKNIFE_OUTPUT_DIRECTORY`: 目标引擎 `Source` 目录的完整路径
+* `CRYSKNIFE_PATCH_DIRECTORY`: 默认值为源扩展 `SourcePatch` 目录的完整路径
+* `CRYSKNIFE_SOURCE_DIRECTORY`: 默认值为目标引擎 `Source` 目录的完整路径
+* `CRYSKNIFE_COMMENT_TAG`: 默认值为当前扩展的文件夹名，可自定义为其他更具区分度的标识符
 
 ## Config 用法示例
 
@@ -302,6 +310,6 @@ Flat=True
 
 我们在 `SourcePatch` 文件夹内置了一些可能有用的工具，可以提供一些有趣的权衡。
 
-|                                           头文件路径                                  |  模块  |            备注            |
+|                                      头文件路径                                       |  模块  |            备注            |
 |:--------------------------------------------------------------------------------:|:----:|:------------------------:|
 | [Misc/PrivateAccessor.h](SourcePatch/Runtime/Core/Public/Misc/PrivateAccessor.h) | Core |  允许在非友元环境下访问私有变量或函数的小工具  |

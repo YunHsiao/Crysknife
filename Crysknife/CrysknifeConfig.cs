@@ -108,7 +108,7 @@ internal class ConfigPredicates
         }
     }
 
-    public void Compile(string RootPath, IDictionary<string, string> Variables)
+    public void Compile(IDictionary<string, string> Variables)
     {
         Predicates = new[]
         {
@@ -117,7 +117,7 @@ internal class ConfigPredicates
 
             new ConfigPredicate("TargetExists", Cond =>
             {
-                string TargetPath = Path.Combine(RootPath, Cond);
+                string TargetPath = Path.Combine(ConfigSystem.EngineRoot, "Source", Cond);
                 return File.Exists(TargetPath) || Directory.Exists(TargetPath);
             }),
             new ConfigPredicate("IsTruthy", Utils.IsTruthyValue),
@@ -206,10 +206,10 @@ internal class ConfigRule
         }
     }
 
-    public void Compile(string RootPath, IDictionary<string, string> Variables)
+    public void Compile(IDictionary<string, string> Variables)
     {
-        BasePredicates.Compile(RootPath, Variables);
-        UserPredicates.Compile(RootPath, Variables);
+        BasePredicates.Compile(Variables);
+        UserPredicates.Compile(Variables);
     }
 
     public bool Eval(string Target)
@@ -248,7 +248,7 @@ internal class ConfigSection
     private readonly string RemapTarget = string.Empty;
     private readonly ConfigRule[] Rules;
 
-    public ConfigSection(ConfigFileSection Section, string SectionName, string RootPath, IDictionary<string, string> Variables)
+    public ConfigSection(ConfigFileSection Section, string SectionName, IDictionary<string, string> Variables)
     {
         TargetNames = GetTargetNames(SectionName).ToArray();
 
@@ -281,7 +281,7 @@ internal class ConfigSection
 
         foreach (ConfigRule Rule in Rules)
         {
-            Rule.Compile(RootPath, Variables);
+            Rule.Compile(Variables);
         }
     }
 
@@ -454,21 +454,68 @@ internal class ConfigSectionHierarchy
     }
 }
 
-public class Config
+public class ConfigSystem
 {
     private readonly List<ConfigSection> Sections = new();
     private readonly ConfigSectionHierarchy Hierarchy;
     private readonly Dictionary<string, string> Variables = new();
+    private readonly Dictionary<string, string> DependencyVariables = new();
+    public readonly Dictionary<string, ConfigSystem> Dependencies = new();
+    public readonly List<string> Children = new();
 
-    public Config(string ConfigPath, string RootPath, ConfigFile BaseConfig, string VariableOverrides)
+    private static ConfigFile BaseConfig = new();
+    public static string EngineRoot = string.Empty;
+    public static void Init(string RootDirectory)
+    {
+        EngineRoot = RootDirectory;
+        string RootPath = Path.Combine(EngineRoot, "Plugins", "Crysknife");
+        string ConfigPath = Path.Combine(RootPath, "BaseCrysknife.ini");
+        if (File.Exists(ConfigPath)) BaseConfig = new ConfigFile(ConfigPath);
+        ConfigFile.Init(RootPath);
+    }
+
+    private static ConfigFile CreateConfigFile(string ConfigPath, string VariableOverrides)
     {
         ConfigFile Config = File.Exists(ConfigPath) ? new ConfigFile(ConfigPath, BaseConfig) : BaseConfig;
-
-        // Override variables
         Config.AppendFromText("Variables", VariableOverrides.Replace("\"", string.Empty));
+        return Config;
+    }
+
+    // Parent dependencies will always come first
+    public static ConfigSystem Create(string ProjectName, string VariableOverrides, IDictionary<string, ConfigSystem>? Dependencies = null)
+    {
+        var Config = new ConfigSystem(ProjectName, VariableOverrides);
+        Dependencies ??= Config.Dependencies;
+
+        foreach (var Pair in Config.DependencyVariables)
+        {
+            if (Dependencies.ContainsKey(ProjectName)) continue;
+
+            var Overrides = string.Join(',', VariableOverrides, Pair.Value);
+            var Parent = Create(Pair.Key, Overrides, Dependencies);
+            Parent.RegisterChildren(ProjectName);
+            Dependencies.TryAdd(Pair.Key, Parent);
+        }
+        return Config;
+    }
+
+    private void RegisterChildren(string Name)
+    {
+        Children.Add(Name);
+        foreach (var Pair in Dependencies)
+        {
+            Pair.Value.RegisterChildren(Name);
+        }
+    }
+
+    private ConfigSystem(string ProjectName, string VariableOverrides)
+    {
+        string ConfigPath = Path.Combine(EngineRoot, "Plugins", ProjectName, "SourcePatch", "Crysknife.ini");
+        ConfigFile Config = CreateConfigFile(ConfigPath, VariableOverrides);
+
+        var SectionNames = Config.SectionNames.ToList();
 
         // Gather variables
-        var SectionNames = Config.SectionNames.ToList();
         var VariableSecIndex = SectionNames.FindIndex(Name => Name.Equals("Variables", StringComparison.OrdinalIgnoreCase));
         if (VariableSecIndex >= 0 && Config.TryGetSection(SectionNames[VariableSecIndex], out var Section))
         {
@@ -477,6 +524,21 @@ public class Config
                 Variables[Line.Key] = Line.Value;
             }
             SectionNames.RemoveAt(VariableSecIndex);
+        }
+
+        // Gather dependencies
+        var DependencySecIndex = SectionNames.FindIndex(Name => Name.Equals("Dependencies", StringComparison.OrdinalIgnoreCase));
+        if (DependencySecIndex >= 0 && Config.TryGetSection(SectionNames[DependencySecIndex], out Section))
+        {
+            foreach (ConfigLine Line in Section.Lines)
+            {
+                string Value = Utils.MapVariables(Variables, Line.Value);
+                if (!DependencyVariables.TryAdd(Line.Key, Value))
+                {
+                    DependencyVariables[Line.Key] = string.Join(',', DependencyVariables[Line.Key], Value);
+                }
+            }
+            SectionNames.RemoveAt(DependencySecIndex);
         }
 
         // Build inheritance chain
@@ -488,7 +550,7 @@ public class Config
         {
             if (Config.TryGetSection(SectionName, out Section))
             {
-                Sections.Add(new ConfigSection(Section, SectionName, RootPath, Variables));
+                Sections.Add(new ConfigSection(Section, SectionName, Variables));
             }
         }
         ConfigSectionHierarchy.Link(Hierarchy, Sections);
@@ -515,6 +577,12 @@ public class Config
         }
     }
 
+    public string? GetCommentTag()
+    {
+        Variables.TryGetValue("CRYSKNIFE_COMMENT_TAG", out var Result);
+        return Result;
+    }
+
     private string DumpVariables()
     {
         return "[Variables]\n" + Variables.Aggregate("", (Current, Pair) =>
@@ -524,8 +592,13 @@ public class Config
         });
     }
 
+    private string DumpDependencies()
+    {
+        return "[Dependencies]\n" + Dependencies.Aggregate("", (Current, Pair) => Current + $"{Pair.Key}={Pair.Value}\n");
+    }
+
     public override string ToString()
     {
-        return DumpVariables() + '\n' + string.Join("\n\n", Sections);
+        return DumpVariables() + '\n' + DumpDependencies() + '\n' + string.Join("\n\n", Sections);
     }
 }

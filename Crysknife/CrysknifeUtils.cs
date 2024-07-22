@@ -143,6 +143,11 @@ public static class Utils
         return true;
     }
 
+    public static bool CanBePatched(string TargetPath)
+    {
+        return Path.GetExtension(TargetPath) is ".cpp" or ".h" or ".cs" or ".inl";
+    }
+
     public static void Abort()
     {
         Console.ResetColor();

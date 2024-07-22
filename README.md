@@ -5,11 +5,11 @@ SPDX-License-Identifier: MIT
 
 # Crysknife
 
-When implementing plugins with complex engine-level customizations for Unreal® Engine, due to many design decisions of the engine architecture, it is very hard, if not impossible to keep away from modifying stock engine files to make everything fully work.
+When implementing plugins with complex engine-level customizations for Unreal® Engine, due to many design decisions of the engine architecture, it is very hard, if not impossible to completely keep away from modifying stock engine files to make everything fully work.
 
 Oftentimes the changes are completely scattered across engine modules, which could be fine for one in-house engine base, but extremely hard to port to any other.
 
-This project aims to completely automate the injection process, with powerful customization capabilities. This not only enables quick upgrades to newer engine versions but also essentially makes your custom engine features deployable to any existing engine code base as a proper engine plugin.
+This project aims to completely automate the injection process, with powerful customization capabilities. This not only enables quick upgrades to newer engine versions but also essentially makes your custom engine features deployable to any existing engine code base as proper engine plugins.
 
 Here's how it works under the hood:
 
@@ -60,24 +60,26 @@ For changes in existing engine files we detect & inject in the following forms (
 ### Multi-line
 
 ```cpp
-// ${PluginName}${Comments}: Begin
+// ${Tag}${Comments}: Begin
 ** YOUR CODE BLOCK HERE **
-// ${PluginName}: End
+// ${Tag}: End
 ```
 
 ### Single-line
 
 ```cpp
-** YOUR ONE-LINER HERE ** // ${PluginName}${Comments}
+** YOUR ONE-LINER HERE ** // ${Tag}${Comments}
 ```
 
 ### Next-line
 Note that there can be no code at the same line with the comment guard:
 
 ```cpp
-// ${PluginName}${Comments}
+// ${Tag}${Comments}
 ** YOUR ONE-LINER HERE **
 ```
+
+The comment tag is defaulted to plugin folder name but can be modified if needed, through [configs](#Built-in-Variables).
 
 > For non-performance-critical code, try to find the most representative context to insert your code (beginning of class,
 > after long-standing public interfaces, etc.), which can greatly increase the chances of finding matches in different engine bases.
@@ -90,20 +92,17 @@ Additionally, to modify the stock engine code, follow these steps:
 Where the special tweak is:
 
 ```cpp
-// ${PluginName}-${Comments}
+// ${Tag}-${Comments}
 ```
 
-**The minus sign** after the plugin name is enough to tell the injector that the surrounding code segment is directly from the stock engine source, essentially making it a deletion block.
+**The minus sign** after the comment tag is enough to tell the injector that the surrounding code segment is directly from the stock engine source, essentially making it a deletion block.
 
 > The minus sign can be omitted in the ending comment for multi-line guards.
 
 ## Command Line Interface
 
-* `-P [PLUGIN]` The input plugin folder name (also as the comment guard tag). Always required.
-* `-I [DIRECTORY]` Customize the source directory where the patches are located
-* `-O [DIRECTORY]` Customize the destination directory containing target sources to be patched
+* `-P [PLUGIN]` The input plugin folder name (by default also as the comment guard tag). Always required.
 * `-D [VAR=VALUE,]...` Define config variables
-* `-B` Skip actions on builtin source patches
 * `-S` Generate a set of setup scripts for the specified plugin
 
 ### Actions
@@ -196,6 +195,13 @@ to specify more complex patching behaviors such as conditional remapping, etc. i
 Var1=Value4
 Var2=True
 
+; Declare source patch in other plugins that you will depend on
+[Dependencies]
+; Variables can be overridden with your own ones
+Plugin1=Var3=${Var2}
+; It's okay to have no overrides
+Plugin2=
+
 ; Applies to all files
 [Global]
 ; Multiple conditions are allowed
@@ -222,6 +228,7 @@ ScopedRule2=Predicate5
 * If multiple sections affect the same file, the inner (path) section will automatically extend from the outer section.
 * The variables section declares custom variables that can be referenced with `${VariableName}` in any value.
 * Any value can be preceded by `!` to indicate a reverse predicate (satisfies if the condition is not met).
+* The dependencies section declares relevant source patches inside other plugins, which can provide seamless support when source patches are separated into multiple plugins
 
 ### Supported Rules
 
@@ -266,8 +273,9 @@ ScopedRule2=Predicate5
 
 ### Built-in Variables
 
-* `CRYSKNIFE_INPUT_DIRECTORY`: Full path to the input `SourcePatch` directory
-* `CRYSKNIFE_OUTPUT_DIRECTORY`: Full path to the output engine source directory
+* `CRYSKNIFE_PATCH_DIRECTORY`: Default to full path to the input `SourcePatch` directory
+* `CRYSKNIFE_SOURCE_DIRECTORY`: Default to full path to the output engine source directory
+* `CRYSKNIFE_COMMENT_TAG`: Default to the plugin folder name, you can assign a more distinctive name if needed
 
 ## Config Examples
 
@@ -303,6 +311,6 @@ Flat=True
 
 We included some useful utilities in the built-in `SourcePatch` folder, which can provide some interesting trade-offs.
 
-|                                     Include Path                                 | Module |                                Comment                                |
+|                                   Include Path                                   | Module |                                Comment                                |
 |:--------------------------------------------------------------------------------:|:------:|:---------------------------------------------------------------------:|
 | [Misc/PrivateAccessor.h](SourcePatch/Runtime/Core/Public/Misc/PrivateAccessor.h) |  Core  | A tiny library for accessing private members from non-friend contexts |
