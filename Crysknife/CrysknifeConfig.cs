@@ -64,8 +64,7 @@ internal class ConfigPredicate
 
 internal class ConfigPredicates
 {
-    private readonly List<string> Descriptions = new();
-
+    private string[] Descriptions = Array.Empty<string>();
     private ConfigPredicate[] Predicates = Array.Empty<ConfigPredicate>();
     private bool CompileTimeCondition;
     private bool LogicalAnd; // By default all predicates are disjunction
@@ -87,28 +86,12 @@ internal class ConfigPredicates
             Eval(Current, Predicate, Predicate.EvalFuncFactory(Target)));
     }
 
-    public void Add(string Desc, ConfigLineAction Action)
+    public void SetValue(string Desc)
     {
-        switch (Action)
-        {
-            case ConfigLineAction.Set:
-                Descriptions.Clear();
-                goto case ConfigLineAction.Add;
-            case ConfigLineAction.Add:
-                Descriptions.Add(Desc);
-                break;
-            case ConfigLineAction.RemoveKey:
-                Descriptions.Clear();
-                break;
-            case ConfigLineAction.RemoveKeyValue:
-                Descriptions.Remove(Desc);
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(Action), Action, null);
-        }
+        Descriptions = Desc.Split(',');
     }
 
-    public void Compile(IDictionary<string, string> Variables)
+    public void Compile()
     {
         Predicates = new[]
         {
@@ -161,9 +144,9 @@ internal class ConfigPredicates
                     Console.WriteLine("Config: Invalid predicate name: {0}", Rule);
                     continue;
                 }
+
                 Predicate.AddRange(Rule[(Predicate.Keyword.Length + 1)..]
-                    .Split('|', Utils.SplitOptions)
-                    .Select(Value => Utils.MapVariables(Variables, Value)));
+                    .Split('|', Utils.SplitOptions));
             }
         }
 
@@ -187,29 +170,29 @@ internal class ConfigRule
 {
     private readonly ConfigPredicates BasePredicates = new();
     private readonly ConfigPredicates UserPredicates = new();
-    public readonly string Keyword;
+    private readonly string Keyword;
 
     public ConfigRule(string Keyword)
     {
         this.Keyword = Keyword;
     }
 
-    public void Add(string Desc, ConfigLineAction Action)
+    public bool Matches(string Key)
     {
-        if (Utils.GetContentIfStartsWith(Desc, "BaseDomain", out var Content))
-        {
-            BasePredicates.Add(Utils.GetContentIfStartsWith(Content, ","), Action);
-        }
-        else
-        {
-            UserPredicates.Add(Desc, Action);
-        }
+        return Key.Equals(Keyword, StringComparison.OrdinalIgnoreCase) ||
+               Key.Equals($"Base{Keyword}", StringComparison.OrdinalIgnoreCase);
     }
 
-    public void Compile(IDictionary<string, string> Variables)
+    public void SetValue(string Key, string Desc)
     {
-        BasePredicates.Compile(Variables);
-        UserPredicates.Compile(Variables);
+        bool IsBaseDomain = Key.StartsWith("Base", StringComparison.OrdinalIgnoreCase);
+        (IsBaseDomain ? BasePredicates : UserPredicates).SetValue(Desc);
+    }
+
+    public void Compile()
+    {
+        BasePredicates.Compile();
+        UserPredicates.Compile();
     }
 
     public bool Eval(string Target)
@@ -220,14 +203,10 @@ internal class ConfigRule
     public override string ToString()
     {
         string BaseDump = BasePredicates.ToString();
-        if (BaseDump.Length > 0) BaseDump = $"{Keyword}=BaseDomain,{BaseDump}";
+        if (BaseDump.Length > 0) BaseDump = $"Base{Keyword}={BaseDump}";
 
         string UserDump = UserPredicates.ToString();
-        if (UserDump.Length > 0)
-        {
-            string Prefix = BaseDump.Length > 0 ? "+" : "";
-            UserDump = $"{Prefix}{Keyword}={UserDump}";
-        }
+        if (UserDump.Length > 0) UserDump = $"{Keyword}={UserDump}";
 
         return string.Join('\n', BaseDump, UserDump).Trim();
     }
@@ -248,10 +227,8 @@ internal class ConfigSection
     private readonly string RemapTarget = string.Empty;
     private readonly ConfigRule[] Rules;
 
-    public ConfigSection(ConfigFileSection Section, string SectionName, IDictionary<string, string> Variables)
+    public ConfigSection(IDictionary<string, string> Section, string SectionName)
     {
-        TargetNames = GetTargetNames(SectionName).ToArray();
-
         Rules = new[]
         {
             new ConfigRule("SkipIf"),
@@ -259,29 +236,31 @@ internal class ConfigSection
             new ConfigRule("RemapIf"),
         };
 
-        foreach (ConfigLine Line in Section.Lines)
+        TargetNames = GetTargetNames(SectionName).ToArray();
+
+        foreach (var Pair in Section)
         {
-            if (Line.Key.Equals("RemapTarget", StringComparison.OrdinalIgnoreCase))
+            if (Pair.Key.Equals("RemapTarget", StringComparison.OrdinalIgnoreCase))
             {
-                RemapTarget = Utils.UnifySeparators(Utils.MapVariables(Variables, Line.Value));
+                RemapTarget = Utils.UnifySeparators(Pair.Value);
                 if (Path.IsPathFullyQualified(RemapTarget)) RemapTarget = Path.GetFullPath(RemapTarget);
             }
             else
             {
-                var Rule = Array.Find(Rules, Rule => Line.Key.Equals(Rule.Keyword, StringComparison.OrdinalIgnoreCase));
+                var Rule = Array.Find(Rules, Rule => Rule.Matches(Pair.Key));
                 if (Rule == null)
                 {
                     Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine($"Config: Unsupported rule '{Line.Key}'");
+                    Console.WriteLine($"Config: Unsupported rule '{Pair.Key}'");
                     continue;
                 }
-                Rule.Add(Line.Value, Line.Action);
+                Rule.SetValue(Pair.Key, Pair.Value);
             }
         }
 
         foreach (ConfigRule Rule in Rules)
         {
-            Rule.Compile(Variables);
+            Rule.Compile();
         }
     }
 
@@ -353,6 +332,7 @@ internal class ConfigSection
     }
 }
 
+// Parent directory config applies to all sub-directories
 internal class ConfigSectionHierarchy
 {
     private class ConfigFileSectionNode
@@ -371,7 +351,7 @@ internal class ConfigSectionHierarchy
     private ConfigFileSectionNode? Section;
     private readonly Dictionary<string, ConfigSectionHierarchy> Children = new ();
 
-    public void InheritancePatch(ConfigFileSection? Parent)
+    public void InheritancePatch(ConfigFileSection? Parent = null)
     {
         if (Section != null)
         {
@@ -422,16 +402,16 @@ internal class ConfigSectionHierarchy
         }
     }
 
-    public static ConfigSectionHierarchy Build(ConfigFile Config, IEnumerable<string> SectionNames)
+    public static ConfigSectionHierarchy Build(ConfigFile Config, IDictionary<string, string> SectionNameMap)
     {
         var Root = new ConfigSectionHierarchy();
 
-        foreach (string SectionName in SectionNames)
+        foreach (var Pair in SectionNameMap)
         {
-            if (!Config.TryGetSection(SectionName, out var Section)) continue;
+            if (!Config.TryGetSection(Pair.Key, out var Section)) continue;
             var SectionNode = new ConfigFileSectionNode(Section);
 
-            foreach (string TargetName in ConfigSection.GetTargetNames(SectionName))
+            foreach (string TargetName in ConfigSection.GetTargetNames(Pair.Value))
             {
                 if (TargetName.Length == 0)
                 {
@@ -519,10 +499,7 @@ public class ConfigSystem
         var VariableSecIndex = SectionNames.FindIndex(Name => Name.Equals("Variables", StringComparison.OrdinalIgnoreCase));
         if (VariableSecIndex >= 0 && Config.TryGetSection(SectionNames[VariableSecIndex], out var Section))
         {
-            foreach (ConfigLine Line in Section.Lines)
-            {
-                Variables[Line.Key] = Line.Value;
-            }
+            Section.ParseLines(Variables, '|');
             SectionNames.RemoveAt(VariableSecIndex);
         }
 
@@ -530,28 +507,25 @@ public class ConfigSystem
         var DependencySecIndex = SectionNames.FindIndex(Name => Name.Equals("Dependencies", StringComparison.OrdinalIgnoreCase));
         if (DependencySecIndex >= 0 && Config.TryGetSection(SectionNames[DependencySecIndex], out Section))
         {
-            foreach (ConfigLine Line in Section.Lines)
-            {
-                string Value = Utils.MapVariables(Variables, Line.Value);
-                if (!DependencyVariables.TryAdd(Line.Key, Value))
-                {
-                    DependencyVariables[Line.Key] = string.Join(',', DependencyVariables[Line.Key], Value);
-                }
-            }
+            Section.ParseLines(DependencyVariables, ',', Value => Utils.MapVariables(Variables, Value));
             SectionNames.RemoveAt(DependencySecIndex);
         }
 
+        // Map section names
+        var SectionNameMap = new Dictionary<string, string>();
+        SectionNames.ForEach(Name => SectionNameMap[Name] = Utils.MapVariables(Variables, Name));
+
         // Build inheritance chain
-        Hierarchy = ConfigSectionHierarchy.Build(Config, SectionNames);
-        Hierarchy.InheritancePatch(null);
+        Hierarchy = ConfigSectionHierarchy.Build(Config, SectionNameMap);
+        Hierarchy.InheritancePatch();
 
         // Parse into scoped rules
-        foreach (string SectionName in SectionNames)
+        var RulesRegistry = new Dictionary<string, string>();
+        foreach (var Pair in SectionNameMap)
         {
-            if (Config.TryGetSection(SectionName, out Section))
-            {
-                Sections.Add(new ConfigSection(Section, SectionName, Variables));
-            }
+            if (!Config.TryGetSection(Pair.Key, out Section)) continue;
+            Section.ParseLines(RulesRegistry, ',', Value => Utils.MapVariables(Variables, Value));
+            Sections.Add(new ConfigSection(RulesRegistry, Pair.Value));
         }
         ConfigSectionHierarchy.Link(Hierarchy, Sections);
     }
@@ -594,7 +568,7 @@ public class ConfigSystem
 
     private string DumpDependencies()
     {
-        return "[Dependencies]\n" + Dependencies.Aggregate("", (Current, Pair) => Current + $"{Pair.Key}={Pair.Value}\n");
+        return "[Dependencies]\n" + DependencyVariables.Aggregate("", (Current, Pair) => Current + $"{Pair.Key}={Pair.Value}\n");
     }
 
     public override string ToString()

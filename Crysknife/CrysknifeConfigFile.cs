@@ -44,6 +44,34 @@ public class ConfigFileSection
 	public readonly string Name;
 	public readonly List<ConfigLine> Lines = new ();
 
+	public void ParseLines(IDictionary<string, string> Result, char Separator, Func<string, string>? MapFunc = null)
+	{
+		Result.Clear();
+		foreach (var Line in Lines)
+		{
+			string Value = MapFunc != null ? MapFunc(Line.Value) : Line.Value;
+			switch (Line.Action)
+			{
+				case ConfigLineAction.Set:
+					Result[Line.Key] = Value;
+					break;
+				case ConfigLineAction.Add:
+					Result.TryGetValue(Line.Key, out var Current);
+					Result[Line.Key] = string.Join(Separator, Current, Value);
+					break;
+				case ConfigLineAction.RemoveKey:
+					Result.Remove(Line.Key);
+					break;
+				case ConfigLineAction.RemoveKeyValue:
+					Result.TryGetValue(Line.Key, out Current);
+					if (Current != null) Result[Line.Key] = Current.Replace(Value, string.Empty);
+					break;
+				default:
+					throw new ArgumentOutOfRangeException();
+			}
+		}
+	}
+
 	public ConfigFileSection(string Name)
 	{
 		this.Name = Name;

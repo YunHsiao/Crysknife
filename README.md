@@ -245,6 +245,10 @@ ScopedRule2=Predicate5
 `FlattenIf=[PREDICATE]...`
 * Flatten the folder hierarchy if specified predicates are satisfied
 
+`^Base[RULE]=...`
+* Add a `Base` prefix to rule name to indicate the current rule line is in the base domain and, therefore can only be overruled by the same domain directives
+* Use this iff you want to override base rules defined in [BaseCrysknife.ini](BaseCrysknife.ini)
+
 ### Supported Predicates
 
 `TargetExists:[FILE|DIRECTORY]...`
@@ -262,11 +266,6 @@ ScopedRule2=Predicate5
 * `Predicates` means all logical operations inside every defined predicate
 * `All` means `Predicates|Root`
 * (By default all conditions are disjunction, i.e. the results are logically OR-ed together)
-
-`^BaseDomain`
-* Indicating the current rule line is in the base domain and, therefore can only be overruled by the same domain directives
-* Use this iff you want to override base rules defined in [BaseCrysknife.ini](BaseCrysknife.ini)
-* Must be defined at the start of the current rule.
 
 `Always` / `Never`
 * Always / never satisfies

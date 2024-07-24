@@ -244,6 +244,10 @@ ScopedRule2=Predicate5
 `FlattenIf=[PREDICATE]...`
 * 如果条件满足，不保留目录结构，展平所有输出到同一层级
 
+`^Base[RULE]=...`
+* 任意规则名称加 `Base` 前缀，表明当前行的条件在基作用域生效，也只能被基作用域的指令覆盖
+* 当且仅当希望覆盖任何 [BaseCrysknife.ini](BaseCrysknife.ini) 中定义的规则时再使用
+
 ### 条件
 
 `TargetExists:[FILE|DIRECTORY]...`
@@ -261,11 +265,6 @@ ScopedRule2=Predicate5
 * `Predicates` 指所有定义的条件内的组合逻辑
 * `All` 等价于 `Predicates|Root`
 * 默认所有条件内和条件之间都是逻辑或关系
-
-`^BaseDomain`
-* 表明当前行的条件在基作用域生效，也只能被基作用域的指令覆盖
-* 当且仅当希望覆盖任何 [BaseCrysknife.ini](BaseCrysknife.ini) 中定义的规则时再使用
-* 必须在当前规则的首位定义
 
 `Always` / `Never`
 * 总是满足 / 总是不满足
