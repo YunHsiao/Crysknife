@@ -9,12 +9,12 @@ internal class InjectionRegexForm
 {
     private static readonly Regex CommentRE = new (@"^(\s*)//\s*", RegexOptions.Multiline | RegexOptions.Compiled);
 
-    private readonly string ProjectName;
+    private readonly string PluginName;
     private readonly Regex RE;
 
-    public InjectionRegexForm(string ProjectName, string Pattern, RegexOptions Options)
+    public InjectionRegexForm(string PluginName, string Pattern, RegexOptions Options)
     {
-        this.ProjectName = ProjectName;
+        this.PluginName = PluginName;
         RE = new Regex(Pattern, Options);
     }
 
@@ -26,7 +26,7 @@ internal class InjectionRegexForm
 
     private string Replace(string Tag, string Content)
     {
-        if (Tag.StartsWith(ProjectName + '-')) // Restore deletions
+        if (Tag.StartsWith(PluginName + '-')) // Restore deletions
         {
             return CommentRE.Replace(Content, ContentMatch => ContentMatch.Groups[1].Value);
         }
@@ -38,16 +38,16 @@ public class InjectionRegex
 {
     private readonly InjectionRegexForm[] Forms;
 
-    public InjectionRegex(string ProjectName)
+    public InjectionRegex(string PluginName)
     {
-        string ProjectTag = ProjectName + @"[^\n]*?"; // Allow some comments in between
+        string CommentTag = PluginName + @"[^\n]*?"; // Allow some comments in between
         Forms = new []
         {
-            new InjectionRegexForm(ProjectName, string.Format(@"\s*// (?<Tag>{0}): Begin(?<Content>.*?)// {0}: End\s*?\n", ProjectTag),
+            new InjectionRegexForm(PluginName, string.Format(@"\s*// (?<Tag>{0}): Begin(?<Content>.*?)// {0}: End\s*?\n", CommentTag),
                 RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.Compiled), // Multi-line form
-            new InjectionRegexForm(ProjectName, $@"^(?<Content>\s*\S+.*?)[^\S\n]*// (?<Tag>{ProjectTag})\n",
+            new InjectionRegexForm(PluginName, $@"^(?<Content>\s*\S+.*?)[^\S\n]*// (?<Tag>{CommentTag})\n",
                 RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.Compiled), // Single-line form
-            new InjectionRegexForm(ProjectName, $@"^\s*// (?<Tag>{ProjectTag})\n(?<Content>.*)\n",
+            new InjectionRegexForm(PluginName, $@"^\s*// (?<Tag>{CommentTag})\n(?<Content>.*)\n",
                 RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.Compiled) // Next-line form
         };
     }

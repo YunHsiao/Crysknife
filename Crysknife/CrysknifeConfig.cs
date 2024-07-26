@@ -440,8 +440,9 @@ public class ConfigSystem
     private readonly ConfigSectionHierarchy Hierarchy;
     private readonly Dictionary<string, string> Variables = new();
     private readonly Dictionary<string, string> DependencyVariables = new();
-    public readonly Dictionary<string, ConfigSystem> Dependencies = new();
-    public readonly List<string> Children = new();
+    private readonly Dictionary<string, ConfigSystem> Dependencies = new();
+    private readonly Dictionary<string, string> Children = new();
+    public readonly string PluginName;
 
     private static ConfigFile BaseConfig = new();
     public static string EngineRoot = string.Empty;
@@ -461,37 +462,64 @@ public class ConfigSystem
         return Config;
     }
 
-    // Parent dependencies will always come first
-    public static ConfigSystem Create(string ProjectName, string VariableOverrides, IDictionary<string, ConfigSystem>? Dependencies = null)
+    private static string GetConfigPath(string PluginName, bool IsCache = false)
     {
-        var Config = new ConfigSystem(ProjectName, VariableOverrides);
-        Dependencies ??= Config.Dependencies;
+        return Path.Combine(EngineRoot, "Plugins", PluginName, "SourcePatch", "Crysknife" + (IsCache ? "Cache" : "") + ".ini");
+    }
+
+    public static ConfigSystem Create(string PluginName, string VariableOverrides)
+    {
+        var Result = InnerCreate(PluginName, VariableOverrides);
+
+
+        return Result;
+    }
+
+    // Always create parent dependencies first
+    private static ConfigSystem InnerCreate(string PluginName, string VariableOverrides)
+    {
+        var Config = new ConfigSystem(PluginName, VariableOverrides);
 
         foreach (var Pair in Config.DependencyVariables)
         {
-            if (Dependencies.ContainsKey(ProjectName)) continue;
-
+            if (Config.Dependencies.ContainsKey(PluginName)) continue;
             var Overrides = string.Join(',', VariableOverrides, Pair.Value);
-            var Parent = Create(Pair.Key, Overrides, Dependencies);
-            Parent.RegisterChildren(ProjectName);
-            Dependencies.TryAdd(Pair.Key, Parent);
+
+            var Parent = InnerCreate(Pair.Key, Overrides);
+            ConfigFile ParentConfigCache = new ConfigFile(GetConfigPath(Pair.Key, true));
+            if (ParentConfigCache.TryGetSection("Children", out var CachedChildren))
+            {
+                foreach (var Line in CachedChildren.Lines)
+                {
+                    if (!Parent.Children.ContainsKey(Line.Key))
+                    {
+                        Parent.RegisterChildren(Line.Key, Line.Value);
+                    }
+                }
+            }
+            if (!Parent.Children.ContainsKey(PluginName))
+            {
+                Parent.RegisterChildren(PluginName, Config.GetCommentTag() ?? PluginName);
+            }
+
+            Config.Dependencies.TryAdd(Pair.Key, Parent);
         }
         return Config;
     }
 
-    private void RegisterChildren(string Name)
+    private void RegisterChildren(string Name, string Tag)
     {
-        Children.Add(Name);
+        Children.TryAdd(Name, Tag);
         foreach (var Pair in Dependencies)
         {
-            Pair.Value.RegisterChildren(Name);
+            Pair.Value.RegisterChildren(Name, Tag);
         }
     }
 
-    private ConfigSystem(string ProjectName, string VariableOverrides)
+    private ConfigSystem(string PluginName, string VariableOverrides)
     {
-        string ConfigPath = Path.Combine(EngineRoot, "Plugins", ProjectName, "SourcePatch", "Crysknife.ini");
-        ConfigFile Config = CreateConfigFile(ConfigPath, VariableOverrides);
+        this.PluginName = PluginName; 
+        ConfigFile Config = CreateConfigFile(GetConfigPath(PluginName), VariableOverrides);
 
         var SectionNames = Config.SectionNames.ToList();
 
@@ -530,6 +558,31 @@ public class ConfigSystem
         ConfigSectionHierarchy.Link(Hierarchy, Sections);
     }
 
+    public IEnumerable<string> GetChildrenTags()
+    {
+        return Children.Values;
+    }
+
+    public void Dispatch(Action<ConfigSystem> Action, bool ParentFirst)
+    {
+        if (ParentFirst)
+        {
+            foreach (var Pair in Dependencies)
+            {
+                Pair.Value.Dispatch(Action, ParentFirst);
+            }
+            Action(this);
+        }
+        else
+        {
+            Action(this);
+            foreach (var Pair in Dependencies.Reverse())
+            {
+                Pair.Value.Dispatch(Action, ParentFirst);
+            }
+        }
+    }
+
     public bool Remap(string Target, out string Result, bool VerboseLogging = false)
     {
         Result = Target;
@@ -557,22 +610,23 @@ public class ConfigSystem
         return Result;
     }
 
-    private string DumpVariables()
+    private string DumpBuiltinSections()
     {
-        return "[Variables]\n" + Variables.Aggregate("", (Current, Pair) =>
+        var BuiltinSections = new List<string>();
+
+        if (Variables.Count != 0) BuiltinSections.Add("[Variables]\n" + Variables.Aggregate("", (Current, Pair) =>
         {
             string Expr = $"{Pair.Key}={Pair.Value}\n";
             return Pair.Key.StartsWith("Crysknife", StringComparison.OrdinalIgnoreCase) ? Expr + Current : Current + Expr;
-        });
-    }
+        }));
+        if (DependencyVariables.Count != 0) BuiltinSections.Add("[Dependencies]\n" + DependencyVariables.Aggregate("", (Current, Pair) => Current + $"{Pair.Key}={Pair.Value}\n"));
+        if (Children.Count != 0) BuiltinSections.Add("[Children]\n" + Children.Aggregate("", (Current, Pair) => Current + $"{Pair.Key}={Pair.Value}\n"));
 
-    private string DumpDependencies()
-    {
-        return "[Dependencies]\n" + DependencyVariables.Aggregate("", (Current, Pair) => Current + $"{Pair.Key}={Pair.Value}\n");
+        return string.Join('\n', BuiltinSections);
     }
 
     public override string ToString()
     {
-        return DumpVariables() + '\n' + DumpDependencies() + '\n' + string.Join("\n\n", Sections);
+        return '\n' + DumpBuiltinSections() + '\n' + string.Join("\n\n", Sections) + '\n';
     }
 }

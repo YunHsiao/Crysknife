@@ -27,16 +27,16 @@ public class Injector
 {
     private readonly struct InjectionRegexGroup
     {
-        private readonly List<InjectionRegex> RegexList = new();
+        private readonly InjectionRegex Injection;
+        private readonly List<InjectionRegex> Residuals = new();
 
-        public InjectionRegexGroup(string Parent, IEnumerable<string>? Children)
+        public InjectionRegexGroup(string Parent, IEnumerable<string> Residuals)
         {
-            RegexList.Add(new InjectionRegex(Parent));
+            Injection = new InjectionRegex(Parent);
 
-            if (Children == null) return;
-            foreach (var Child in Children)
+            foreach (var Residual in Residuals)
             {
-                RegexList.Add(new InjectionRegex(Child));
+                this.Residuals.Add(new InjectionRegex(Residual));
             }
         }
 
@@ -45,40 +45,36 @@ public class Injector
             return Regexes.Aggregate(Content, (Current, Regex) => Regex.Unpatch(Current));
         }
 
-        public string StripChildren(string Content)
+        public string ClearResiduals(string Content)
         {
-            return Unpatch(Content, RegexList.Where((_, Index) => Index != 0));
+            return Unpatch(Content, Residuals);
         }
 
         public string Unpatch(string Content)
         {
-            return Unpatch(Content, RegexList);
+            return Injection.Unpatch(Content);
         }
     }
 
     private readonly struct SourcePatchInfo
     {
-        public readonly string ProjectName;
+        public readonly string PluginName;
         public readonly string CommentTag;
         public readonly string Directory;
         public readonly InjectionRegexGroup PatchRegex;
 
-        public static string GetDirectory(string ProjectName)
+        public static string GetDirectory(string PluginName)
         {
-            return Path.Combine(EngineRoot, "Plugins", ProjectName, "SourcePatch");
+            return Path.Combine(EngineRoot, "Plugins", PluginName, "SourcePatch");
         }
 
-        private SourcePatchInfo(string ProjectName, string Directory, ConfigSystem? Config = null)
+        public SourcePatchInfo(ConfigSystem Config)
         {
-            this.ProjectName = ProjectName;
-            this.Directory = Directory;
-            CommentTag = Config?.GetCommentTag() ?? ProjectName;
-            PatchRegex = new InjectionRegexGroup(CommentTag, Config?.Children);
+            PluginName = Config.PluginName;
+            Directory = GetDirectory(Config.PluginName);
+            CommentTag = Config.GetCommentTag() ?? PluginName;
+            PatchRegex = new InjectionRegexGroup(CommentTag, Config.GetChildrenTags());
         }
-
-        public SourcePatchInfo(string ProjectName, ConfigSystem? Config = null)
-            : this(ProjectName, GetDirectory(ProjectName), Config)
-        {}
     }
 
     private readonly struct ParsedPath
@@ -257,8 +253,7 @@ public class Injector
 
     private void ProcessPatch(JobType Job, string PatchPath, string TargetPath, InjectionRegexGroup PatchRegex)
     {
-        string TargetContent = File.ReadAllText(TargetPath);
-        TargetContent = PatchRegex.StripChildren(TargetContent);
+        string TargetContent = PatchRegex.ClearResiduals(File.ReadAllText(TargetPath));
         string ClearedTarget = PatchRegex.Unpatch(TargetContent);
         List<DiffMatchPatch.Patch>? Patches = null;
 
@@ -412,7 +407,6 @@ public class Injector
     private int PrivateMatchLineTolerance = int.MaxValue; // Line number may vary significantly
 
     private readonly ConfigSystem DefaultConfig;
-    private readonly SourcePatchInfo DefaultSourcePatch;
     private readonly EngineVersion CurrentEngineVersion;
     private ConfirmResult OverrideConfirm;
     private ConfirmResult AutoClearConfirm;
@@ -420,7 +414,7 @@ public class Injector
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    public Injector(string ProjectName, string VariableOverrides, JobOptions Options)
+    public Injector(string PluginName, string VariableOverrides, JobOptions Options)
     {
         SourceDirectory = Path.Combine(EngineRoot, "Source");
         this.Options = Options;
@@ -429,12 +423,11 @@ public class Injector
         OverrideConfirm = Options.HasFlag(JobOptions.Force) ? ConfirmResult.Yes | ConfirmResult.ForAll : ConfirmResult.NotDecided;
         CreatePatchTool();
 
-        string PatchDirectory = SourcePatchInfo.GetDirectory(ProjectName);
+        string PatchDirectory = SourcePatchInfo.GetDirectory(PluginName);
         string BuiltinVariables = $"CRYSKNIFE_SOURCE_DIRECTORY={SourceDirectory},CRYSKNIFE_PATCH_DIRECTORY={PatchDirectory}";
         if (Options.HasFlag(JobOptions.DryRun)) BuiltinVariables = string.Join(',', BuiltinVariables, "CRYSKNIFE_DRY_RUN=1");
         VariableOverrides = string.Join(',', BuiltinVariables, VariableOverrides);
-        DefaultConfig = ConfigSystem.Create(ProjectName, VariableOverrides);
-        DefaultSourcePatch = new SourcePatchInfo(ProjectName, DefaultConfig);
+        DefaultConfig = ConfigSystem.Create(PluginName, VariableOverrides);
     }
 
     public short PatchContextLength
@@ -475,28 +468,6 @@ public class Injector
         set => PrivateExclusiveFilter = Utils.UnifySeparators(value);
     }
 
-    private void DispatchHelper(Action<SourcePatchInfo, ConfigSystem> Action, bool ParentFirst)
-    {
-        if (ParentFirst)
-        {
-            foreach (var Pair in DefaultConfig.Dependencies)
-            {
-                var SourcePatch = new SourcePatchInfo(Pair.Key, Pair.Value);
-                Action(SourcePatch, Pair.Value);
-            }
-            Action(DefaultSourcePatch, DefaultConfig);
-        }
-        else
-        {
-            Action(DefaultSourcePatch, DefaultConfig);
-            foreach (var Pair in DefaultConfig.Dependencies.Reverse())
-            {
-                var SourcePatch = new SourcePatchInfo(Pair.Key, Pair.Value);
-                Action(SourcePatch, Pair.Value);
-            }
-        }
-    }
-
     private void RegisterSourcePatch(SourcePatchInfo SourcePatch, string InputPaths)
     {
         var PatchedPaths = new List<string>();
@@ -526,7 +497,7 @@ public class Injector
             string PatchPath = Path.Combine(SourcePatch.Directory, RelativePath);
 
             // Register any file contains the project name
-            if (!File.Exists(PatchPath) && Path.GetFileName(PatchedPath).Contains(SourcePatch.ProjectName))
+            if (!File.Exists(PatchPath) && Path.GetFileName(PatchedPath).Contains(SourcePatch.PluginName))
             {
                 goto Register;
             }
@@ -550,7 +521,7 @@ public class Injector
 
     public void RegisterSourcePatch(string InputPaths)
     {
-        DispatchHelper((SourcePatch, _) => RegisterSourcePatch(SourcePatch, InputPaths), true);
+        DefaultConfig.Dispatch(Config => RegisterSourcePatch(new SourcePatchInfo(Config), InputPaths), true);
     }
 
     private void UnregisterSourcePatch(SourcePatchInfo SourcePatch, string InputPaths)
@@ -592,7 +563,7 @@ public class Injector
 
     public void UnregisterSourcePatch(string InputPaths)
     {
-        DispatchHelper((SourcePatch, _) => UnregisterSourcePatch(SourcePatch, InputPaths), false);
+        DefaultConfig.Dispatch(Config => UnregisterSourcePatch(new SourcePatchInfo(Config), InputPaths), false);
     }
 
     private static string EngineRoot = string.Empty;
@@ -605,18 +576,19 @@ public class Injector
 
     public void GenerateSetupScripts()
     {
-        ProjectSetup.Generate(DefaultSourcePatch.ProjectName);
+        ProjectSetup.Generate(DefaultConfig.PluginName);
     }
 
-    private void Process(SourcePatchInfo SourcePatch, ConfigSystem Config, JobType Job)
+    private void Process(ConfigSystem Config, JobType Job)
     {
+        var SourcePatch = new SourcePatchInfo(Config);
         File.WriteAllText(Path.Combine(SourcePatch.Directory, "CrysknifeCache.ini"), Config.ToString());
 
         bool VerboseLogging = Options.HasFlag(JobOptions.Verbose);
         if (VerboseLogging)
         {
             Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine($"Processing '{DefaultSourcePatch.Directory}' Using Config:");
+            Console.WriteLine($"Processing '{DefaultConfig.PluginName}' Using Config:");
             Console.ForegroundColor = ConsoleColor.DarkGray;
             Console.WriteLine(Config);
         }
@@ -701,6 +673,6 @@ public class Injector
 
     public void Process(JobType Job)
     {
-        DispatchHelper((SourcePatch, Config) => Process(SourcePatch, Config, Job), Job != JobType.Clear);
+        DefaultConfig.Dispatch(Config => Process(Config, Job), Job != JobType.Clear);
     }
 }

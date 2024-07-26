@@ -19,11 +19,11 @@ public static class ProjectSetup
         ""$DIR/../Crysknife/Crysknife.sh"" -P {0} ""$@""
     ".Replace("    ", string.Empty).Replace("\r\n", "\n");
 
-    private static void GenerateSetupScripts(string TargetDirectory, string ProjectName)
+    private static void GenerateSetupScripts(string TargetDirectory, string PluginName)
     {
-        File.WriteAllText(Path.Combine(TargetDirectory, "Setup.bat"), string.Format(WindowsTemplate, ProjectName));
-        File.WriteAllText(Path.Combine(TargetDirectory, "Setup.sh"), string.Format(LinuxTemplate, ProjectName));
-        File.WriteAllText(Path.Combine(TargetDirectory, "Setup.command"), string.Format(LinuxTemplate, ProjectName));
+        File.WriteAllText(Path.Combine(TargetDirectory, "Setup.bat"), string.Format(WindowsTemplate, PluginName));
+        File.WriteAllText(Path.Combine(TargetDirectory, "Setup.sh"), string.Format(LinuxTemplate, PluginName));
+        File.WriteAllText(Path.Combine(TargetDirectory, "Setup.command"), string.Format(LinuxTemplate, PluginName));
         Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine("Setup scripts created: " + Path.Combine(TargetDirectory, "Setup"));
     }
@@ -36,9 +36,9 @@ public static class ProjectSetup
         }
     );
 
-    private static void PatchPluginDescription(string TargetDirectory, string ProjectName)
+    private static void PatchPluginDescription(string TargetDirectory, string PluginName)
     {
-        string PluginDescFile = Path.Combine(TargetDirectory, ProjectName + ".uplugin");
+        string PluginDescFile = Path.Combine(TargetDirectory, PluginName + ".uplugin");
         if (!File.Exists(PluginDescFile))
         {
             Console.ForegroundColor = ConsoleColor.Red;
@@ -99,11 +99,11 @@ public static class ProjectSetup
         ; Or those that require the patches to compile
     ".Replace("    ", string.Empty);
 
-    private static void WriteDefaultConfig(string SourcePatchDirectory, string ProjectName)
+    private static void WriteDefaultConfig(string SourcePatchDirectory, string PluginName)
     {
         string ConfigPath = Path.Combine(SourcePatchDirectory, "Crysknife.ini");
         if (File.Exists(ConfigPath)) return;
-        File.WriteAllText(ConfigPath, string.Format(ConfigTemplate, ProjectName.ToUpper()));
+        File.WriteAllText(ConfigPath, string.Format(ConfigTemplate, PluginName.ToUpper()));
     }
 
     private static string EngineRoot = string.Empty;
@@ -112,13 +112,13 @@ public static class ProjectSetup
         EngineRoot = RootDirectory;
     }
 
-    public static void Generate(string ProjectName)
+    public static void Generate(string PluginName)
     {
-        string TargetDirectory = Path.Combine(EngineRoot, "Plugins", ProjectName);
-        PatchPluginDescription(TargetDirectory, ProjectName);
-        GenerateSetupScripts(TargetDirectory, ProjectName);
+        string TargetDirectory = Path.Combine(EngineRoot, "Plugins", PluginName);
+        PatchPluginDescription(TargetDirectory, PluginName);
+        GenerateSetupScripts(TargetDirectory, PluginName);
         string SourcePatchDirectory = Path.Combine(TargetDirectory, "SourcePatch");
         Utils.EnsureParentDirectoryExists(SourcePatchDirectory);
-        WriteDefaultConfig(SourcePatchDirectory, ProjectName);
+        WriteDefaultConfig(SourcePatchDirectory, PluginName);
     }
 }

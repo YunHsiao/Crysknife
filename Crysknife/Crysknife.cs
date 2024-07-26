@@ -42,7 +42,7 @@ internal static class Launcher
     {
         var Arguments = ParseArguments(Args);
 
-        if (!Arguments.TryGetValue("P", out string? ProjectName))
+        if (!Arguments.TryGetValue("P", out string? PluginName))
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("Please specify the plugin name, where the source patches are located.");
@@ -65,7 +65,7 @@ internal static class Launcher
         if (Arguments.ContainsKey("v") || Arguments.ContainsKey("verbose")) Options |= JobOptions.Verbose;
         if (Arguments.ContainsKey("t") || Arguments.ContainsKey("treat-patch-as-file")) Options |= JobOptions.TreatPatchAsFile;
 
-        var InjectorInstance = new Injector(ProjectName, VariableOverrides, Options);
+        var InjectorInstance = new Injector(PluginName, VariableOverrides, Options);
         var Job = JobType.None;
 
         if (Arguments.TryGetValue("i", out Parameters)) InjectorInstance.InclusiveFilter = Parameters;

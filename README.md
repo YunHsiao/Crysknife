@@ -103,10 +103,10 @@ Where the special tweak is:
 
 * `-P [PLUGIN]` The input plugin folder name (by default also as the comment guard tag). Always required.
 * `-D [VAR=VALUE,]...` Define config variables
-* `-S` Generate a set of setup scripts for the specified plugin
 
 ### Actions
 
+* `-S` Setup the specified plugin with proper configs & scripts, run once per plugin
 * `-R [FILES|DIRECTORIES]...` Search specified file or directory, register any patched file and generate
 * `-U [FILES|DIRECTORIES]...` Search specified file or directory, unregister any patched file and update
 * `-G` Generate/update patches
