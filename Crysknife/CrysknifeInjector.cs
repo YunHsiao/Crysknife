@@ -63,15 +63,10 @@ public class Injector
         public readonly string Directory;
         public readonly InjectionRegexGroup PatchRegex;
 
-        public static string GetDirectory(string PluginName)
-        {
-            return Path.Combine(EngineRoot, "Plugins", PluginName, "SourcePatch");
-        }
-
         public SourcePatchInfo(ConfigSystem Config)
         {
             PluginName = Config.PluginName;
-            Directory = GetDirectory(Config.PluginName);
+            Directory = Utils.GetPatchDirectory(Config.PluginName);
             CommentTag = Config.GetCommentTag() ?? PluginName;
             PatchRegex = new InjectionRegexGroup(CommentTag, Config.GetChildrenTags());
         }
@@ -416,14 +411,14 @@ public class Injector
 
     public Injector(string PluginName, string VariableOverrides, JobOptions Options)
     {
-        SourceDirectory = Path.Combine(EngineRoot, "Source");
+        SourceDirectory = Utils.GetSourceDirectory();
         this.Options = Options;
 
         CurrentEngineVersion = EngineVersion.Create(Utils.GetCurrentEngineVersion(SourceDirectory));
         OverrideConfirm = Options.HasFlag(JobOptions.Force) ? ConfirmResult.Yes | ConfirmResult.ForAll : ConfirmResult.NotDecided;
         CreatePatchTool();
 
-        string PatchDirectory = SourcePatchInfo.GetDirectory(PluginName);
+        string PatchDirectory = Utils.GetPatchDirectory(PluginName);
         string BuiltinVariables = $"CRYSKNIFE_SOURCE_DIRECTORY={SourceDirectory},CRYSKNIFE_PATCH_DIRECTORY={PatchDirectory}";
         if (Options.HasFlag(JobOptions.DryRun)) BuiltinVariables = string.Join(',', BuiltinVariables, "CRYSKNIFE_DRY_RUN=1");
         VariableOverrides = string.Join(',', BuiltinVariables, VariableOverrides);
@@ -566,12 +561,10 @@ public class Injector
         DefaultConfig.Dispatch(Config => UnregisterSourcePatch(new SourcePatchInfo(Config), InputPaths), false);
     }
 
-    private static string EngineRoot = string.Empty;
     public static void Init(string RootDirectory)
     {
-        EngineRoot = RootDirectory;
-        ConfigSystem.Init(RootDirectory);
-        ProjectSetup.Init(RootDirectory);
+        Utils.Init(RootDirectory);
+        ConfigSystem.Init();
     }
 
     public void GenerateSetupScripts()

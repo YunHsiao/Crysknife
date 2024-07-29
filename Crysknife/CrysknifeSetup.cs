@@ -106,17 +106,29 @@ public static class ProjectSetup
         File.WriteAllText(ConfigPath, string.Format(ConfigTemplate, PluginName.ToUpper()));
     }
 
-    private static string EngineRoot = string.Empty;
-    public static void Init(string RootDirectory)
+    private static readonly string[] IgnoredFiles =
     {
-        EngineRoot = RootDirectory;
+        "CrysknifeLocal.ini",
+        "CrysknifeCache.ini",
+    };
+
+    private static void WriteIgnoreFile(string TargetDirectory)
+    {
+        string IgnoreFile = Path.Combine(TargetDirectory, ".gitignore");
+        string Content = File.Exists(IgnoreFile) ? File.ReadAllText(IgnoreFile) : "";
+        string MissingList = string.Join('\n', IgnoredFiles.Where(File => !Content.Contains(File)));
+        if (MissingList.Length != 0)
+        {
+            File.WriteAllText(IgnoreFile, string.Join('\n', Content, MissingList));   
+        }
     }
 
     public static void Generate(string PluginName)
     {
-        string TargetDirectory = Path.Combine(EngineRoot, "Plugins", PluginName);
+        string TargetDirectory = Utils.GetPluginDirectory(PluginName);
         PatchPluginDescription(TargetDirectory, PluginName);
         GenerateSetupScripts(TargetDirectory, PluginName);
+        WriteIgnoreFile(TargetDirectory);
         string SourcePatchDirectory = Path.Combine(TargetDirectory, "SourcePatch");
         Utils.EnsureParentDirectoryExists(SourcePatchDirectory);
         WriteDefaultConfig(SourcePatchDirectory, PluginName);

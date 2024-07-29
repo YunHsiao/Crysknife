@@ -268,6 +268,15 @@ public class ConfigFile
 		Section.Lines.Add(new ConfigLine(Action, NewKey, Value));
 	}
 
+	private ConfigFileSection FindOrAddSection(string SectionName)
+	{
+		if (Sections.TryGetValue(SectionName, out var Section)) return Section;
+
+		Section = new ConfigFileSection(SectionName);
+		Sections.Add(SectionName, Section);
+		return Section;
+	}
+
 	private readonly Dictionary<string, ConfigFileSection> Sections = new (StringComparer.InvariantCultureIgnoreCase);
 
 	// Remap of config names/sections
@@ -325,17 +334,23 @@ public class ConfigFile
 		if (File.Exists(Location)) ReadIntoSections(Location, Sections, DefaultAction);
 	}
 
-	public ConfigFile(string Location, ConfigFile BaseConfig, ConfigLineAction DefaultAction = ConfigLineAction.Set)
+	public ConfigFile Merge(ConfigFile File, bool Append = true)
 	{
-		// Merge base config sections first to preserve key order
-		foreach (string SectionName in BaseConfig.SectionNames)
+		foreach (string SectionName in File.SectionNames)
 		{
-			if (BaseConfig.TryGetSection(SectionName, out var BaseSection))
+			if (!File.TryGetSection(SectionName, out var BaseSection)) continue;
+
+			if (Append)
+			{
+				FindOrAddSection(SectionName).Lines.AddRange(BaseSection.Lines);
+			}
+			else
 			{
 				FindOrAddSection(SectionName).Lines.InsertRange(0, BaseSection.Lines);
 			}
 		}
-		if (File.Exists(Location)) ReadIntoSections(Location, Sections, DefaultAction);
+
+		return this;
 	}
 
 	public void AppendFromText(string SectionName, string IniText, ConfigLineAction DefaultAction = ConfigLineAction.Set)
@@ -355,15 +370,6 @@ public class ConfigFile
 	}
 
 	public IEnumerable<string> SectionNames => Sections.Keys;
-
-	public ConfigFileSection FindOrAddSection(string SectionName)
-	{
-		if (Sections.TryGetValue(SectionName, out var Section)) return Section;
-
-		Section = new ConfigFileSection(SectionName);
-		Sections.Add(SectionName, Section);
-		return Section;
-	}
 
 	public bool TryGetSection(string SectionName, [NotNullWhen(true)] out ConfigFileSection? RawSection)
 	{

@@ -143,9 +143,30 @@ public static class Utils
         return Path.GetExtension(TargetPath) is ".cpp" or ".h" or ".cs" or ".inl";
     }
 
+    public static string GetSourceDirectory()
+    {
+        return Path.Combine(EngineRoot, "Source");
+    }
+
+    public static string GetPluginDirectory(string PluginName)
+    {
+        return Path.Combine(EngineRoot, "Plugins", PluginName);
+    }
+
+    public static string GetPatchDirectory(string PluginName)
+    {
+        return Path.Combine(GetPluginDirectory(PluginName), "SourcePatch");
+    }
+
     public static void Abort()
     {
         Console.ResetColor();
         Environment.Exit(1);
+    }
+
+    private static string EngineRoot = string.Empty;
+    public static void Init(string RootDirectory)
+    {
+        EngineRoot = RootDirectory;
     }
 }

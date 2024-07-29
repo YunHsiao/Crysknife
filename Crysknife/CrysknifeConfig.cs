@@ -100,7 +100,7 @@ internal class ConfigPredicates
 
             new ConfigPredicate("TargetExists", Cond =>
             {
-                string TargetPath = Path.Combine(ConfigSystem.EngineRoot, "Source", Cond);
+                string TargetPath = Path.Combine(Utils.GetSourceDirectory(), Cond);
                 return File.Exists(TargetPath) || Directory.Exists(TargetPath);
             }),
             new ConfigPredicate("IsTruthy", Utils.IsTruthyValue),
@@ -445,26 +445,39 @@ public class ConfigSystem
     public readonly string PluginName;
 
     private static ConfigFile BaseConfig = new();
-    public static string EngineRoot = string.Empty;
-    public static void Init(string RootDirectory)
+    public static void Init()
     {
-        EngineRoot = RootDirectory;
-        string RootPath = Path.Combine(EngineRoot, "Plugins", "Crysknife");
+        string RootPath = Utils.GetPluginDirectory("Crysknife");
         string ConfigPath = Path.Combine(RootPath, "BaseCrysknife.ini");
         if (File.Exists(ConfigPath)) BaseConfig = new ConfigFile(ConfigPath);
         ConfigFile.Init(RootPath);
     }
 
-    private static ConfigFile CreateConfigFile(string ConfigPath, string VariableOverrides)
+    private static ConfigFile CreateConfigFile(string PluginName, string VariableOverrides)
     {
-        ConfigFile Config = File.Exists(ConfigPath) ? new ConfigFile(ConfigPath, BaseConfig) : BaseConfig;
+        string ConfigPath = GetConfigPath(PluginName);
+        ConfigFile Config = File.Exists(ConfigPath) ? new ConfigFile(ConfigPath).Merge(BaseConfig, false) : BaseConfig;
+        string LocalConfigPath = GetConfigPath(PluginName, ConfigType.Local);
+        if (File.Exists(LocalConfigPath)) Config.Merge(new ConfigFile(LocalConfigPath));
         Config.AppendFromText("Variables", VariableOverrides.Replace("\"", string.Empty));
         return Config;
     }
 
-    private static string GetConfigPath(string PluginName, bool IsCache = false)
+    private enum ConfigType
     {
-        return Path.Combine(EngineRoot, "Plugins", PluginName, "SourcePatch", "Crysknife" + (IsCache ? "Cache" : "") + ".ini");
+        Main,
+        Local,
+        Cache,
+    }
+    private static string GetConfigPath(string PluginName, ConfigType Type = ConfigType.Main)
+    {
+        string Directory = Utils.GetPatchDirectory(PluginName);
+        return Type switch
+        {
+            ConfigType.Local => Path.Combine(Directory, "CrysknifeLocal.ini"),
+            ConfigType.Cache => Path.Combine(Directory, "CrysknifeCache.ini"),
+            _ => Path.Combine(Directory, "Crysknife.ini"),
+        };
     }
 
     // Always create parent dependencies first
@@ -478,7 +491,7 @@ public class ConfigSystem
             var Overrides = string.Join(',', VariableOverrides, Pair.Value);
 
             var Parent = Create(Pair.Key, Overrides);
-            ConfigFile ParentConfigCache = new ConfigFile(GetConfigPath(Pair.Key, true));
+            ConfigFile ParentConfigCache = new ConfigFile(GetConfigPath(Pair.Key, ConfigType.Cache));
             if (ParentConfigCache.TryGetSection("Children", out var CachedChildren))
             {
                 foreach (var Line in CachedChildren.Lines)
@@ -511,7 +524,7 @@ public class ConfigSystem
     private ConfigSystem(string PluginName, string VariableOverrides)
     {
         this.PluginName = PluginName; 
-        ConfigFile Config = CreateConfigFile(GetConfigPath(PluginName), VariableOverrides);
+        ConfigFile Config = CreateConfigFile(PluginName, VariableOverrides);
 
         var SectionNames = Config.SectionNames.ToList();
 
