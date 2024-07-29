@@ -121,22 +121,17 @@ public static class Utils
         return false;
     }
 
-    public static string GetContentIfStartsWith(string Str, string Prefix)
-    {
-        GetContentIfStartsWith(Str, Prefix, out var Content);
-        return Content;
-    }
-
     public static bool FileAccessGuard(Action Action, string Dest)
     {
         try
         {
+            File.SetAttributes(Dest, File.GetAttributes(Dest) & ~FileAttributes.ReadOnly);
             Action();
         }
         catch
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("Failed to access '{0}', is the file read-only?", Dest);
+            Console.WriteLine("Failed to access '{0}'", Dest);
             return false;
         }
 

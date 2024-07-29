@@ -4,8 +4,12 @@
 using UnrealBuildTool;
 using System.Collections.Generic;
 using System.IO;
-using System.Text.RegularExpressions;
+
+#if UE_5_0_OR_LATER
 using EpicGames.Core;
+#else
+using Tools.DotNETCommon;
+#endif
 
 public class Crysknife : ModuleRules
 {
@@ -19,11 +23,11 @@ public class Crysknife : ModuleRules
 		});
 	}
 
-	private static readonly Regex TruthyRE = new ("^(T|On)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 	private static bool IsTruthyValue(string Value)
 	{
-		if (int.TryParse(Value, out var Number)) return Number > 0;
-		return TruthyRE.IsMatch(Value);
+		int Number = 0;
+		if (int.TryParse(Value, out Number)) return Number > 0;
+		return Value.StartsWith("T", System.StringComparison.OrdinalIgnoreCase) || Value.Equals("On", System.StringComparison.OrdinalIgnoreCase);
 	}
 
 	public static void FillInConfigVariables(List<string> Definitions, string TargetDirectory, string Prefix)
@@ -37,7 +41,8 @@ public class Crysknife : ModuleRules
 		}
 		var Config = new ConfigFile(new FileReference(ConfigPath));
 
-		if (Config.TryGetSection("Variables", out var Switches))
+		ConfigFileSection Switches;
+		if (Config.TryGetSection("Variables", out Switches))
 		{
 			foreach (var Switch in Switches.Lines)
 			{
@@ -45,7 +50,7 @@ public class Crysknife : ModuleRules
 				{
 					string Value = Switch.Value;
 					if (NotYetApplied && IsTruthyValue(Value)) Value = "0";
-					Definitions.Add($"{Switch.Key}={Value}");
+					Definitions.Add(string.Format("{0}={1}", Switch.Key, Value));
 				}
 			}
 		}

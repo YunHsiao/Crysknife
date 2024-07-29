@@ -309,7 +309,7 @@ public class Injector
                 if (OverrideConfirm.HasFlag(ConfirmResult.No)) return;
             }
 
-            File.WriteAllText(TargetPath, Patched);
+            Utils.FileAccessGuard(() => File.WriteAllText(TargetPath, Patched), TargetPath);
 
             int SuccessCount = IsSuccess.Count(V => V);
             if (SuccessCount == IsSuccess.Length)

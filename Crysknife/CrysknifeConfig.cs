@@ -88,7 +88,7 @@ internal class ConfigPredicates
 
     public void SetValue(string Desc)
     {
-        Descriptions = Desc.Split(',');
+        Descriptions = Desc.Split(',', Utils.SplitOptions);
     }
 
     public void Compile()
@@ -106,7 +106,7 @@ internal class ConfigPredicates
             new ConfigPredicate("IsTruthy", Utils.IsTruthyValue),
         };
 
-        foreach (var Rule in Descriptions.SelectMany(Desc => Desc.Split(',', Utils.SplitOptions)))
+        foreach (var Rule in Descriptions)
         {
             if (Rule.StartsWith("Always", StringComparison.OrdinalIgnoreCase))
             {
@@ -467,16 +467,8 @@ public class ConfigSystem
         return Path.Combine(EngineRoot, "Plugins", PluginName, "SourcePatch", "Crysknife" + (IsCache ? "Cache" : "") + ".ini");
     }
 
-    public static ConfigSystem Create(string PluginName, string VariableOverrides)
-    {
-        var Result = InnerCreate(PluginName, VariableOverrides);
-
-
-        return Result;
-    }
-
     // Always create parent dependencies first
-    private static ConfigSystem InnerCreate(string PluginName, string VariableOverrides)
+    public static ConfigSystem Create(string PluginName, string VariableOverrides)
     {
         var Config = new ConfigSystem(PluginName, VariableOverrides);
 
@@ -485,7 +477,7 @@ public class ConfigSystem
             if (Config.Dependencies.ContainsKey(PluginName)) continue;
             var Overrides = string.Join(',', VariableOverrides, Pair.Value);
 
-            var Parent = InnerCreate(Pair.Key, Overrides);
+            var Parent = Create(Pair.Key, Overrides);
             ConfigFile ParentConfigCache = new ConfigFile(GetConfigPath(Pair.Key, true));
             if (ParentConfigCache.TryGetSection("Children", out var CachedChildren))
             {

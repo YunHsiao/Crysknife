@@ -322,7 +322,7 @@ public class ConfigFile
 
 	public ConfigFile(string Location, ConfigLineAction DefaultAction = ConfigLineAction.Set)
 	{
-		ReadIntoSections(Location, Sections, DefaultAction);
+		if (File.Exists(Location)) ReadIntoSections(Location, Sections, DefaultAction);
 	}
 
 	public ConfigFile(string Location, ConfigFile BaseConfig, ConfigLineAction DefaultAction = ConfigLineAction.Set)
@@ -335,7 +335,7 @@ public class ConfigFile
 				FindOrAddSection(SectionName).Lines.InsertRange(0, BaseSection.Lines);
 			}
 		}
-		ReadIntoSections(Location, Sections, DefaultAction);
+		if (File.Exists(Location)) ReadIntoSections(Location, Sections, DefaultAction);
 	}
 
 	public void AppendFromText(string SectionName, string IniText, ConfigLineAction DefaultAction = ConfigLineAction.Set)
