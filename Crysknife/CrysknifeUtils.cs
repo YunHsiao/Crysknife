@@ -34,7 +34,7 @@ internal class InjectionRegexForm
     }
 }
 
-public class InjectionRegex
+internal class InjectionRegex
 {
     private readonly InjectionRegexForm[] Forms;
 
@@ -58,7 +58,7 @@ public class InjectionRegex
     }
 }
 
-public static class Utils
+internal static class Utils
 {
     private static readonly Regex EngineVersionRE = new (@"#define\s+ENGINE_MAJOR_VERSION\s+(\d+)\s*#define\s+ENGINE_MINOR_VERSION\s+(\d+)", RegexOptions.Compiled);
     public static string GetCurrentEngineVersion(string SourceDirectory)
@@ -88,7 +88,7 @@ public static class Utils
             string Name = Matched.Groups[1].Value;
             if (Variables.TryGetValue(Name, out var Value))
             {
-                return Value;
+                return MapVariables(Variables, Value);
             }
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine($"Invalid variable reference: '{Name}' not found");
@@ -138,9 +138,50 @@ public static class Utils
         return true;
     }
 
+    [Flags]
+    public enum ConfirmResult
+    {
+        NotDecided = 0x0,
+        Yes = 0x1,
+        No = 0x2,
+        ForAll = 0x4,
+    }
+    public static ConfirmResult PromptToConfirm(string Message)
+    {
+        ConsoleKey Response;
+
+        do
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.Write("{0} [Yes(Y)/No(N)/YesForAll(A)/NoForAll(Z)/Abort(C)] ", Message);
+            Response = Console.ReadKey(false).Key;   // true is intercept key (dont show), false is show
+            if (Response != ConsoleKey.Enter) Console.WriteLine();
+
+        } while (Response is not (ConsoleKey.Y or ConsoleKey.N or ConsoleKey.A or ConsoleKey.Z or ConsoleKey.C));
+
+        if (Response == ConsoleKey.C)
+        {
+            Utils.Abort();
+        }
+
+        return Response switch
+        {
+            ConsoleKey.Y => ConfirmResult.Yes,
+            ConsoleKey.N => ConfirmResult.No,
+            ConsoleKey.A => ConfirmResult.Yes | ConfirmResult.ForAll,
+            ConsoleKey.Z => ConfirmResult.No | ConfirmResult.ForAll,
+            _ => ConfirmResult.No
+        };
+    }
+
     public static bool CanBePatched(string TargetPath)
     {
         return Path.GetExtension(TargetPath) is ".cpp" or ".h" or ".cs" or ".inl";
+    }
+
+    public static string GetEngineRoot()
+    {
+        return EngineRoot;
     }
 
     public static string GetSourceDirectory()
@@ -156,6 +197,11 @@ public static class Utils
     public static string GetPatchDirectory(string PluginName)
     {
         return Path.Combine(GetPluginDirectory(PluginName), "SourcePatch");
+    }
+
+    public static string GetEngineRelativePath(string TargetPath)
+    {
+        return Path.GetRelativePath(EngineRoot, TargetPath);
     }
 
     public static void Abort()

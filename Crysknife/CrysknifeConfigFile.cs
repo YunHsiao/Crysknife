@@ -6,7 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Crysknife;
 
-public enum ConfigLineAction
+internal enum ConfigLineAction
 {
 	Set,
 	Add,
@@ -14,7 +14,7 @@ public enum ConfigLineAction
 	RemoveKeyValue
 }
 
-public class ConfigLine
+internal class ConfigLine
 {
 	public readonly ConfigLineAction Action;
 	public readonly string Key;
@@ -39,7 +39,7 @@ public class ConfigLine
 	}
 }
 
-public class ConfigFileSection
+internal class ConfigFileSection
 {
 	public readonly string Name;
 	public readonly List<ConfigLine> Lines = new ();
@@ -78,7 +78,7 @@ public class ConfigFileSection
 	}
 }
 
-public class ConfigFile
+internal class ConfigFile
 {
 	private static string RemapSectionOrKey(IDictionary<string, string>? Remap, string Key, string Context)
 	{

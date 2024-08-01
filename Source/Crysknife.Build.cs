@@ -1,10 +1,12 @@
 // SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
 // SPDX-License-Identifier: MIT
 
-using UnrealBuildTool;
-using System.Collections.Generic;
+using System;
 using System.IO;
+using System.Linq;
+using System.Collections.Generic;
 
+using UnrealBuildTool;
 #if UE_5_0_OR_LATER
 using EpicGames.Core;
 #else
@@ -25,34 +27,43 @@ public class Crysknife : ModuleRules
 
 	private static bool IsTruthyValue(string Value)
 	{
-		int Number = 0;
+		int Number;
 		if (int.TryParse(Value, out Number)) return Number > 0;
-		return Value.StartsWith("T", System.StringComparison.OrdinalIgnoreCase) || Value.Equals("On", System.StringComparison.OrdinalIgnoreCase);
+		return Value.StartsWith("T", StringComparison.OrdinalIgnoreCase) || Value.Equals("On", StringComparison.OrdinalIgnoreCase);
 	}
+
+	private static void FillInConfigVariables(IDictionary<string, string> OutVariables, string ConfigPath, bool NotYetApplied = false)
+	{
+		var Config = new ConfigFile(new FileReference(ConfigPath));
+
+		ConfigFileSection VariableSection;
+		if (!Config.TryGetSection("Variables", out VariableSection)) return;
+
+		foreach (var Variable in VariableSection.Lines)
+		{
+			string Value = Variable.Value;
+			if (NotYetApplied && IsTruthyValue(Value)) Value = "0";
+			OutVariables[Variable.Key] = Value;
+		}
+	}
+
+	private static readonly Tuple<string, bool>[] Configs =
+	{
+		new Tuple<string, bool>("Crysknife.ini", true),
+		new Tuple<string, bool>("CrysknifeLocal.ini", false),
+		new Tuple<string, bool>("CrysknifeCache.ini", false),
+	};
 
 	public static void FillInConfigVariables(List<string> Definitions, string TargetDirectory, string Prefix)
 	{
-		bool NotYetApplied = false;
-		string ConfigPath = Path.Combine(TargetDirectory, "SourcePatch", "CrysknifeCache.ini");
-		if (!File.Exists(ConfigPath))
-		{
-			ConfigPath = Path.Combine(TargetDirectory, "SourcePatch", "Crysknife.ini");
-			NotYetApplied = true;
-		}
-		var Config = new ConfigFile(new FileReference(ConfigPath));
+		var Variables = new Dictionary<string, string>();
 
-		ConfigFileSection Switches;
-		if (Config.TryGetSection("Variables", out Switches))
+		foreach (var Pair in Configs)
 		{
-			foreach (var Switch in Switches.Lines)
-			{
-				if (Switch.Key.StartsWith(Prefix, System.StringComparison.OrdinalIgnoreCase))
-				{
-					string Value = Switch.Value;
-					if (NotYetApplied && IsTruthyValue(Value)) Value = "0";
-					Definitions.Add(string.Format("{0}={1}", Switch.Key, Value));
-				}
-			}
+			string ConfigPath = Path.Combine(TargetDirectory, "SourcePatch", Pair.Item1);
+			if (File.Exists(ConfigPath)) FillInConfigVariables(Variables, ConfigPath, Pair.Item2);
 		}
+
+		Definitions.AddRange(from Pair in Variables where Pair.Key.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase) select string.Format("{0}={1}", Pair.Key, Pair.Value));
 	}
 }

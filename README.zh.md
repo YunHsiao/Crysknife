@@ -229,6 +229,9 @@ ScopedRule2=Predicate5
 * 任意值都可以添加 `!` 前缀，表示反向条件（条件不成立时满足）
 * Dependencies 作用域内可用于指定对其他引擎扩展内的 Patch 的依赖，以提供对多扩展架构的无缝支持
 
+> 在主配置文件之外，还可以创建一份独立的“本地”配置（`CrysknifeLocal.ini`）来覆盖主配置。此配置默认不会提交到扩展的 git 仓库，但应当提交到引擎主仓库（如 P4）。
+> 对于引擎代码库相关的参数，如注释桩和引擎名等，使用本地配置更合适。
+
 ### 规则
 
 `SkipIf=[PREDICATE]...`
@@ -271,9 +274,10 @@ ScopedRule2=Predicate5
 
 ### 内置变量
 
-* `CRYSKNIFE_PATCH_DIRECTORY`: 默认值为源扩展 `SourcePatch` 目录的完整路径
-* `CRYSKNIFE_SOURCE_DIRECTORY`: 默认值为目标引擎 `Source` 目录的完整路径
+* `CRYSKNIFE_PLUGIN_DIRECTORY`: 默认值为目标扩展根目录的完整路径，只读
+* `CRYSKNIFE_SOURCE_DIRECTORY`: 默认值为引擎源码根目录的完整路径，只读
 * `CRYSKNIFE_COMMENT_TAG`: 默认值为当前扩展的文件夹名，可自定义为其他更具区分度的标识符
+* `CRYSKNIFE_ENGINE_TAG`: 默认值为当前引擎版本号（`[MAJOR].[MINOR]`），可在本地配置中自定义为其他更具区分度的标识符
 
 ## Config 用法示例
 

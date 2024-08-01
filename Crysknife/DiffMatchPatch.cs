@@ -48,7 +48,7 @@ namespace DiffMatchPatch {
    *  Diff(Operation.EQUAL, " world.")}
    * which means: delete "Hello", add "Goodbye" and keep " world."
    */
-  public enum Operation {
+  internal enum Operation {
     DELETE, INSERT, EQUAL
   }
 
@@ -56,7 +56,7 @@ namespace DiffMatchPatch {
   /**
    * Class representing one diff operation.
    */
-  public class Diff {
+  internal class Diff {
     public Operation operation;
     // One of: INSERT, DELETE or EQUAL.
     public string text;
@@ -122,7 +122,7 @@ namespace DiffMatchPatch {
   /**
    * Class representing one patch operation.
    */
-  public class Patch {
+  internal class Patch {
     public List<Diff> diffs = new List<Diff>();
     public int start1;
     public int start2;
@@ -179,7 +179,7 @@ namespace DiffMatchPatch {
    * Class containing the diff, match and patch methods.
    * Also Contains the behaviour settings.
    */
-  public class diff_match_patch {
+  internal class diff_match_patch {
     // Defaults.
     // Set these on your diff_match_patch instance to override the defaults.
 

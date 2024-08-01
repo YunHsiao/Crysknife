@@ -230,6 +230,10 @@ ScopedRule2=Predicate5
 * Any value can be preceded by `!` to indicate a reverse predicate (satisfies if the condition is not met).
 * The dependencies section declares relevant source patches inside other plugins, which can provide seamless support when source patches are separated into multiple plugins
 
+> You can also create a 'local' config file (`CrysknifeLocal.ini`) that overrides the main one.
+> By design it is ignored in your plugin's git repo, but should be committed into the main engine (e.g. perforce) code base.
+> This is useful to specify engine-specific configs like comment/engine tags, etc.
+
 ### Supported Rules
 
 `SkipIf=[PREDICATE]...`
@@ -272,9 +276,10 @@ ScopedRule2=Predicate5
 
 ### Built-in Variables
 
-* `CRYSKNIFE_PATCH_DIRECTORY`: Default to full path to the input `SourcePatch` directory
-* `CRYSKNIFE_SOURCE_DIRECTORY`: Default to full path to the output engine source directory
+* `CRYSKNIFE_PLUGIN_DIRECTORY`: Default to full path to the target plugin directory, readonly
+* `CRYSKNIFE_SOURCE_DIRECTORY`: Default to full path to the engine source directory, readonly
 * `CRYSKNIFE_COMMENT_TAG`: Default to the plugin folder name, you can assign a more distinctive name if needed
+* `CRYSKNIFE_ENGINE_TAG`: Default to current engine version (`[MAJOR].[MINOR]`), you can assign a more distinctive name if needed in the local config
 
 ## Config Examples
 

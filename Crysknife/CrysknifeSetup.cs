@@ -6,7 +6,7 @@ using System.Text.Json.Nodes;
 
 namespace Crysknife;
 
-public static class ProjectSetup
+internal static class ProjectSetup
 {
     private static readonly string WindowsTemplate = @"
         @echo off
@@ -21,9 +21,9 @@ public static class ProjectSetup
 
     private static void GenerateSetupScripts(string TargetDirectory, string PluginName)
     {
-        File.WriteAllText(Path.Combine(TargetDirectory, "Setup.bat"), string.Format(WindowsTemplate, PluginName));
-        File.WriteAllText(Path.Combine(TargetDirectory, "Setup.sh"), string.Format(LinuxTemplate, PluginName));
-        File.WriteAllText(Path.Combine(TargetDirectory, "Setup.command"), string.Format(LinuxTemplate, PluginName));
+        File.WriteAllText(Path.Combine(TargetDirectory, "Setup.bat"), string.Format(WindowsTemplate, PluginName.Replace(Path.DirectorySeparatorChar, '\\')));
+        File.WriteAllText(Path.Combine(TargetDirectory, "Setup.sh"), string.Format(LinuxTemplate, PluginName.Replace(Path.DirectorySeparatorChar, '/')));
+        File.WriteAllText(Path.Combine(TargetDirectory, "Setup.command"), string.Format(LinuxTemplate, PluginName.Replace(Path.DirectorySeparatorChar, '/')));
         Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine("Setup scripts created: " + Path.Combine(TargetDirectory, "Setup"));
     }
@@ -110,6 +110,7 @@ public static class ProjectSetup
     {
         "CrysknifeLocal.ini",
         "CrysknifeCache.ini",
+        "*.protected.patch",
     };
 
     private static void WriteIgnoreFile(string TargetDirectory)

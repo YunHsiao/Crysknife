@@ -317,7 +317,7 @@ internal class ConfigSection
     {
         string Predicates = string.Join('\n', Rules.Select(Predicate => Predicate.ToString())
             .Where(Predicate => Predicate.Length > 0));
-        return $"[{GetSectionName()}]\n{Predicates}\nRemapTarget={RemapTarget}";
+        return $"[{GetSectionName()}]\n{Predicates}\nRemapTarget={RemapTarget.Replace(Utils.GetEngineRoot(), "${CRYSKNIFE_ENGINE_ROOT}")}";
     }
 
     public IEnumerable<string> GetTargetNames()
@@ -434,7 +434,7 @@ internal class ConfigSectionHierarchy
     }
 }
 
-public class ConfigSystem
+internal class ConfigSystem
 {
     private readonly List<ConfigSection> Sections = new();
     private readonly ConfigSectionHierarchy Hierarchy;
@@ -459,7 +459,14 @@ public class ConfigSystem
         ConfigFile Config = File.Exists(ConfigPath) ? new ConfigFile(ConfigPath).Merge(BaseConfig, false) : BaseConfig;
         string LocalConfigPath = GetConfigPath(PluginName, ConfigType.Local);
         if (File.Exists(LocalConfigPath)) Config.Merge(new ConfigFile(LocalConfigPath));
-        Config.AppendFromText("Variables", VariableOverrides.Replace("\"", string.Empty));
+
+        string FinalOverrides = string.Join(',',
+            $"CRYSKNIFE_ENGINE_ROOT={Utils.GetEngineRoot()}",
+            $"CRYSKNIFE_SOURCE_DIRECTORY={Path.Combine("${CRYSKNIFE_ENGINE_ROOT}", Utils.GetEngineRelativePath(Utils.GetSourceDirectory()))}",
+            $"CRYSKNIFE_PLUGIN_DIRECTORY={Path.Combine("${CRYSKNIFE_ENGINE_ROOT}", Utils.GetEngineRelativePath(Utils.GetPluginDirectory(PluginName)))}",
+            VariableOverrides.Replace("\"", string.Empty) // Need to strip quotes if specified from CLI
+        );
+        Config.AppendFromText("Variables", FinalOverrides);
         return Config;
     }
 
@@ -478,38 +485,6 @@ public class ConfigSystem
             ConfigType.Cache => Path.Combine(Directory, "CrysknifeCache.ini"),
             _ => Path.Combine(Directory, "Crysknife.ini"),
         };
-    }
-
-    // Always create parent dependencies first
-    public static ConfigSystem Create(string PluginName, string VariableOverrides)
-    {
-        var Config = new ConfigSystem(PluginName, VariableOverrides);
-
-        foreach (var Pair in Config.DependencyVariables)
-        {
-            if (Config.Dependencies.ContainsKey(PluginName)) continue;
-            var Overrides = string.Join(',', VariableOverrides, Pair.Value);
-
-            var Parent = Create(Pair.Key, Overrides);
-            ConfigFile ParentConfigCache = new ConfigFile(GetConfigPath(Pair.Key, ConfigType.Cache));
-            if (ParentConfigCache.TryGetSection("Children", out var CachedChildren))
-            {
-                foreach (var Line in CachedChildren.Lines)
-                {
-                    if (!Parent.Children.ContainsKey(Line.Key))
-                    {
-                        Parent.RegisterChildren(Line.Key, Line.Value);
-                    }
-                }
-            }
-            if (!Parent.Children.ContainsKey(PluginName))
-            {
-                Parent.RegisterChildren(PluginName, Config.GetCommentTag() ?? PluginName);
-            }
-
-            Config.Dependencies.TryAdd(Pair.Key, Parent);
-        }
-        return Config;
     }
 
     private void RegisterChildren(string Name, string Tag)
@@ -561,6 +536,58 @@ public class ConfigSystem
             Sections.Add(new ConfigSection(RulesRegistry, Pair.Value));
         }
         ConfigSectionHierarchy.Link(Hierarchy, Sections);
+    }
+
+    // Always create parent dependencies first
+    private static ConfigSystem Create(string PluginName, string VariableOverrides, string VariableOverridesFromChild)
+    {
+        var Config = new ConfigSystem(PluginName, string.Join(',', VariableOverrides, VariableOverridesFromChild));
+
+        foreach (var Pair in Config.DependencyVariables)
+        {
+            if (Config.Dependencies.ContainsKey(PluginName)) continue;
+
+            var Parent = Create(Pair.Key, VariableOverrides, Pair.Value);
+            ConfigFile ParentConfigCache = new ConfigFile(GetConfigPath(Pair.Key, ConfigType.Cache));
+            if (ParentConfigCache.TryGetSection("Children", out var CachedChildren))
+            {
+                foreach (var Line in CachedChildren.Lines)
+                {
+                    if (!Parent.Children.ContainsKey(Line.Key))
+                    {
+                        Parent.RegisterChildren(Line.Key, Line.Value);
+                    }
+                }
+            }
+            if (!Parent.Children.ContainsKey(PluginName))
+            {
+                Parent.RegisterChildren(PluginName, Config.GetCommentTag() ?? PluginName);
+            }
+
+            Config.Dependencies.TryAdd(Pair.Key, Parent);
+        }
+        return Config;
+    }
+
+    private string DumpBuiltinSections()
+    {
+        var BuiltinSections = new List<string>();
+
+        if (Variables.Count != 0) BuiltinSections.Add("[Variables]\n" + Variables.Aggregate("", (Current, Pair) =>
+        {
+            if (Pair.Key.Equals("CRYSKNIFE_ENGINE_ROOT", StringComparison.OrdinalIgnoreCase)) return Current;
+            string Expr = $"{Pair.Key}={Pair.Value}\n";
+            return Pair.Key.StartsWith("Crysknife", StringComparison.OrdinalIgnoreCase) ? Expr + Current : Current + Expr;
+        }));
+        if (DependencyVariables.Count != 0) BuiltinSections.Add("[Dependencies]\n" + DependencyVariables.Aggregate("", (Current, Pair) => Current + $"{Pair.Key}={Pair.Value}\n"));
+        if (Children.Count != 0) BuiltinSections.Add("[Children]\n" + Children.Aggregate("", (Current, Pair) => Current + $"{Pair.Key}={Pair.Value}\n"));
+
+        return string.Join('\n', BuiltinSections);
+    }
+
+    public static ConfigSystem Create(string PluginName, string VariableOverrides)
+    {
+        return Create(PluginName, VariableOverrides, "");
     }
 
     public IEnumerable<string> GetChildrenTags()
@@ -615,19 +642,10 @@ public class ConfigSystem
         return Result;
     }
 
-    private string DumpBuiltinSections()
+    public string? GetEngineTag()
     {
-        var BuiltinSections = new List<string>();
-
-        if (Variables.Count != 0) BuiltinSections.Add("[Variables]\n" + Variables.Aggregate("", (Current, Pair) =>
-        {
-            string Expr = $"{Pair.Key}={Pair.Value}\n";
-            return Pair.Key.StartsWith("Crysknife", StringComparison.OrdinalIgnoreCase) ? Expr + Current : Current + Expr;
-        }));
-        if (DependencyVariables.Count != 0) BuiltinSections.Add("[Dependencies]\n" + DependencyVariables.Aggregate("", (Current, Pair) => Current + $"{Pair.Key}={Pair.Value}\n"));
-        if (Children.Count != 0) BuiltinSections.Add("[Children]\n" + Children.Aggregate("", (Current, Pair) => Current + $"{Pair.Key}={Pair.Value}\n"));
-
-        return string.Join('\n', BuiltinSections);
+        Variables.TryGetValue("CRYSKNIFE_ENGINE_TAG", out var Result);
+        return Result;
     }
 
     public override string ToString()
