@@ -27,11 +27,11 @@ internal class Patcher
             }
         }
 
-        private readonly DiffMatchPatch GenerationContext = new() { PatchMargin = 500 }; // ~10 loc
-        private readonly DiffMatchPatch ApplyContext = new()
+        private readonly DiffMatchPatch Context = new()
         {
             MatchThreshold = 0.5f,
-            MatchDistance = int.MaxValue // Line number may vary significantly
+            MatchDistance = int.MaxValue, // Line number may vary significantly
+            PatchOuterContext = 500, // ~10 loc
         };
 
         private static void DecoratePatch<T>(ref T Output, T Value, T Expected, string Decorator) where T : IComparable
@@ -48,7 +48,7 @@ internal class Patcher
         private static bool GetDecoratorValue(string Key, string Content, out string Value)
         {
             Value = string.Empty;
-            var Target = Content.Split('=', StringSplitOptions.TrimEntries);
+            var Target = Content.Split('=', Utils.SplitOptions);
             if (Target.Length != 2)
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
@@ -69,27 +69,27 @@ internal class Patcher
                     string Decorators = Utils.GetInjectionDecorators(Diff.Text, CommentTag);
                     if (Decorators.Length == 0) continue;
 
-                    foreach (var Decorator in Decorators.Split(',', StringSplitOptions.TrimEntries))
+                    foreach (var Decorator in Decorators.Split(',', Utils.SplitOptions))
                     {
                         if (Decorator.Equals("UpperContextOnly", StringComparison.OrdinalIgnoreCase))
                         {
-                            DecoratePatch(ref Patch.Context, MatchContext.All, MatchContext.Upper, "UpperContextOnly");
+                            DecoratePatch(ref Patch.Context, MatchContext.Upper, MatchContext.All, "UpperContextOnly");
                         }
                         else if (Decorator.Equals("LowerContextOnly", StringComparison.OrdinalIgnoreCase))
                         {
-                            DecoratePatch(ref Patch.Context, MatchContext.All, MatchContext.Lower, "LowerContextOnly");
+                            DecoratePatch(ref Patch.Context, MatchContext.Lower, MatchContext.All, "LowerContextOnly");
                         }
                         else if (Decorator.StartsWith("EngineNewerThan", StringComparison.OrdinalIgnoreCase))
                         {
                             if (!GetDecoratorValue("EngineNewerThan", Decorator, out var Target)) continue;
-                            var Validity = Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target)) ? BooleanOverride.True : BooleanOverride.False;
-                            DecoratePatch(ref Patch.Skip, Validity, BooleanOverride.Unspecified, "EngineNewerThan");
+                            var ShouldSkip = Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target)) ? BooleanOverride.False : BooleanOverride.True;
+                            DecoratePatch(ref Patch.Skip, ShouldSkip, BooleanOverride.Unspecified, "EngineNewerThan");
                         }
                         else if (Decorator.StartsWith("EngineOlderThan", StringComparison.OrdinalIgnoreCase))
                         {
                             if (!GetDecoratorValue("EngineOlderThan", Decorator, out var Target)) continue;
-                            var Validity = Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target)) ? BooleanOverride.False : BooleanOverride.True;
-                            DecoratePatch(ref Patch.Skip, Validity, BooleanOverride.Unspecified, "EngineOlderThan");
+                            var ShouldSkip = Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target)) ? BooleanOverride.True : BooleanOverride.False;
+                            DecoratePatch(ref Patch.Skip, ShouldSkip, BooleanOverride.Unspecified, "EngineOlderThan");
                         }
                     }
                 }
@@ -109,7 +109,7 @@ internal class Patcher
 
         public bool Apply(PatchBundle Patches, string Content, string CommentTag, string DumpPath, out string Patched)
         {
-            var (Output, Success, Indices) = ApplyContext.patch_apply(HandleDecorators(Patches, CommentTag).Patches, Content);
+            var (Output, Success, Indices) = Context.patch_apply(HandleDecorators(Patches, CommentTag).Patches, Content);
             Patched = Output;
 
             for (int Index = 0; Index < Success.Length; ++Index)
@@ -131,7 +131,7 @@ internal class Patcher
 
         public PatchBundle Diff(string Before, string After)
         {
-            return new PatchBundle(GenerationContext.patch_make(Before, After));
+            return new PatchBundle(Context.patch_make(Before, After));
         }
 
         public PatchBundle Merge(PatchBundle _, PatchBundle New)
@@ -141,18 +141,18 @@ internal class Patcher
 
         public short PatchContextLength
         {
-            get => GenerationContext.PatchMargin;
-            set => GenerationContext.PatchMargin = value;
+            get => Context.PatchOuterContext;
+            set => Context.PatchOuterContext = value;
         }
         public float MatchContentTolerance
         {
-            get => ApplyContext.MatchThreshold;
-            set => ApplyContext.MatchThreshold = value;
+            get => Context.MatchThreshold;
+            set => Context.MatchThreshold = value;
         }
         public int MatchLineTolerance
         {
-            get => ApplyContext.MatchDistance;
-            set => ApplyContext.MatchDistance = value;
+            get => Context.MatchDistance;
+            set => Context.MatchDistance = value;
         }
     }
 

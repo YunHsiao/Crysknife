@@ -355,7 +355,7 @@ internal class ConfigFile
 
 	public void AppendFromText(string SectionName, string IniText, ConfigLineAction DefaultAction = ConfigLineAction.Set)
 	{
-		foreach (string Setting in IniText.Split(',', StringSplitOptions.RemoveEmptyEntries))
+		foreach (string Setting in IniText.Split(',', Utils.SplitOptions))
 		{
 			SectionKeyRemap.TryGetValue(SectionName, out var CurrentRemap);
 

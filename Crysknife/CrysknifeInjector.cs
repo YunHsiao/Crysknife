@@ -126,7 +126,7 @@ public class Injector
                         // Apply op is potentially dangerous: Confirm before overriding any new contents.
                         if (!OverrideConfirm.HasFlag(Utils.ConfirmResult.ForAll))
                         {
-                            OverrideConfirm = Utils.PromptToConfirm($"New patches detected for already patched file {TargetPath}, override?");
+                            OverrideConfirm = Utils.PromptToConfirm($"New patches detected for already patched file '{TargetPath}', override?");
                         }
                         if (OverrideConfirm.HasFlag(Utils.ConfirmResult.No)) return;
                     }

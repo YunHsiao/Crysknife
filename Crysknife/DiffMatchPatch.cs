@@ -24,6 +24,8 @@
  *   Use Preformatted text element in HTML output
  *   Allow patches to be skippped during apply
  *   Support partial matches with specified context range
+ *   Option to save extra contexts with specified length
+ *   Use 64-bit mask for the bitap matching algorithm
  *   `patch_apply` returns an array of mapping indices into the input patches for the bool array
  *   Misc format & semantic improvements for .Net 6
  */
@@ -250,8 +252,11 @@ internal class DiffMatchPatch
     // Chunk size for context length.
     public short PatchMargin = 4;
 
+    // Save up to this many characters for each patch as additional context
+    public short PatchOuterContext = 0;
+
     // The number of bits in an int.
-    private const short MatchMaxBits = 32;
+    private const short MatchMaxBits = 64;
 
     //  DIFF FUNCTIONS
 
@@ -1816,8 +1821,10 @@ internal class DiffMatchPatch
      */
     protected int match_bitap(string Text, string Pattern, int Loc)
     {
-        // assert (Match_MaxBits == 0 || pattern.Length <= Match_MaxBits)
-        //    : "Pattern too long for this application.";
+        if (MatchMaxBits != 0 && Pattern.Length > MatchMaxBits)
+        {
+            throw new ArgumentException("Pattern too long for this application.");
+        }
 
         // Initialise the alphabet.
         var S = match_alphabet(Pattern);
@@ -1830,8 +1837,7 @@ internal class DiffMatchPatch
         {
             ScoreThreshold = Math.Min(match_bitapScore(0, BestLoc, Loc, Pattern), ScoreThreshold);
             // What about in the other direction? (speedup)
-            BestLoc = Text.LastIndexOf(Pattern, Math.Min(Loc + Pattern.Length, Text.Length),
-                StringComparison.Ordinal);
+            BestLoc = Text.LastIndexOf(Pattern, Math.Min(Loc + Pattern.Length, Text.Length), StringComparison.Ordinal);
             if (BestLoc != -1)
             {
                 ScoreThreshold = Math.Min(match_bitapScore(0, BestLoc, Loc, Pattern), ScoreThreshold);
@@ -1839,12 +1845,12 @@ internal class DiffMatchPatch
         }
 
         // Initialise the bit arrays.
-        int Matchmask = 1 << (Pattern.Length - 1);
+        ulong Matchmask = 1ul << (Pattern.Length - 1);
         BestLoc = -1;
 
         int BinMax = Pattern.Length + Text.Length;
         // Empty initialization added to appease C# compiler.
-        int[] LastRd = Array.Empty<int>();
+        var LastRd = Array.Empty<ulong>();
         for (int D = 0; D < Pattern.Length; D++)
         {
             // Scan for the best match; each iteration allows for one more error.
@@ -1871,11 +1877,11 @@ internal class DiffMatchPatch
             int Start = Math.Max(1, Loc - BinMid + 1);
             int Finish = Math.Min(Loc + BinMid, Text.Length) + Pattern.Length;
 
-            int[] Rd = new int[Finish + 2];
-            Rd[Finish + 1] = (1 << D) - 1;
+            var Rd = new ulong[Finish + 2];
+            Rd[Finish + 1] = (1ul << D) - 1;
             for (int J = Finish; J >= Start; J--)
             {
-                int CharMatch;
+                ulong CharMatch;
                 if (Text.Length <= J - 1 || !S.ContainsKey(Text[J - 1]))
                 {
                     // Out of range.
@@ -1889,7 +1895,7 @@ internal class DiffMatchPatch
                 if (D == 0)
                 {
                     // First pass: exact match.
-                    Rd[J] = ((Rd[J + 1] << 1) | 1) & CharMatch;
+                    Rd[J] = ((Rd[J + 1] << 1) | 1ul) & CharMatch;
                 }
                 else
                 {
@@ -1960,9 +1966,9 @@ internal class DiffMatchPatch
      * @param pattern The text to encode.
      * @return Hash of character locations.
      */
-    protected Dictionary<char, int> match_alphabet(string Pattern)
+    protected static Dictionary<char, ulong> match_alphabet(string Pattern)
     {
-        var S = new Dictionary<char, int>();
+        var S = new Dictionary<char, ulong>();
         char[] CharPattern = Pattern.ToCharArray();
         foreach (char C in CharPattern)
         {
@@ -1972,7 +1978,7 @@ internal class DiffMatchPatch
         int I = 0;
         foreach (char C in CharPattern)
         {
-            int Value = S[C] | (1 << (Pattern.Length - I - 1));
+            ulong Value = S[C] | (1ul << (Pattern.Length - I - 1));
             S[C] = Value;
             I++;
         }
@@ -1981,6 +1987,47 @@ internal class DiffMatchPatch
     }
 
     //  PATCH FUNCTIONS
+
+    // Crysknife customization
+    protected void patch_wrap(Patch Patch, string Text)
+    {
+        int ExistingContext = 0, Padding;
+
+        foreach (var Diff in Patch.Diffs)
+        {
+            ExistingContext += Diff.Text.Length;
+            if (Diff.Operation != Operation.Equal) break;
+        }
+
+        if (ExistingContext < PatchOuterContext)
+        {
+            Padding = PatchOuterContext - ExistingContext;
+            string Prefix = Text.JavaSubstring(Math.Max(0, Patch.Start2 - Padding), Patch.Start2);
+            Patch.Diffs.Insert(0, new Diff(Operation.Equal, Prefix));
+            Patch.Start1 -= Prefix.Length;
+            Patch.Start2 -= Prefix.Length;
+            Patch.Length1 += Prefix.Length;
+            Patch.Length2 += Prefix.Length;
+        }
+
+        ExistingContext = 0;
+        for (int Index = Patch.Diffs.Count - 1; Index >= 0; --Index)
+        {
+            var Diff = Patch.Diffs[Index];
+            ExistingContext += Diff.Text.Length;
+            if (Diff.Operation != Operation.Equal) break;
+        }
+
+        if (ExistingContext >= PatchOuterContext) return;
+
+        Padding = PatchOuterContext - ExistingContext;
+        string Suffix = Text.JavaSubstring(Patch.Start2 + Patch.Length1,
+            Math.Min(Text.Length, Patch.Start2 + Patch.Length1 + Padding));
+
+        Patch.Diffs.Add(new Diff(Operation.Equal, Suffix));
+        Patch.Length1 += Suffix.Length;
+        Patch.Length2 += Suffix.Length;
+    }
 
     /**
      * Increase the context until it is unique,
@@ -2033,6 +2080,8 @@ internal class DiffMatchPatch
         // Extend the lengths.
         Patch.Length1 += Prefix.Length + Suffix.Length;
         Patch.Length2 += Prefix.Length + Suffix.Length;
+
+        if (PatchOuterContext > 0) patch_wrap(Patch, Text);
     }
 
     /**
@@ -2191,8 +2240,8 @@ internal class DiffMatchPatch
         return PatchesCopy;
     }
 
-    // Crysknife customizations
-    public static List<Patch> patch_customize(IEnumerable<Patch> Patches)
+    // Crysknife customization
+    protected static List<Patch> patch_strip(IEnumerable<Patch> Patches)
     {
         var Result = new List<Patch>();
 
@@ -2238,14 +2287,13 @@ internal class DiffMatchPatch
      */
     public Tuple<string, bool[], int[]> patch_apply(List<Patch> Patches, string Text)
     {
+        // Deep copy the patches so that no changes are made to originals.
+        Patches = patch_deepCopy(Patches);
+        Patches = patch_strip(Patches);
         if (Patches.Count == 0)
         {
             return Tuple.Create(Text, Array.Empty<bool>(), Array.Empty<int>());
         }
-
-        // Deep copy the patches so that no changes are made to originals.
-        Patches = patch_deepCopy(Patches);
-        Patches = patch_customize(Patches);
 
         string NullPadding = patch_addPadding(Patches);
         Text = NullPadding + Text + NullPadding;
