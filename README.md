@@ -264,6 +264,9 @@ ScopedRule2=Predicate5
 `NameMatches:[NAME]...`
 * Satisfies if the input file name matches
 
+`NewerThan:[VERSION]...`
+* Satisfies if current engine version is newer than or equal to specified value (e.g. `5.0`)
+
 `Conjunctions:All|Predicates|Root|TargetExists|IsTruthy|NameMatches...`
 * Changes the logical behavior of specified predicate to conjunction (logical AND)
 * `Root` means the logical operations between different predicates

@@ -21,6 +21,7 @@ public enum JobOptions
     DryRun = 0x4,
     Verbose = 0x8,
     TreatPatchAsFile = 0x10,
+    ClearPatchHistory = 0x20,
 }
 
 public class Injector
@@ -67,7 +68,7 @@ public class Injector
         {
             PluginName = Config.PluginName;
             Directory = Utils.GetPatchDirectory(Config.PluginName);
-            CommentTag = Config.GetCommentTag() ?? PluginName;
+            CommentTag = Config.GetCommentTag();
             PatchRegex = new InjectionRegexGroup(CommentTag, Config.GetChildrenTags());
         }
     }
@@ -76,11 +77,11 @@ public class Injector
     {
         string TargetContent = SourcePatch.PatchRegex.ClearResiduals(File.ReadAllText(TargetPath));
         string ClearedTarget = SourcePatch.PatchRegex.Unpatch(TargetContent);
-        Patcher.PatchList? Patches = null;
+        IPatchBundle? Patches = null;
 
         if (Job.HasFlag(JobType.Generate))
         {
-            Patches = PatcherInstance.Generate(ClearedTarget, TargetContent);
+            Patches = PatcherInstance.Generate(ClearedTarget, TargetContent, Options.HasFlag(JobOptions.ClearPatchHistory) ? null : PatchPath);
 
             if (!Patches.IsValid())
             {
@@ -116,33 +117,23 @@ public class Injector
 
             if (Patches.IsValid())
             {
-                string Patched = PatcherInstance.Apply(ClearedTarget, Patches, out var IsSuccess);
-
-                if (TargetContent.Length != ClearedTarget.Length)
+                string DumpOutput = Path.Combine(Utils.GetPluginDirectory(SourcePatch.PluginName), "Intermediate", "Crysknife", Path.GetRelativePath(Utils.GetSourceDirectory(), TargetPath));
+                bool Success = PatcherInstance.Apply(Patches, ClearedTarget, SourcePatch.CommentTag, DumpOutput, out var Patched);
+                if (Success && !Patched.Equals(TargetContent, StringComparison.Ordinal))
                 {
-                    // Apply op is potentially dangerous: Confirm before overriding any new contents.
-                    if (!OverrideConfirm.HasFlag(Utils.ConfirmResult.ForAll))
+                    if (TargetContent.Length != ClearedTarget.Length)
                     {
-                        OverrideConfirm = Utils.PromptToConfirm($"Override already patched file {TargetPath}?");
+                        // Apply op is potentially dangerous: Confirm before overriding any new contents.
+                        if (!OverrideConfirm.HasFlag(Utils.ConfirmResult.ForAll))
+                        {
+                            OverrideConfirm = Utils.PromptToConfirm($"New patches detected for already patched file {TargetPath}, override?");
+                        }
+                        if (OverrideConfirm.HasFlag(Utils.ConfirmResult.No)) return;
                     }
-                    if (OverrideConfirm.HasFlag(Utils.ConfirmResult.No)) return;
-                }
 
-                Utils.FileAccessGuard(() => File.WriteAllText(TargetPath, Patched), TargetPath);
-
-                int SuccessCount = IsSuccess.Count(V => V);
-                if (SuccessCount == IsSuccess.Length)
-                {
+                    Utils.FileAccessGuard(() => File.WriteAllText(TargetPath, Patched), TargetPath);
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.WriteLine("Patched: " + TargetPath);
-                }
-                else
-                {
-                    string DumpOutput = Path.Combine(Utils.GetPluginDirectory(SourcePatch.PluginName), "Intermediate", "Crysknife", Path.GetFileName(TargetPath) + ".html");
-                    PatcherInstance.Dump(Patches, DumpOutput);
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.Error.WriteLine("Error: Patch failed ({0}/{1}): Please merge the relevant changes manually from {2} to {3}",
-                        SuccessCount, IsSuccess.Length, DumpOutput, TargetPath);
                 }
             }
         }
@@ -315,7 +306,7 @@ public class Injector
             Console.WriteLine(Config);
         }
 
-        var Patches = new Dictionary<string, List<string>>();
+        var Patches = new HashSet<string>();
         foreach (string SrcPath in Directory.GetFiles(SourcePatch.Directory, "*", new EnumerationOptions { RecurseSubdirectories = true }))
         {
             if (!SrcPath.Contains(InclusiveFilter) || SrcPath.Contains(ExclusiveFilter)) continue;
@@ -323,9 +314,7 @@ public class Injector
             string RelativePath = Path.GetRelativePath(SourcePatch.Directory, SrcPath);
             if (RelativePath.EndsWith(".patch", StringComparison.OrdinalIgnoreCase)) // Patch existing files
             {
-                Patcher.Parse(RelativePath, out var SourcePath, out var PatchVersion);
-                if (!Patches.ContainsKey(SourcePath)) Patches.Add(SourcePath, new List<string>());
-                Patches[SourcePath].Add(PatchVersion);
+                Patches.Add(Patcher.GetSourcePath(RelativePath));
             }
             else if (Config.Remap(RelativePath, out var DstRelativePath, VerboseLogging))
             {
@@ -344,43 +333,46 @@ public class Injector
             }
         }
 
-        foreach (var Pair in Patches)
+        foreach (var RelativePath in Patches)
         {
-            if (!Config.Remap(Pair.Key, out var DstRelativePath, VerboseLogging)) continue;
+            if (!Config.Remap(RelativePath, out var NewRelativePath, VerboseLogging)) continue;
 
-            string PatchSuffix = PatcherInstance.Match(Pair.Key, Pair.Value);
-            string PatchPath = Path.Combine(SourcePatch.Directory, Pair.Key + PatchSuffix);
-            string OutputPath = Path.Combine(Utils.GetSourceDirectory(), DstRelativePath);
+            string PatchPath = Path.Combine(SourcePatch.Directory, RelativePath);
+            string SourcePath = Path.Combine(Utils.GetSourceDirectory(), NewRelativePath);
 
             if (Options.HasFlag(JobOptions.TreatPatchAsFile))
             {
-                ProcessFile(Job, PatchPath, OutputPath + PatchSuffix);
+                foreach (string PatchSuffix in Patcher.Extensions)
+                {
+                    string PatchFilePath = PatchPath + PatchSuffix;
+                    if (File.Exists(PatchFilePath)) ProcessFile(Job, PatchFilePath, SourcePath + PatchSuffix);
+                }
                 continue;
             }
 
             // The original source file have to exist
-            string TargetPath = Path.Combine(Utils.GetSourceDirectory(), Pair.Key);
-            if (!File.Exists(TargetPath))
+            string OriginalSourcePath = Path.Combine(Utils.GetSourceDirectory(), RelativePath);
+            if (!File.Exists(SourcePath))
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Skipped patch: {0} does not exist!", TargetPath);
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("Skipped patch: {0} does not exist!", OriginalSourcePath);
                 continue;
             }
 
             // When remapping patches, sync from original source if not exist
-            if (TargetPath != OutputPath && !File.Exists(OutputPath))
+            if (OriginalSourcePath != SourcePath && !File.Exists(SourcePath))
             {
-                Utils.EnsureParentDirectoryExists(OutputPath);
-                Utils.FileAccessGuard(() => File.Copy(TargetPath, OutputPath), OutputPath);
+                Utils.EnsureParentDirectoryExists(SourcePath);
+                Utils.FileAccessGuard(() => File.Copy(OriginalSourcePath, SourcePath), SourcePath);
             }
 
             // When dry running, sync with original output path unconditionally
-            if (Options.HasFlag(JobOptions.DryRun) && TargetPath != OutputPath)
+            if (Options.HasFlag(JobOptions.DryRun) && OriginalSourcePath != SourcePath)
             {
-                Utils.FileAccessGuard(() => File.Copy(TargetPath, OutputPath, true), OutputPath);
+                Utils.FileAccessGuard(() => File.Copy(OriginalSourcePath, SourcePath, true), SourcePath);
             }
 
-            ProcessPatch(Job, PatchPath, OutputPath, SourcePatch);
+            ProcessPatch(Job, PatchPath, SourcePath, SourcePatch);
         }
 
         Console.ForegroundColor = ConsoleColor.DarkBlue;

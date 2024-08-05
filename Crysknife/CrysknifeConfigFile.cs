@@ -334,13 +334,13 @@ internal class ConfigFile
 		if (File.Exists(Location)) ReadIntoSections(Location, Sections, DefaultAction);
 	}
 
-	public ConfigFile Merge(ConfigFile File, bool Append = true)
+	public ConfigFile Merge(ConfigFile File, bool AppendToTail = true)
 	{
 		foreach (string SectionName in File.SectionNames)
 		{
 			if (!File.TryGetSection(SectionName, out var BaseSection)) continue;
 
-			if (Append)
+			if (AppendToTail)
 			{
 				FindOrAddSection(SectionName).Lines.AddRange(BaseSection.Lines);
 			}

@@ -58,13 +58,64 @@ internal class InjectionRegex
     }
 }
 
+internal readonly struct EngineVersion
+{
+    private readonly int Major;
+    private readonly int Minor;
+    private readonly int Patch;
+
+    public static EngineVersion Create(string Value)
+    {
+        string[] Versions = Value.Split('.');
+        return new EngineVersion(int.Parse(Versions[0]), int.Parse(Versions[1]), Versions.Length > 2 ? int.Parse(Versions[2]) : 0);
+    }
+
+    private EngineVersion(int Major, int Minor, int Patch)
+    {
+        this.Major = Major;
+        this.Minor = Minor;
+        this.Patch = Patch;
+    }
+
+    public override string ToString()
+    {
+        return $"{Major}.{Minor}.{Patch}";
+    }
+
+    public bool NewerThan(EngineVersion Other)
+    {
+        if (Major != Other.Major) return Major > Other.Major;
+        if (Minor != Other.Minor) return Minor > Other.Minor;
+        return Patch >= Other.Patch; // Newer than 5.0 should include 5.0.0
+    }
+}
+
 internal static class Utils
 {
-    private static readonly Regex EngineVersionRE = new (@"#define\s+ENGINE_MAJOR_VERSION\s+(\d+)\s*#define\s+ENGINE_MINOR_VERSION\s+(\d+)", RegexOptions.Compiled);
-    public static string GetCurrentEngineVersion(string SourceDirectory)
+    private static readonly Regex EngineVersionRE = new (@"#define\s+ENGINE_MAJOR_VERSION\s+(\d+)\s*#define\s+ENGINE_MINOR_VERSION\s+(\d+)\s*#define\s+ENGINE_PATCH_VERSION\s+(\d+)", RegexOptions.Compiled);
+    private static string GetCurrentEngineVersion(string SourceDirectory)
     {
-        Match VersionMatch = EngineVersionRE.Match(File.ReadAllText(Path.Combine(SourceDirectory, "Runtime/Launch/Resources/Version.h")));
-        return $"{VersionMatch.Groups[1].Value}_{VersionMatch.Groups[2].Value}";
+        var VersionMatch = EngineVersionRE.Match(File.ReadAllText(Path.Combine(SourceDirectory, "Runtime/Launch/Resources/Version.h")));
+        return $"{VersionMatch.Groups[1].Value}.{VersionMatch.Groups[2].Value}.{VersionMatch.Groups[3].Value}";
+    }
+    public static EngineVersion CurrentEngineVersion;
+
+    private static readonly Regex InjectionDirectiveRE = new (@"\@Crysknife\((.+)\)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    public static string GetInjectionDecorators(string Content, string CommentTag)
+    {
+        string Result = "";
+        var CommentMatch = new Regex($"// {CommentTag}(.+)", RegexOptions.IgnoreCase).Match(Content);
+        while (CommentMatch.Success)
+        {
+            var DirectiveMatch = InjectionDirectiveRE.Match(CommentMatch.Groups[1].Value);
+            while (DirectiveMatch.Success)
+            {
+                Result = string.Join(',', Result, DirectiveMatch.Groups[1].Value);
+                DirectiveMatch = DirectiveMatch.NextMatch();
+            }
+            CommentMatch = CommentMatch.NextMatch();
+        }
+        return Result;
     }
 
     private static readonly Regex SeparatorRE = new (@"[\\/]", RegexOptions.Compiled);
@@ -73,9 +124,26 @@ internal static class Utils
         return SeparatorRE.Replace(Value, Path.DirectorySeparatorChar.ToString());
     }
 
-    private static readonly Regex TruthyRE = new ("^(T|On)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex TruthyRE = new ("^(?:T|On)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex BinaryOps = new ("(==|!=|>|<|>=|<=)", RegexOptions.Compiled);
     public static bool IsTruthyValue(string Value)
     {
+        var OpsMatch = BinaryOps.Match(Value);
+        if (OpsMatch.Success)
+        {
+            var Left = Value[..OpsMatch.Index];
+            var Right = Value[(OpsMatch.Index + OpsMatch.Length)..];
+            return OpsMatch.Groups[1].Value switch
+            {
+                "==" => Left.Equals(Right, StringComparison.OrdinalIgnoreCase),
+                "!=" => !Left.Equals(Right, StringComparison.OrdinalIgnoreCase),
+                ">" => int.Parse(Left) > int.Parse(Right),
+                "<" => int.Parse(Left) > int.Parse(Right),
+                ">=" => int.Parse(Left) > int.Parse(Right),
+                "<=" => int.Parse(Left) > int.Parse(Right),
+                _ => throw new ArgumentOutOfRangeException()
+            };
+        }
         if (int.TryParse(Value, out var Number)) return Number > 0;
         return TruthyRE.IsMatch(Value);
     }
@@ -214,5 +282,6 @@ internal static class Utils
     public static void Init(string RootDirectory)
     {
         EngineRoot = RootDirectory;
+        CurrentEngineVersion = EngineVersion.Create(GetCurrentEngineVersion(GetSourceDirectory()));
     }
 }

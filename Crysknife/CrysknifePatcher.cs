@@ -2,179 +2,234 @@
 // SPDX-License-Identifier: MIT
 
 namespace Crysknife;
+using DiffMatchPatch;
+
+internal interface IPatchBundle
+{
+    bool IsValid();
+}
 
 internal class Patcher
 {
-    public class PatchList
+    private class DMPContext
     {
-        private readonly List<DiffMatchPatch.Patch> Patches;
-
-        public PatchList(List<DiffMatchPatch.Patch> Patches)
+        public class PatchBundle : IPatchBundle
         {
-            this.Patches = Patches;
-        }
-
-        public bool IsValid()
-        {
-            return Patches.Count > 0;
-        }
-
-        public string Serialize(DiffMatchPatch.diff_match_patch Context)
-        {
-            return Context.patch_toText(Patches);
-        }
-
-        public string Apply(DiffMatchPatch.diff_match_patch Context, string Content, out bool[] Success)
-        {
-            object[] Result = Context.patch_apply(Patches, Content);
-            Success = (bool[])Result[1];
-            return (string)Result[0];
-        }
-    }
-
-    private readonly struct EngineVersion
-    {
-        private readonly int Major;
-        private readonly int Minor;
-
-        public static EngineVersion Create(string Value)
-        {
-            string[] Versions = Value.Split('_');
-            return new EngineVersion(int.Parse(Versions[0]), int.Parse(Versions[1]));
-        }
-
-        private EngineVersion(int InMajor, int InMinor)
-        {
-            Major = InMajor;
-            Minor = InMinor;
-        }
-
-        public override string ToString()
-        {
-            return $"{Major}_{Minor}";
-        }
-
-        public int Distance(EngineVersion Other)
-        {
-            return Math.Abs(Major - Other.Major) * 100 + Math.Abs(Minor - Other.Minor);
-        }
-    }
-
-    private readonly struct ParsedPath
-    {
-        private readonly string PathTrunc;
-        private readonly List<string> Extensions = new();
-
-        public ParsedPath(string InputPath)
-        {
-            string Extension = Path.GetExtension(InputPath);
-            while (Extension != string.Empty)
+            public readonly List<Patch> Patches;
+            public PatchBundle(List<Patch> Patches)
             {
-                Extensions.Insert(0, Extension);
-                InputPath = InputPath[..^Extension.Length];
-                Extension = Path.GetExtension(InputPath);
-            }
-            PathTrunc = InputPath;
-        }
-
-        public void Split(int NumExtensions, out string FilePath, out string Extension)
-        {
-            int Index = 0;
-
-            FilePath = PathTrunc;
-            for (; Index < Extensions.Count - NumExtensions; ++Index)
-            {
-                FilePath += Extensions[Index];
+                this.Patches = Patches;
             }
 
-            Extension = string.Empty;
-            for (; Index < Extensions.Count; ++Index)
+            public bool IsValid()
             {
-                Extension += Extensions[Index];
+                return Patches.Count > 0;
             }
         }
 
-        public bool HasExtension(string Target)
+        private readonly DiffMatchPatch GenerationContext = new() { PatchMargin = 500 }; // ~10 loc
+        private readonly DiffMatchPatch ApplyContext = new()
         {
-            return Extensions.Contains(Target);
+            MatchThreshold = 0.5f,
+            MatchDistance = int.MaxValue // Line number may vary significantly
+        };
+
+        private static void DecoratePatch<T>(ref T Output, T Value, T Expected, string Decorator) where T : IComparable
+        {
+            if (Output.CompareTo(Expected) != 0 && Output.CompareTo(Value) != 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Conflicting decorator '{0}' in the same patch", Decorator);
+                Utils.Abort();
+            }
+            Output = Value;
+        }
+
+        private static bool GetDecoratorValue(string Key, string Content, out string Value)
+        {
+            Value = string.Empty;
+            var Target = Content.Split('=', StringSplitOptions.TrimEntries);
+            if (Target.Length != 2)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("'{0}' declared without a value", Key);
+                return false;
+            }
+            Value = Target[1];
+            return true;
+        }
+
+        private static PatchBundle HandleDecorators(PatchBundle Patches, string CommentTag)
+        {
+            foreach (var Patch in Patches.Patches)
+            {
+                foreach (var Diff in Patch.Diffs)
+                {
+                    if (Diff.Operation != Operation.Insert) continue;
+                    string Decorators = Utils.GetInjectionDecorators(Diff.Text, CommentTag);
+                    if (Decorators.Length == 0) continue;
+
+                    foreach (var Decorator in Decorators.Split(',', StringSplitOptions.TrimEntries))
+                    {
+                        if (Decorator.Equals("UpperContextOnly", StringComparison.OrdinalIgnoreCase))
+                        {
+                            DecoratePatch(ref Patch.Context, MatchContext.All, MatchContext.Upper, "UpperContextOnly");
+                        }
+                        else if (Decorator.Equals("LowerContextOnly", StringComparison.OrdinalIgnoreCase))
+                        {
+                            DecoratePatch(ref Patch.Context, MatchContext.All, MatchContext.Lower, "LowerContextOnly");
+                        }
+                        else if (Decorator.StartsWith("EngineNewerThan", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (!GetDecoratorValue("EngineNewerThan", Decorator, out var Target)) continue;
+                            var Validity = Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target)) ? BooleanOverride.True : BooleanOverride.False;
+                            DecoratePatch(ref Patch.Skip, Validity, BooleanOverride.Unspecified, "EngineNewerThan");
+                        }
+                        else if (Decorator.StartsWith("EngineOlderThan", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (!GetDecoratorValue("EngineOlderThan", Decorator, out var Target)) continue;
+                            var Validity = Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target)) ? BooleanOverride.False : BooleanOverride.True;
+                            DecoratePatch(ref Patch.Skip, Validity, BooleanOverride.Unspecified, "EngineOlderThan");
+                        }
+                    }
+                }
+            }
+            return Patches;
+        }
+
+        public static string Serialize(PatchBundle Patches)
+        {
+            return DiffMatchPatch.patch_toText(Patches.Patches);
+        }
+
+        public static PatchBundle Deserialize(string Content)
+        {
+            return new PatchBundle(DiffMatchPatch.patch_fromText(Content));
+        }
+
+        public bool Apply(PatchBundle Patches, string Content, string CommentTag, string DumpPath, out string Patched)
+        {
+            var (Output, Success, Indices) = ApplyContext.patch_apply(HandleDecorators(Patches, CommentTag).Patches, Content);
+            Patched = Output;
+
+            for (int Index = 0; Index < Success.Length; ++Index)
+            {
+                if (Success[Index]) continue;
+
+                var MappedIndex = Indices[Index]; 
+                var OutputPath = $"{DumpPath}.{MappedIndex}.html";
+                if (File.Exists(OutputPath)) continue;
+
+                Utils.EnsureParentDirectoryExists(OutputPath);
+                File.WriteAllText(OutputPath, DiffMatchPatch.diff_prettyHtml(Patches.Patches[MappedIndex].Diffs));
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.Error.WriteLine("Error: Patch failed: Please merge the relevant changes manually from '{0}'", OutputPath);
+            }
+
+            return Success.Any(V => V); // Success if any patch is applied
+        }
+
+        public PatchBundle Diff(string Before, string After)
+        {
+            return new PatchBundle(GenerationContext.patch_make(Before, After));
+        }
+
+        public PatchBundle Merge(PatchBundle _, PatchBundle New)
+        {
+            return New;
+        }
+
+        public short PatchContextLength
+        {
+            get => GenerationContext.PatchMargin;
+            set => GenerationContext.PatchMargin = value;
+        }
+        public float MatchContentTolerance
+        {
+            get => ApplyContext.MatchThreshold;
+            set => ApplyContext.MatchThreshold = value;
+        }
+        public int MatchLineTolerance
+        {
+            get => ApplyContext.MatchDistance;
+            set => ApplyContext.MatchDistance = value;
         }
     }
 
+    private readonly DMPContext Context = new();
     public readonly string DefaultExtension;
-    private readonly EngineVersion CurrentEngineVersion;
-    private readonly DiffMatchPatch.diff_match_patch GenerationContext = new() { Patch_Margin = 50 };
-    private readonly DiffMatchPatch.diff_match_patch ApplyContext = new()
+
+    private enum PatchFileType
     {
-        Match_Threshold = 0.5f,
-        Match_Distance = int.MaxValue // Line number may vary significantly
+        Protected,
+        Main
+    }
+    public static readonly string[] Extensions =
+    {
+        ".protected.patch",
+        ".patch",
     };
 
     public Patcher(ConfigSystem Config)
     {
-        var EngineTag = Config.GetEngineTag();
-        DefaultExtension = EngineTag != null ? $"{EngineTag}.protected.patch" : ".patch"; // All custom engine patches are protected
-        CurrentEngineVersion = EngineVersion.Create(Utils.GetCurrentEngineVersion(Utils.GetSourceDirectory()));
+        DefaultExtension = Config.GetEngineTag().Length > 0 ? Extensions[(int)PatchFileType.Protected] : Extensions[(int)PatchFileType.Main]; // All custom engine patches are protected
     }
 
-    public void Dump(PatchList Patches, string OutputPath)
+    public bool Apply(IPatchBundle Patches, string Before, string CommentTag, string DumpPath, out string Patched)
     {
+        return Context.Apply((DMPContext.PatchBundle)Patches, Before, CommentTag, DumpPath, out Patched);
     }
 
-    public string Apply(string Before, PatchList Patches, out bool[] Success)
+    public IPatchBundle Generate(string Before, string After, string? InputPath)
     {
-        return Patches.Apply(ApplyContext, Before, out Success);
+        var NewPatches = Context.Diff(Before, After);
+        if (InputPath == null) return NewPatches;
+
+        string PatchPath = InputPath + DefaultExtension;
+        var HistoryPatches = DMPContext.Deserialize(File.Exists(PatchPath) ? File.ReadAllText(PatchPath) : string.Empty);
+        return Context.Merge(HistoryPatches, NewPatches);
     }
 
-    public PatchList Generate(string Before, string After)
+    public bool Save(IPatchBundle Patches, string OutputPath)
     {
-        return new PatchList(GenerationContext.patch_make(Before, After));
-    }
+        string PatchPath = OutputPath + DefaultExtension;
 
-    public bool Save(PatchList Patches, string OutputPath)
-    {
-        string Content = Patches.Serialize(GenerationContext);
-        if (File.Exists(OutputPath) && File.ReadAllText(OutputPath) == Content) return false;
+        string Content = DMPContext.Serialize((DMPContext.PatchBundle)Patches);
+        if (File.Exists(PatchPath) && File.ReadAllText(PatchPath) == Content) return false;
 
-        File.WriteAllText(OutputPath, Content);
+        File.WriteAllText(PatchPath, Content);
         return true;
     }
 
-    public PatchList Load(string InputPath)
+    public IPatchBundle Load(string InputPath)
     {
-        return new PatchList(ApplyContext.patch_fromText(File.ReadAllText(InputPath)));
+        string PatchPath = InputPath + DefaultExtension;
+        if (!File.Exists(PatchPath)) PatchPath = InputPath + Extensions[(int)PatchFileType.Main];
+        return DMPContext.Deserialize(File.ReadAllText(PatchPath));
     }
 
-    public static void Parse(string FullPath, out string FilePath, out string Version)
+    public static string GetSourcePath(string FullPath)
     {
-        ParsedPath ParsedFullPath = new ParsedPath(FullPath);
-        ParsedFullPath.Split(ParsedFullPath.HasExtension(".protected") ? 3 : 1, out FilePath, out Version);
-    }
-
-    public string Match(string FilePath, List<string> Versions)
-    {
-        if (Versions.Contains(DefaultExtension)) return DefaultExtension;
-        if (Versions.Contains(".patch")) return ".patch";
-
-        Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine("No valid patch file found for {0}", FilePath);
-        Utils.Abort();
-
-        return string.Empty;
+        foreach (string Extension in Extensions)
+        {
+            if (FullPath.EndsWith(Extension)) return FullPath[..^Extension.Length];
+        }
+        return FullPath;
     }
 
     public short PatchContextLength
     {
-        get => GenerationContext.Patch_Margin;
-        set => GenerationContext.Patch_Margin = value;
+        get => Context.PatchContextLength;
+        set => Context.PatchContextLength = value;
     }
     public float MatchContentTolerance
     {
-        get => ApplyContext.Match_Threshold;
-        set => ApplyContext.Match_Threshold = value;
+        get => Context.MatchContentTolerance;
+        set => Context.MatchContentTolerance = value;
     }
     public int MatchLineTolerance
     {
-        get => ApplyContext.Match_Distance;
-        set => ApplyContext.Match_Distance = value;
+        get => Context.MatchLineTolerance;
+        set => Context.MatchLineTolerance = value;
     }
 }

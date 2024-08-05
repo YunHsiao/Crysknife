@@ -64,6 +64,7 @@ internal static class Launcher
         if (Arguments.ContainsKey("d") || Arguments.ContainsKey("dry-run")) Options |= JobOptions.DryRun;
         if (Arguments.ContainsKey("v") || Arguments.ContainsKey("verbose")) Options |= JobOptions.Verbose;
         if (Arguments.ContainsKey("t") || Arguments.ContainsKey("treat-patch-as-file")) Options |= JobOptions.TreatPatchAsFile;
+        if (Arguments.ContainsKey("c") || Arguments.ContainsKey("clear-patch-history")) Options |= JobOptions.ClearPatchHistory;
 
         var InjectorInstance = new Injector(PluginName, VariableOverrides, Options);
         var Job = JobType.None;

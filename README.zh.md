@@ -262,6 +262,9 @@ ScopedRule2=Predicate5
 `NameMatches:[NAME]...`
 * 当前输入文件名匹配时满足
 
+`NewerThan:[VERSION]...`
+* 当前引擎版本大于等于指定值（如 `5.0`）时满足
+
 `Conjunctions:All|Predicates|Root|TargetExists|IsTruthy|NameMatches...`
 * 将指定范围的组合逻辑设为“与”
 * `Root` 指所有不同条件间的组合逻辑

@@ -104,6 +104,11 @@ internal class ConfigPredicates
                 return File.Exists(TargetPath) || Directory.Exists(TargetPath);
             }),
             new ConfigPredicate("IsTruthy", Utils.IsTruthyValue),
+            new ConfigPredicate("NewerThan", Cond =>
+            {
+                var TargetVersion = EngineVersion.Create(Cond);
+                return Utils.CurrentEngineVersion.NewerThan(TargetVersion);
+            }),
         };
 
         foreach (var Rule in Descriptions)
@@ -297,6 +302,8 @@ internal class ConfigSection
         {
             Result = ShouldFlatten ? Path.Combine(RemapTarget, Path.GetFileName(Target)) :
                 ControllingDomain == string.Empty ? Path.Combine(RemapTarget, Target) : Target.Replace(ControllingDomain, RemapTarget);
+            // Convert back into relative path to engine source directory to be consistent
+            if (Path.IsPathFullyQualified(Result)) Result = Path.GetRelativePath(Utils.GetSourceDirectory(), Result);
             return RemapResult.Remapped;
         }
 
@@ -450,6 +457,8 @@ internal class ConfigSystem
         string RootPath = Utils.GetPluginDirectory("Crysknife");
         string ConfigPath = Path.Combine(RootPath, "BaseCrysknife.ini");
         if (File.Exists(ConfigPath)) BaseConfig = new ConfigFile(ConfigPath);
+        ConfigPath = Path.Combine(RootPath, "BaseCrysknifeLocal.ini");
+        if (File.Exists(ConfigPath)) BaseConfig.Merge(new ConfigFile(ConfigPath));
         ConfigFile.Init(RootPath);
     }
 
@@ -561,7 +570,7 @@ internal class ConfigSystem
             }
             if (!Parent.Children.ContainsKey(PluginName))
             {
-                Parent.RegisterChildren(PluginName, Config.GetCommentTag() ?? PluginName);
+                Parent.RegisterChildren(PluginName, Config.GetCommentTag());
             }
 
             Config.Dependencies.TryAdd(Pair.Key, Parent);
@@ -583,6 +592,12 @@ internal class ConfigSystem
         if (Children.Count != 0) BuiltinSections.Add("[Children]\n" + Children.Aggregate("", (Current, Pair) => Current + $"{Pair.Key}={Pair.Value}\n"));
 
         return string.Join('\n', BuiltinSections);
+    }
+
+    private string? GetVariable(string Name)
+    {
+        Variables.TryGetValue(Name, out var Result);
+        return Result;
     }
 
     public static ConfigSystem Create(string PluginName, string VariableOverrides)
@@ -636,17 +651,8 @@ internal class ConfigSystem
         }
     }
 
-    public string? GetCommentTag()
-    {
-        Variables.TryGetValue("CRYSKNIFE_COMMENT_TAG", out var Result);
-        return Result;
-    }
-
-    public string? GetEngineTag()
-    {
-        Variables.TryGetValue("CRYSKNIFE_ENGINE_TAG", out var Result);
-        return Result;
-    }
+    public string GetCommentTag() { return GetVariable("CRYSKNIFE_COMMENT_TAG") ?? PluginName; }
+    public string GetEngineTag() { return GetVariable("CRYSKNIFE_ENGINE_TAG") ?? ""; }
 
     public override string ToString()
     {
