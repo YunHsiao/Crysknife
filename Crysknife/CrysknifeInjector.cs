@@ -29,7 +29,7 @@ public class Injector
 {
     private readonly struct InjectionRegexGroup
     {
-        private readonly InjectionRegex Injection;
+        public readonly InjectionRegex Injection;
         private readonly List<InjectionRegex> Residuals = new();
 
         public InjectionRegexGroup(string Parent, IEnumerable<string> Residuals)
@@ -122,7 +122,7 @@ public class Injector
             if (Patches.IsValid())
             {
                 string DumpOutput = Path.Combine(Utils.GetPluginDirectory(SourcePatch.PluginName), "Intermediate", "Crysknife", Path.GetRelativePath(Utils.GetSourceDirectory(), TargetPath));
-                bool Success = PatcherInstance.Apply(Patches, ClearedTarget, DumpOutput, out var Patched);
+                bool Success = PatcherInstance.Apply(Patches, ClearedTarget, DumpOutput,SourcePatch.PatchRegex.Injection, out var Patched);
                 if (Success && !Patched.Equals(TargetContent, StringComparison.Ordinal))
                 {
                     if (TargetContent.Length != ClearedTarget.Length)

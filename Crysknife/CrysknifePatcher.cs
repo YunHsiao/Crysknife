@@ -108,14 +108,15 @@ internal class Patcher
             return HandleDecorators(new PatchBundle(DiffMatchPatch.patch_fromText(Content)));
         }
 
-        public bool Apply(PatchBundle Patches, string Content, string DumpPath, out string Patched)
+        public bool Apply(PatchBundle Patches, string Content, string DumpPath, InjectionRegex RE, out string Patched)
         {
             var (Output, Success, Indices) = Context.patch_apply(Patches.Patches, Content);
-            Patched = Output;
 
+            int FailureCount = 0;
             for (int Index = 0; Index < Success.Length; ++Index)
             {
                 if (Success[Index]) continue;
+                FailureCount++;
 
                 var MappedIndex = Indices[Index]; 
                 var OutputPath = $"{DumpPath}.{MappedIndex}.html";
@@ -127,7 +128,19 @@ internal class Patcher
                 Console.Error.WriteLine("Error: Patch failed: Please merge the relevant changes manually from '{0}'", OutputPath);
             }
 
-            return Success.Any(V => V); // Success if any patch is applied
+            if (FailureCount == 0)
+            {
+                // Apply multiple rounds until consistent (newlines, etc. affect this)
+                foreach (var _ in Enumerable.Range(0, 10))
+                {
+                    var NextRound = Context.patch_apply(Patches.Patches, RE.Unpatch(Output)).Item1;
+                    if (NextRound.Equals(Output, StringComparison.Ordinal)) break;
+                    Output = NextRound;
+                }
+            }
+
+            Patched = Output;
+            return FailureCount < Success.Length; // Success if any patch is applied
         }
 
         public PatchBundle Diff(string Before, string After)
@@ -189,9 +202,9 @@ internal class Patcher
         DefaultExtension = Config.GetEngineTag().Length > 0 ? Extensions[(int)PatchFileType.Protected] : Extensions[(int)PatchFileType.Main]; // All custom engine patches are protected
     }
 
-    public bool Apply(IPatchBundle Patches, string Before, string DumpPath, out string Patched)
+    public bool Apply(IPatchBundle Patches, string Before, string DumpPath, InjectionRegex RE, out string Patched)
     {
-        return Context.Apply((DMPContext.PatchBundle)Patches, Before, DumpPath, out Patched);
+        return Context.Apply((DMPContext.PatchBundle)Patches, Before, DumpPath, RE, out Patched);
     }
 
     public IPatchBundle Generate(string Before, string After)
