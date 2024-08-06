@@ -21,7 +21,8 @@ public enum JobOptions
     DryRun = 0x4,
     Verbose = 0x8,
     TreatPatchAsFile = 0x10,
-    ClearPatchHistory = 0x20,
+    ClearAllHistory = 0x20,
+    KeepAllHistory = 0x40,
 }
 
 public class Injector
@@ -77,11 +78,14 @@ public class Injector
     {
         string TargetContent = SourcePatch.PatchRegex.ClearResiduals(File.ReadAllText(TargetPath));
         string ClearedTarget = SourcePatch.PatchRegex.Unpatch(TargetContent);
+        PatcherInstance.CommentTag = SourcePatch.CommentTag;
+        PatcherInstance.CurrentPatch = PatchPath;
         IPatchBundle? Patches = null;
 
         if (Job.HasFlag(JobType.Generate))
         {
-            Patches = PatcherInstance.Generate(ClearedTarget, TargetContent, Options.HasFlag(JobOptions.ClearPatchHistory) ? null : PatchPath);
+            Patches = Options.HasFlag(JobOptions.ClearAllHistory) ? PatcherInstance.Generate(ClearedTarget, TargetContent)
+                : PatcherInstance.Generate(ClearedTarget, TargetContent, Options.HasFlag(JobOptions.KeepAllHistory));
 
             if (!Patches.IsValid())
             {
@@ -96,7 +100,7 @@ public class Injector
                 }
             }
 
-            if (PatcherInstance.Save(Patches, PatchPath))
+            if (PatcherInstance.Save(Patches))
             {
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Patch updated: " + TargetPath);
@@ -113,12 +117,12 @@ public class Injector
 
         if (Job.HasFlag(JobType.Apply))
         {
-            Patches ??= PatcherInstance.Load(PatchPath);
+            Patches ??= PatcherInstance.Load();
 
             if (Patches.IsValid())
             {
                 string DumpOutput = Path.Combine(Utils.GetPluginDirectory(SourcePatch.PluginName), "Intermediate", "Crysknife", Path.GetRelativePath(Utils.GetSourceDirectory(), TargetPath));
-                bool Success = PatcherInstance.Apply(Patches, ClearedTarget, SourcePatch.CommentTag, DumpOutput, out var Patched);
+                bool Success = PatcherInstance.Apply(Patches, ClearedTarget, DumpOutput, out var Patched);
                 if (Success && !Patched.Equals(TargetContent, StringComparison.Ordinal))
                 {
                     if (TargetContent.Length != ClearedTarget.Length)

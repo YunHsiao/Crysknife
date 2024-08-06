@@ -79,6 +79,13 @@ internal enum MatchContext
     All = Upper | Lower
 }
 
+internal enum BooleanOverride
+{
+    Unspecified,
+    False,
+    True
+}
+
 /**
  * Class representing one diff operation.
  */
@@ -161,6 +168,7 @@ internal class Patch
     public int Length2;
 
     public MatchContext Context = MatchContext.All;
+    public BooleanOverride Skip = BooleanOverride.Unspecified;
 
     /**
      * Emulate GNU diff's format.
@@ -2178,6 +2186,7 @@ internal class DiffMatchPatch
             PatchCopy.Length1 = APatch.Length1;
             PatchCopy.Length2 = APatch.Length2;
             PatchCopy.Context = APatch.Context;
+            PatchCopy.Skip = APatch.Skip;
             PatchesCopy.Add(PatchCopy);
         }
 
@@ -2189,7 +2198,7 @@ internal class DiffMatchPatch
     {
         var Result = new List<Patch>();
 
-        foreach (Patch Patch in Patches)
+        foreach (Patch Patch in Patches.Where(P => P.Skip != BooleanOverride.True))
         {
             if (!Patch.Context.HasFlag(MatchContext.Lower))
             {
@@ -2528,6 +2537,7 @@ internal class DiffMatchPatch
                 if (Empty) continue;
 
                 Patch.Context = BigPatch.Context;
+                Patch.Skip = BigPatch.Skip;
                 Indices.Add(Index);
 
                 NewPatches.Add(Patch);

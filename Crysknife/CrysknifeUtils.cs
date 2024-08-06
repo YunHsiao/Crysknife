@@ -193,13 +193,16 @@ internal static class Utils
     {
         try
         {
-            File.SetAttributes(Dest, File.GetAttributes(Dest) & ~FileAttributes.ReadOnly);
+            if (File.Exists(Dest))
+            {
+                File.SetAttributes(Dest, File.GetAttributes(Dest) & ~FileAttributes.ReadOnly);
+            }
             Action();
         }
-        catch
+        catch (Exception E)
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("Failed to access '{0}'", Dest);
+            Console.WriteLine("Failed to access '{0}': {1}", Dest, E);
             return false;
         }
 

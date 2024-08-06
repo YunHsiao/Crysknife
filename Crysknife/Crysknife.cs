@@ -22,20 +22,32 @@ internal static class Launcher
                 continue;
             }
 
-            if (CurrentKey.Length != 0)
-            {
-                Output.TryAdd(CurrentKey, CurrentValue.ToString());
-                CurrentValue.Clear();
-            }
-            CurrentKey = Arg.StartsWith("--") ? Arg[2..] : Arg[1..];
+            if (CurrentKey.Length != 0) AddPair(CurrentKey, CurrentValue);
+            CurrentKey = Arg;
         }
 
-        if (CurrentKey.Length != 0)
-        {
-            Output.TryAdd(CurrentKey, CurrentValue.ToString());
-        }
-
+        if (CurrentKey.Length != 0) AddPair(CurrentKey, CurrentValue);
         return Output;
+
+        void AddPair(string Key, StringBuilder Value)
+        {
+            if (Key.StartsWith("--"))
+            {
+                Output.TryAdd(Key[2..], Value.ToString());
+            }
+            else
+            {
+                foreach (var SingleKey in Key[1..^1])
+                {
+                    Output.TryAdd(SingleKey.ToString(), string.Empty);
+                }
+
+                // If there are values, they belong to the last operand
+                Output.TryAdd(Key.Last().ToString(), Value.ToString());
+            }
+
+            Value.Clear();
+        }
     }
 
     private static void Main(string[] Args)
@@ -64,7 +76,8 @@ internal static class Launcher
         if (Arguments.ContainsKey("d") || Arguments.ContainsKey("dry-run")) Options |= JobOptions.DryRun;
         if (Arguments.ContainsKey("v") || Arguments.ContainsKey("verbose")) Options |= JobOptions.Verbose;
         if (Arguments.ContainsKey("t") || Arguments.ContainsKey("treat-patch-as-file")) Options |= JobOptions.TreatPatchAsFile;
-        if (Arguments.ContainsKey("c") || Arguments.ContainsKey("clear-patch-history")) Options |= JobOptions.ClearPatchHistory;
+        if (Arguments.ContainsKey("c") || Arguments.ContainsKey("clear-all-history")) Options |= JobOptions.ClearAllHistory;
+        if (Arguments.ContainsKey("k") || Arguments.ContainsKey("keep-all-history")) Options |= JobOptions.KeepAllHistory;
 
         var InjectorInstance = new Injector(PluginName, VariableOverrides, Options);
         var Job = JobType.None;

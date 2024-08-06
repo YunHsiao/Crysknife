@@ -32,8 +32,35 @@ internal class Patcher
             MatchDistance = int.MaxValue, // Line number may vary significantly
         };
         public short PatchContextLength = 500; // ~10 loc
+        public string CommentTag = string.Empty;
+        public string CurrentPatch = string.Empty;
 
-        private static PatchBundle HandleDecorators(PatchBundle Patches, string CommentTag)
+        private void DecoratePatch<T>(ref T Output, T Value, T Expected, string Decorator) where T : IComparable
+        {
+            if (Output.CompareTo(Expected) != 0 && Output.CompareTo(Value) != 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Conflicting decorator '{0}' in the same patch from '{1}'", Decorator, CurrentPatch);
+                Utils.Abort();
+            }
+            Output = Value;
+        }
+
+        private bool GetDecoratorValue(string Key, string Content, out string Value)
+        {
+            Value = string.Empty;
+            var Target = Content.Split('=', Utils.SplitOptions);
+            if (Target.Length != 2)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("'{0}' declared without a value from '{1}'", Key, CurrentPatch);
+                return false;
+            }
+            Value = Target[1];
+            return true;
+        }
+
+        private PatchBundle HandleDecorators(PatchBundle Patches)
         {
             foreach (var Patch in Patches.Patches)
             {
@@ -53,6 +80,18 @@ internal class Patcher
                         {
                             Patch.Context &= ~MatchContext.Upper;
                         }
+                        else if (Decorator.StartsWith("EngineNewerThan", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (!GetDecoratorValue("EngineNewerThan", Decorator, out var Target)) continue;
+                            var ShouldSkip = Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target)) ? BooleanOverride.False : BooleanOverride.True;
+                            DecoratePatch(ref Patch.Skip, ShouldSkip, BooleanOverride.Unspecified, "EngineNewerThan");
+                        }
+                        else if (Decorator.StartsWith("EngineOlderThan", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (!GetDecoratorValue("EngineOlderThan", Decorator, out var Target)) continue;
+                            var ShouldSkip = Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target)) ? BooleanOverride.True : BooleanOverride.False;
+                            DecoratePatch(ref Patch.Skip, ShouldSkip, BooleanOverride.Unspecified, "EngineOlderThan");
+                        }
                     }
                 }
             }
@@ -64,14 +103,14 @@ internal class Patcher
             return DiffMatchPatch.patch_toText(Patches.Patches);
         }
 
-        public static PatchBundle Deserialize(string Content)
+        public PatchBundle Deserialize(string Content)
         {
-            return new PatchBundle(DiffMatchPatch.patch_fromText(Content));
+            return HandleDecorators(new PatchBundle(DiffMatchPatch.patch_fromText(Content)));
         }
 
-        public bool Apply(PatchBundle Patches, string Content, string CommentTag, string DumpPath, out string Patched)
+        public bool Apply(PatchBundle Patches, string Content, string DumpPath, out string Patched)
         {
-            var (Output, Success, Indices) = Context.patch_apply(HandleDecorators(Patches, CommentTag).Patches, Content);
+            var (Output, Success, Indices) = Context.patch_apply(Patches.Patches, Content);
             Patched = Output;
 
             for (int Index = 0; Index < Success.Length; ++Index)
@@ -98,14 +137,24 @@ internal class Patcher
             var OldValue = Context.PatchMargin;
             Context.PatchMargin = PatchContextLength;
 
-            var Result = new PatchBundle(Context.patch_make(Before, After));
+            var Result = HandleDecorators(new PatchBundle(Context.patch_make(Before, After)));
 
             Context.PatchMargin = OldValue;
             return Result;
         }
 
-        public PatchBundle Merge(PatchBundle _, PatchBundle New)
+        public static PatchBundle Merge(PatchBundle History, PatchBundle New, bool KeepAllHistory)
         {
+            if (KeepAllHistory)
+            {
+                var FilteredHistory = new PatchBundle(History.Patches.Where(Patch => Patch.Skip != BooleanOverride.False).ToList());
+                FilteredHistory.Patches.AddRange(New.Patches.Where(Patch => Patch.Skip == BooleanOverride.False));
+                FilteredHistory.Patches.Sort((A, B) => A.Start1 - B.Start1);
+                return FilteredHistory;
+            }
+
+            New.Patches.AddRange(History.Patches.Where(Patch => Patch.Skip == BooleanOverride.True));
+            New.Patches.Sort((A, B) => A.Start1 - B.Start1);
             return New;
         }
 
@@ -140,24 +189,24 @@ internal class Patcher
         DefaultExtension = Config.GetEngineTag().Length > 0 ? Extensions[(int)PatchFileType.Protected] : Extensions[(int)PatchFileType.Main]; // All custom engine patches are protected
     }
 
-    public bool Apply(IPatchBundle Patches, string Before, string CommentTag, string DumpPath, out string Patched)
+    public bool Apply(IPatchBundle Patches, string Before, string DumpPath, out string Patched)
     {
-        return Context.Apply((DMPContext.PatchBundle)Patches, Before, CommentTag, DumpPath, out Patched);
+        return Context.Apply((DMPContext.PatchBundle)Patches, Before, DumpPath, out Patched);
     }
 
-    public IPatchBundle Generate(string Before, string After, string? InputPath)
+    public IPatchBundle Generate(string Before, string After)
     {
-        var NewPatches = Context.Diff(Before, After);
-        if (InputPath == null) return NewPatches;
-
-        string PatchPath = InputPath + DefaultExtension;
-        var HistoryPatches = DMPContext.Deserialize(File.Exists(PatchPath) ? File.ReadAllText(PatchPath) : string.Empty);
-        return Context.Merge(HistoryPatches, NewPatches);
+        return Context.Diff(Before, After);
     }
 
-    public bool Save(IPatchBundle Patches, string OutputPath)
+    public IPatchBundle Generate(string Before, string After, bool KeepAllHistory)
     {
-        string PatchPath = OutputPath + DefaultExtension;
+        return DMPContext.Merge((DMPContext.PatchBundle)Load(), (DMPContext.PatchBundle)Generate(Before, After), KeepAllHistory);
+    }
+
+    public bool Save(IPatchBundle Patches)
+    {
+        string PatchPath = CurrentPatch + DefaultExtension;
 
         string Content = DMPContext.Serialize((DMPContext.PatchBundle)Patches);
         if (File.Exists(PatchPath) && File.ReadAllText(PatchPath) == Content) return false;
@@ -166,11 +215,11 @@ internal class Patcher
         return true;
     }
 
-    public IPatchBundle Load(string InputPath)
+    public IPatchBundle Load()
     {
-        string PatchPath = InputPath + DefaultExtension;
-        if (!File.Exists(PatchPath)) PatchPath = InputPath + Extensions[(int)PatchFileType.Main];
-        return DMPContext.Deserialize(File.ReadAllText(PatchPath));
+        string PatchPath = CurrentPatch + DefaultExtension;
+        if (!File.Exists(PatchPath)) PatchPath = CurrentPatch + Extensions[(int)PatchFileType.Main];
+        return Context.Deserialize(File.ReadAllText(PatchPath));
     }
 
     public static string GetSourcePath(string FullPath)
@@ -196,5 +245,15 @@ internal class Patcher
     {
         get => Context.MatchLineTolerance;
         set => Context.MatchLineTolerance = value;
+    }
+    public string CommentTag
+    {
+        get => Context.CommentTag;
+        set => Context.CommentTag = value;
+    }
+    public string CurrentPatch
+    {
+        get => Context.CurrentPatch;
+        set => Context.CurrentPatch = value;
     }
 }
