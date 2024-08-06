@@ -22,7 +22,6 @@
 /*
  * The following changes are made for Crysknife usages:
  *   Use Preformatted text element in HTML output
- *   Allow patches to be skippped during apply
  *   Support partial matches with specified context range
  *   Option to save extra contexts with specified length
  *   Use 64-bit mask for the bitap matching algorithm
@@ -72,18 +71,12 @@ internal enum Operation
     Equal
 }
 
+[Flags]
 internal enum MatchContext
 {
-    Upper,
-    Lower,
-    All
-}
-
-internal enum BooleanOverride
-{
-    Unspecified,
-    False,
-    True
+    Upper = 0x1,
+    Lower = 0x2,
+    All = Upper | Lower
 }
 
 /**
@@ -169,8 +162,6 @@ internal class Patch
 
     public MatchContext Context = MatchContext.All;
 
-    public BooleanOverride Skip = BooleanOverride.Unspecified;
-
     /**
      * Emulate GNU diff's format.
      * Header: @@ -382,8 +481,9 @@
@@ -251,9 +242,6 @@ internal class DiffMatchPatch
 
     // Chunk size for context length.
     public short PatchMargin = 4;
-
-    // Save up to this many characters for each patch as additional context
-    public short PatchOuterContext = 0;
 
     // The number of bits in an int.
     private const short MatchMaxBits = 64;
@@ -1988,47 +1976,6 @@ internal class DiffMatchPatch
 
     //  PATCH FUNCTIONS
 
-    // Crysknife customization
-    protected void patch_wrap(Patch Patch, string Text)
-    {
-        int ExistingContext = 0, Padding;
-
-        foreach (var Diff in Patch.Diffs)
-        {
-            ExistingContext += Diff.Text.Length;
-            if (Diff.Operation != Operation.Equal) break;
-        }
-
-        if (ExistingContext < PatchOuterContext)
-        {
-            Padding = PatchOuterContext - ExistingContext;
-            string Prefix = Text.JavaSubstring(Math.Max(0, Patch.Start2 - Padding), Patch.Start2);
-            Patch.Diffs.Insert(0, new Diff(Operation.Equal, Prefix));
-            Patch.Start1 -= Prefix.Length;
-            Patch.Start2 -= Prefix.Length;
-            Patch.Length1 += Prefix.Length;
-            Patch.Length2 += Prefix.Length;
-        }
-
-        ExistingContext = 0;
-        for (int Index = Patch.Diffs.Count - 1; Index >= 0; --Index)
-        {
-            var Diff = Patch.Diffs[Index];
-            ExistingContext += Diff.Text.Length;
-            if (Diff.Operation != Operation.Equal) break;
-        }
-
-        if (ExistingContext >= PatchOuterContext) return;
-
-        Padding = PatchOuterContext - ExistingContext;
-        string Suffix = Text.JavaSubstring(Patch.Start2 + Patch.Length1,
-            Math.Min(Text.Length, Patch.Start2 + Patch.Length1 + Padding));
-
-        Patch.Diffs.Add(new Diff(Operation.Equal, Suffix));
-        Patch.Length1 += Suffix.Length;
-        Patch.Length2 += Suffix.Length;
-    }
-
     /**
      * Increase the context until it is unique,
      * but don't let the pattern expand beyond Match_MaxBits.
@@ -2080,8 +2027,6 @@ internal class DiffMatchPatch
         // Extend the lengths.
         Patch.Length1 += Prefix.Length + Suffix.Length;
         Patch.Length2 += Prefix.Length + Suffix.Length;
-
-        if (PatchOuterContext > 0) patch_wrap(Patch, Text);
     }
 
     /**
@@ -2233,7 +2178,6 @@ internal class DiffMatchPatch
             PatchCopy.Length1 = APatch.Length1;
             PatchCopy.Length2 = APatch.Length2;
             PatchCopy.Context = APatch.Context;
-            PatchCopy.Skip = APatch.Skip;
             PatchesCopy.Add(PatchCopy);
         }
 
@@ -2241,13 +2185,13 @@ internal class DiffMatchPatch
     }
 
     // Crysknife customization
-    protected static List<Patch> patch_strip(IEnumerable<Patch> Patches)
+    protected List<Patch> patch_strip(IEnumerable<Patch> Patches)
     {
         var Result = new List<Patch>();
 
-        foreach (Patch Patch in Patches.Where(P => P.Skip != BooleanOverride.True))
+        foreach (Patch Patch in Patches)
         {
-            if (Patch.Context == MatchContext.Upper)
+            if (!Patch.Context.HasFlag(MatchContext.Lower))
             {
                 while (Patch.Diffs.Last().Operation == Operation.Equal)
                 {
@@ -2257,7 +2201,7 @@ internal class DiffMatchPatch
                     Patch.Diffs.RemoveAt(Patch.Diffs.Count - 1);
                 }
             }
-            if (Patch.Context == MatchContext.Lower)
+            if (!Patch.Context.HasFlag(MatchContext.Upper))
             {
                 while (Patch.Diffs.First().Operation == Operation.Equal)
                 {
@@ -2583,7 +2527,6 @@ internal class DiffMatchPatch
 
                 if (Empty) continue;
 
-                Patch.Skip = BigPatch.Skip;
                 Patch.Context = BigPatch.Context;
                 Indices.Add(Index);
 

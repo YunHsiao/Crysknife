@@ -29,35 +29,9 @@ internal class Patcher
 
         private readonly DiffMatchPatch Context = new()
         {
-            MatchThreshold = 0.5f,
             MatchDistance = int.MaxValue, // Line number may vary significantly
-            PatchOuterContext = 500, // ~10 loc
         };
-
-        private static void DecoratePatch<T>(ref T Output, T Value, T Expected, string Decorator) where T : IComparable
-        {
-            if (Output.CompareTo(Expected) != 0 && Output.CompareTo(Value) != 0)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Conflicting decorator '{0}' in the same patch", Decorator);
-                Utils.Abort();
-            }
-            Output = Value;
-        }
-
-        private static bool GetDecoratorValue(string Key, string Content, out string Value)
-        {
-            Value = string.Empty;
-            var Target = Content.Split('=', Utils.SplitOptions);
-            if (Target.Length != 2)
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("'{0}' declared without a value", Key);
-                return false;
-            }
-            Value = Target[1];
-            return true;
-        }
+        public short PatchContextLength = 500; // ~10 loc
 
         private static PatchBundle HandleDecorators(PatchBundle Patches, string CommentTag)
         {
@@ -73,23 +47,11 @@ internal class Patcher
                     {
                         if (Decorator.Equals("UpperContextOnly", StringComparison.OrdinalIgnoreCase))
                         {
-                            DecoratePatch(ref Patch.Context, MatchContext.Upper, MatchContext.All, "UpperContextOnly");
+                            Patch.Context &= ~MatchContext.Lower;
                         }
                         else if (Decorator.Equals("LowerContextOnly", StringComparison.OrdinalIgnoreCase))
                         {
-                            DecoratePatch(ref Patch.Context, MatchContext.Lower, MatchContext.All, "LowerContextOnly");
-                        }
-                        else if (Decorator.StartsWith("EngineNewerThan", StringComparison.OrdinalIgnoreCase))
-                        {
-                            if (!GetDecoratorValue("EngineNewerThan", Decorator, out var Target)) continue;
-                            var ShouldSkip = Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target)) ? BooleanOverride.False : BooleanOverride.True;
-                            DecoratePatch(ref Patch.Skip, ShouldSkip, BooleanOverride.Unspecified, "EngineNewerThan");
-                        }
-                        else if (Decorator.StartsWith("EngineOlderThan", StringComparison.OrdinalIgnoreCase))
-                        {
-                            if (!GetDecoratorValue("EngineOlderThan", Decorator, out var Target)) continue;
-                            var ShouldSkip = Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target)) ? BooleanOverride.True : BooleanOverride.False;
-                            DecoratePatch(ref Patch.Skip, ShouldSkip, BooleanOverride.Unspecified, "EngineOlderThan");
+                            Patch.Context &= ~MatchContext.Upper;
                         }
                     }
                 }
@@ -131,7 +93,15 @@ internal class Patcher
 
         public PatchBundle Diff(string Before, string After)
         {
-            return new PatchBundle(Context.patch_make(Before, After));
+            // Adjust the margin temporarily to get longer context
+            // patch_apply need this to be within MatchMaxBits
+            var OldValue = Context.PatchMargin;
+            Context.PatchMargin = PatchContextLength;
+
+            var Result = new PatchBundle(Context.patch_make(Before, After));
+
+            Context.PatchMargin = OldValue;
+            return Result;
         }
 
         public PatchBundle Merge(PatchBundle _, PatchBundle New)
@@ -139,11 +109,6 @@ internal class Patcher
             return New;
         }
 
-        public short PatchContextLength
-        {
-            get => Context.PatchOuterContext;
-            set => Context.PatchOuterContext = value;
-        }
         public float MatchContentTolerance
         {
             get => Context.MatchThreshold;
