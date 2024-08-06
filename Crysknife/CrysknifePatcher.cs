@@ -108,7 +108,7 @@ internal class Patcher
             return HandleDecorators(new PatchBundle(DiffMatchPatch.patch_fromText(Content)));
         }
 
-        public bool Apply(PatchBundle Patches, string Content, string DumpPath, InjectionRegex RE, out string Patched)
+        public bool Apply(PatchBundle Patches, string Content, string DumpPath, InjectionRegex RE, bool ForceDump, out string Patched)
         {
             var (Output, Success, Indices) = Context.patch_apply(Patches.Patches, Content);
 
@@ -126,6 +126,20 @@ internal class Patcher
                 File.WriteAllText(OutputPath, DiffMatchPatch.diff_prettyHtml(Patches.Patches[MappedIndex].Diffs));
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.Error.WriteLine("Error: Patch failed: Please merge the relevant changes manually from '{0}'", OutputPath);
+            }
+
+            if (ForceDump)
+            {
+                var OutputPath = $"{DumpPath}.html";
+                Utils.EnsureParentDirectoryExists(OutputPath);
+                var Diffs = Patches.Patches.Aggregate(new List<Diff>(), (Acc, Cur) =>
+                {
+                    Acc.AddRange(Cur.Diffs);
+                    return Acc;
+                });
+                File.WriteAllText(OutputPath, DiffMatchPatch.diff_prettyHtml(Diffs));
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.Error.WriteLine("Dumped: '{0}'", OutputPath);
             }
 
             if (FailureCount == 0)
@@ -202,9 +216,9 @@ internal class Patcher
         DefaultExtension = Config.GetEngineTag().Length > 0 ? Extensions[(int)PatchFileType.Protected] : Extensions[(int)PatchFileType.Main]; // All custom engine patches are protected
     }
 
-    public bool Apply(IPatchBundle Patches, string Before, string DumpPath, InjectionRegex RE, out string Patched)
+    public bool Apply(IPatchBundle Patches, string Before, string DumpPath, InjectionRegex RE, bool ForceDump, out string Patched)
     {
-        return Context.Apply((DMPContext.PatchBundle)Patches, Before, DumpPath, RE, out Patched);
+        return Context.Apply((DMPContext.PatchBundle)Patches, Before, DumpPath, RE, ForceDump, out Patched);
     }
 
     public IPatchBundle Generate(string Before, string After)

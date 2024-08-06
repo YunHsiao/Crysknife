@@ -21,8 +21,9 @@ public enum JobOptions
     DryRun = 0x4,
     Verbose = 0x8,
     TreatPatchAsFile = 0x10,
-    ClearAllHistory = 0x20,
-    KeepAllHistory = 0x40,
+    GenerateDiffHtml = 0x20,
+    ClearAllHistory = 0x40,
+    KeepAllHistory = 0x80,
 }
 
 public class Injector
@@ -122,7 +123,7 @@ public class Injector
             if (Patches.IsValid())
             {
                 string DumpOutput = Path.Combine(Utils.GetPluginDirectory(SourcePatch.PluginName), "Intermediate", "Crysknife", Path.GetRelativePath(Utils.GetSourceDirectory(), TargetPath));
-                bool Success = PatcherInstance.Apply(Patches, ClearedTarget, DumpOutput,SourcePatch.PatchRegex.Injection, out var Patched);
+                bool Success = PatcherInstance.Apply(Patches, ClearedTarget, DumpOutput, SourcePatch.PatchRegex.Injection, Options.HasFlag(JobOptions.GenerateDiffHtml), out var Patched);
                 if (Success && !Patched.Equals(TargetContent, StringComparison.Ordinal))
                 {
                     if (TargetContent.Length != ClearedTarget.Length)
