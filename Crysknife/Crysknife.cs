@@ -76,7 +76,6 @@ internal static class Launcher
         if (Arguments.ContainsKey("d") || Arguments.ContainsKey("dry-run")) Options |= JobOptions.DryRun;
         if (Arguments.ContainsKey("v") || Arguments.ContainsKey("verbose")) Options |= JobOptions.Verbose;
         if (Arguments.ContainsKey("t") || Arguments.ContainsKey("treat-patch-as-file")) Options |= JobOptions.TreatPatchAsFile;
-        if (Arguments.ContainsKey("g") || Arguments.ContainsKey("generate-diff-html")) Options |= JobOptions.GenerateDiffHtml;
         if (Arguments.ContainsKey("c") || Arguments.ContainsKey("clear-all-history")) Options |= JobOptions.ClearAllHistory;
         if (Arguments.ContainsKey("k") || Arguments.ContainsKey("keep-all-history")) Options |= JobOptions.KeepAllHistory;
 

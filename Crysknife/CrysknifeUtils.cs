@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
 // SPDX-License-Identifier: MIT
 
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 
 namespace Crysknife;
@@ -8,25 +9,28 @@ namespace Crysknife;
 internal class InjectionRegexForm
 {
     private static readonly Regex CommentRE = new (@"^(\s*)//\s*", RegexOptions.Multiline | RegexOptions.Compiled);
-
-    private readonly string PluginName;
+    private readonly string CommentTag;
     private readonly Regex RE;
 
-    public InjectionRegexForm(string PluginName, string Pattern, RegexOptions Options)
+    public InjectionRegexForm(string CommentTag, string Pattern, RegexOptions Options)
     {
-        this.PluginName = PluginName;
+        this.CommentTag = CommentTag;
         RE = new Regex(Pattern, Options);
+    }
+
+    public Match Match(string Content)
+    {
+        return RE.Match(Content);
     }
 
     public string Unpatch(string Content)
     {
-        return RE.Replace(Content, Matched => Replace(
-            Matched.Groups["Tag"].Value, Matched.Groups["Content"].Value));
+        return RE.Replace(Content, Matched => Replace(Matched.Groups["Tag"].Value, Matched.Groups["Content"].Value, CommentTag));
     }
 
-    private string Replace(string Tag, string Content)
+    public static string Replace(string Tag, string Content, string CommentTag)
     {
-        if (Tag.StartsWith(PluginName + '-')) // Restore deletions
+        if (Tag.StartsWith(CommentTag + '-')) // Restore deletions
         {
             return CommentRE.Replace(Content, ContentMatch => ContentMatch.Groups[1].Value);
         }
@@ -43,13 +47,23 @@ internal class InjectionRegex
         string CommentTag = PluginName + @"[^\n]*?"; // Allow some comments in between
         Forms = new []
         {
-            new InjectionRegexForm(PluginName, string.Format(@"\s*// (?<Tag>{0}): Begin(?<Content>.*?)// {0}: End\s*?\n", CommentTag),
+            new InjectionRegexForm(PluginName, string.Format(@"[^\S\n]*// (?<Tag>{0}): Begin(?<Content>.*?)// {0}: End[^\S\n]*\n", CommentTag),
                 RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.Compiled), // Multi-line form
-            new InjectionRegexForm(PluginName, $@"^(?<Content>\s*\S+.*?)[^\S\n]*// (?<Tag>{CommentTag})\n",
+            new InjectionRegexForm(PluginName, $@"^(?<Content>[^\S\n]*\S+.*?)[^\S\n]*// (?<Tag>{CommentTag})\n",
                 RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.Compiled), // Single-line form
-            new InjectionRegexForm(PluginName, $@"^\s*// (?<Tag>{CommentTag})\n(?<Content>.*)\n",
+            new InjectionRegexForm(PluginName, $@"^[^\S\n]*// (?<Tag>{CommentTag})\n(?<Content>.*)\n",
                 RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.Compiled) // Next-line form
         };
+    }
+
+    public List<Match> Match(string Content)
+    {
+        return Forms.Aggregate(new List<Match>(), (Acc, Form) =>
+        {
+            var Match = Form.Match(Content);
+            if (Match.Success) Acc.Add(Match);
+            return Acc;
+        });
     }
 
     public string Unpatch(string Content)
@@ -166,7 +180,7 @@ internal static class Utils
 
     public static void EnsureParentDirectoryExists(string TargetPath)
     {
-        string? TargetDir = Path.GetDirectoryName(TargetPath);
+        var TargetDir = Path.GetDirectoryName(TargetPath);
         if (TargetDir != null && !Directory.Exists(TargetDir)) Directory.CreateDirectory(TargetDir);
     }
 

@@ -99,6 +99,14 @@ Where the special tweak is:
 
 > The minus sign can be omitted in the ending comment for multi-line guards.
 
+If having to modify large blocks of engine code, remember there's always the macro guard approach which does not need to touch every line of the code:
+
+```
+#if 0 // ${Tag}${Comments}
+** LARGE SOURCE BLOCK **
+#endif // ${Tag}${Comments}
+```
+
 ## Command Line Interface
 
 * `-P [PLUGIN]` The input plugin folder name (by default also as the comment guard tag). Always required.

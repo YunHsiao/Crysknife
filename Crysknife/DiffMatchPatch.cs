@@ -169,6 +169,7 @@ internal class Patch
 
     public MatchContext Context = MatchContext.All;
     public BooleanOverride Skip = BooleanOverride.Unspecified;
+    public int ContextLength = -1;
 
     /**
      * Emulate GNU diff's format.
@@ -2117,7 +2118,7 @@ internal class DiffMatchPatch
                     break;
                 case Operation.Equal:
                     // ReSharper disable once PossibleUnintendedReferenceComparison
-                    if (ADiff.Text.Length <= 2 * PatchMargin && Patch.Diffs.Count() != 0 && ADiff != Diffs.Last())
+                    if (ADiff.Text.Length <= 2 * PatchMargin && Patch.Diffs.Count != 0 && ADiff != Diffs.Last())
                     {
                         // Small equality inside a patch.
                         Patch.Diffs.Add(ADiff);
@@ -2185,6 +2186,8 @@ internal class DiffMatchPatch
             PatchCopy.Start2 = APatch.Start2;
             PatchCopy.Length1 = APatch.Length1;
             PatchCopy.Length2 = APatch.Length2;
+
+            PatchCopy.ContextLength = APatch.ContextLength;
             PatchCopy.Context = APatch.Context;
             PatchCopy.Skip = APatch.Skip;
             PatchesCopy.Add(PatchCopy);
@@ -2200,28 +2203,34 @@ internal class DiffMatchPatch
 
         foreach (Patch Patch in Patches.Where(P => P.Skip != BooleanOverride.True))
         {
-            if (!Patch.Context.HasFlag(MatchContext.Lower))
+            if (Patch.Diffs.First().Operation == Operation.Equal)
             {
-                while (Patch.Diffs.Last().Operation == Operation.Equal)
+                int PreLimit = Patch.Context.HasFlag(MatchContext.Upper) ? Patch.ContextLength : 0;
+                if (PreLimit >= 0 && PreLimit < Patch.Diffs.First().Text.Length)
                 {
-                    int Length = Patch.Diffs.Last().Text.Length;
-                    Patch.Length1 -= Length;
-                    Patch.Length2 -= Length;
-                    Patch.Diffs.RemoveAt(Patch.Diffs.Count - 1);
+                    int Cutout = Patch.Diffs.First().Text.Length - PreLimit;
+                    Patch.Start1 += Cutout;
+                    Patch.Start2 += Cutout;
+                    Patch.Length1 -= Cutout;
+                    Patch.Length2 -= Cutout;
+                    if (PreLimit == 0) Patch.Diffs.RemoveAt(0);
+                    else Patch.Diffs.First().Text = Patch.Diffs.First().Text[Cutout..];
                 }
             }
-            if (!Patch.Context.HasFlag(MatchContext.Upper))
+
+            if (Patch.Diffs.Last().Operation == Operation.Equal)
             {
-                while (Patch.Diffs.First().Operation == Operation.Equal)
+                int PostLimit = Patch.Context.HasFlag(MatchContext.Lower) ? Patch.ContextLength : 0;
+                if (PostLimit >= 0 && PostLimit < Patch.Diffs.Last().Text.Length)
                 {
-                    int Length = Patch.Diffs.First().Text.Length;
-                    Patch.Start1 += Length;
-                    Patch.Start2 += Length;
-                    Patch.Length1 -= Length;
-                    Patch.Length2 -= Length;
-                    Patch.Diffs.RemoveAt(0);
+                    int Cutout = Patch.Diffs.Last().Text.Length - PostLimit;
+                    Patch.Length1 -= Cutout;
+                    Patch.Length2 -= Cutout;
+                    if (PostLimit == 0) Patch.Diffs.RemoveAt(Patch.Diffs.Count - 1);
+                    else Patch.Diffs.Last().Text = Patch.Diffs.Last().Text[..^Cutout];
                 }
             }
+
             Result.Add(Patch);
         }
 
@@ -2536,6 +2545,7 @@ internal class DiffMatchPatch
 
                 if (Empty) continue;
 
+                Patch.ContextLength = BigPatch.ContextLength;
                 Patch.Context = BigPatch.Context;
                 Patch.Skip = BigPatch.Skip;
                 Indices.Add(Index);

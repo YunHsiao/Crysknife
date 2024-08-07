@@ -21,9 +21,8 @@ public enum JobOptions
     DryRun = 0x4,
     Verbose = 0x8,
     TreatPatchAsFile = 0x10,
-    GenerateDiffHtml = 0x20,
-    ClearAllHistory = 0x40,
-    KeepAllHistory = 0x80,
+    ClearAllHistory = 0x20,
+    KeepAllHistory = 0x40,
 }
 
 public class Injector
@@ -80,6 +79,7 @@ public class Injector
         string TargetContent = SourcePatch.PatchRegex.ClearResiduals(File.ReadAllText(TargetPath));
         string ClearedTarget = SourcePatch.PatchRegex.Unpatch(TargetContent);
         PatcherInstance.CommentTag = SourcePatch.CommentTag;
+        PatcherInstance.Injection = SourcePatch.PatchRegex.Injection;
         PatcherInstance.CurrentPatch = PatchPath;
         IPatchBundle? Patches = null;
 
@@ -122,8 +122,7 @@ public class Injector
 
             if (Patches.IsValid())
             {
-                string DumpOutput = Path.Combine(Utils.GetPluginDirectory(SourcePatch.PluginName), "Intermediate", "Crysknife", Path.GetRelativePath(Utils.GetSourceDirectory(), TargetPath));
-                bool Success = PatcherInstance.Apply(Patches, ClearedTarget, DumpOutput, SourcePatch.PatchRegex.Injection, Options.HasFlag(JobOptions.GenerateDiffHtml), out var Patched);
+                bool Success = PatcherInstance.Apply(Patches, ClearedTarget, TargetPath, Options.HasFlag(JobOptions.DryRun), out var Patched);
                 if (Success && !Patched.Equals(TargetContent, StringComparison.Ordinal))
                 {
                     if (TargetContent.Length != ClearedTarget.Length)
@@ -156,13 +155,13 @@ public class Injector
             {
                 if (!AutoClearConfirm.HasFlag(Utils.ConfirmResult.ForAll))
                 {
-                    AutoClearConfirm = Utils.PromptToConfirm($"Couldn't find target file '{DstPath}', remove the source patch?");
+                    AutoClearConfirm = Utils.PromptToConfirm($"Couldn't find target '{DstPath}', remove file from source patch?");
                 }
                 if (AutoClearConfirm.HasFlag(Utils.ConfirmResult.Yes))
                 {
                     File.Delete(SrcPath);
                     Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine("Source patch removed: {0}", SrcPath);
+                    Console.WriteLine("Source file removed: {0}", SrcPath);
                 }
             }
             else if (Utils.FileAccessGuard(() => File.Copy(DstPath, SrcPath, true), SrcPath))
@@ -239,8 +238,9 @@ public class Injector
             string PatchPath = Path.Combine(SourcePatch.Directory, RelativePath);
 
             // Register any file contains the project name
-            if (!File.Exists(PatchPath) && Path.GetFileName(PatchedPath).Contains(SourcePatch.PluginName))
+            if (Path.GetFileName(PatchedPath).Contains(SourcePatch.PluginName))
             {
+                if (File.Exists(PatchPath)) continue;
                 goto Register;
             }
 
@@ -297,6 +297,13 @@ public class Injector
         }
     }
 
+    private static bool RemapPatch(ConfigSystem Config, string Input, out string Output, bool VerboseLogging)
+    {
+        bool Proceed = Config.Remap(Input + ".patch", out var Temp, VerboseLogging);
+        Output = Temp[..^6];
+        return Proceed;
+    }
+
     private void Process(ConfigSystem Config, JobType Job)
     {
         var SourcePatch = new SourcePatchInfo(Config);
@@ -340,10 +347,10 @@ public class Injector
 
         foreach (var RelativePath in Patches)
         {
-            if (!Config.Remap(RelativePath, out var NewRelativePath, VerboseLogging)) continue;
+            if (!RemapPatch(Config, RelativePath, out var NewRelativePath, VerboseLogging)) continue;
 
             string PatchPath = Path.Combine(SourcePatch.Directory, RelativePath);
-            string SourcePath = Path.Combine(Utils.GetSourceDirectory(), NewRelativePath);
+            string SourcePath = Path.GetFullPath(Path.Combine(Utils.GetSourceDirectory(), NewRelativePath));
 
             if (Options.HasFlag(JobOptions.TreatPatchAsFile))
             {
@@ -354,15 +361,7 @@ public class Injector
                 }
                 continue;
             }
-
-            // The original source file have to exist
             string OriginalSourcePath = Path.Combine(Utils.GetSourceDirectory(), RelativePath);
-            if (!File.Exists(SourcePath))
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("Skipped patch: {0} does not exist!", OriginalSourcePath);
-                continue;
-            }
 
             // When remapping patches, sync from original source if not exist
             if (OriginalSourcePath != SourcePath && !File.Exists(SourcePath))
@@ -375,6 +374,14 @@ public class Injector
             if (Options.HasFlag(JobOptions.DryRun) && OriginalSourcePath != SourcePath)
             {
                 Utils.FileAccessGuard(() => File.Copy(OriginalSourcePath, SourcePath, true), SourcePath);
+            }
+
+            // The original source file have to exist
+            if (!File.Exists(SourcePath))
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("Skipped patch: {0} does not exist!", OriginalSourcePath);
+                continue;
             }
 
             ProcessPatch(Job, PatchPath, SourcePath, SourcePatch);
