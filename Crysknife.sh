@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
 # SPDX-License-Identifier: MIT
 
-ROOTDIR=`cd "$(dirname "$0")"; pwd`
-cd $ROOTDIR/Crysknife
+DIR=`cd "$(dirname "$0")"; pwd`
+cd $DIR/Crysknife
 
 for (( i=1; i<=$#; i++)); do
   case ${!i} in
@@ -16,7 +16,7 @@ for (( i=1; i<=$#; i++)); do
 done
 
 if [ ! -z "$Loc" ]; then
-    cd $ROOTDIR/../$Project
+    cd $DIR/../$Project
     SOURCE=`find . -path './Source/*.*' -not -path "./Source/ThirdParty/*" | xargs wc -l`
     if [ "$(uname)" == "Darwin" ]; then
         NEW=`find -E . -regex './SourcePatch/.*\.(cpp|h|mm)' | xargs wc -l`
@@ -35,4 +35,4 @@ if [ ! -z "$Loc" ]; then
 fi
 
 [ -z "$Skip" ] && dotnet build -c Release > /dev/null
-./bin/Release/net6.0/Crysknife "$@"
+./bin/Release/net6.0/Crysknife -E $DIR/../../.. "$@"

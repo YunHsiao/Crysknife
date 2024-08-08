@@ -133,6 +133,7 @@ If having to modify large blocks of engine code, remember there's always the mac
 * `-f` or `--force` Force override existing files
 * `-d` or `--dry-run` Test run, safely executes the action with all engine output remapped to the plugin's `Intermediate/Crysknife/Playground` directory
 * `-v` or `--verbose` Log more verbosely about everything
+* `-p` or `--protected` Patches will be saved to / loaded from protected sources
 * `-t` or `--treat-patch-as-file` Treat patches as regular files, copy/link them directly
 * `-c` or `--clear-all-history` Discard all existing patches for other engine versions when generating
 * `-k` or `--keep-all-history` Keep all existing patches unchanged, only update current engine version specific patches when generating
@@ -293,7 +294,6 @@ ScopedRule2=Predicate5
 * `CRYSKNIFE_PLUGIN_DIRECTORY`: Default to full path to the target plugin directory, readonly
 * `CRYSKNIFE_SOURCE_DIRECTORY`: Default to full path to the engine source directory, readonly
 * `CRYSKNIFE_COMMENT_TAG`: Default to the plugin folder name, you can assign a more distinctive name if needed
-* `CRYSKNIFE_ENGINE_TAG`: Default to current engine version (`[MAJOR].[MINOR]`), you can assign a more distinctive name if needed in the local config
 
 ## Config Examples
 

@@ -37,6 +37,7 @@ internal class Patcher
         };
         public short PatchContextLength = 250; // ~5 loc
         public InjectionRegex Injection = null!;
+        public Dictionary<string, string> Variables = null!;
         public string CommentTag = string.Empty;
         public string CurrentPatch = string.Empty;
 
@@ -70,17 +71,16 @@ internal class Patcher
         {
             foreach (var Patch in Patches.Patches)
             {
-                foreach (var Diff in Patch.Diffs)
+                foreach (var Diff in Patch.Diffs.Where(Diff => Diff.Operation == Operation.Insert))
                 {
-                    if (Diff.Operation != Operation.Insert) continue;
-                    string Decorators = Utils.GetInjectionDecorators(Diff.Text, CommentTag);
+                    string Decorators = Utils.GetInjectionDecorators(Diff.Text);
                     if (Decorators.Length == 0) continue;
 
                     foreach (var Decorator in Decorators.Split(',', Utils.SplitOptions))
                     {
-                        if (Decorator.StartsWith("IgnoreContext", StringComparison.OrdinalIgnoreCase))
+                        if (Decorator.StartsWith("ContextSkip", StringComparison.OrdinalIgnoreCase))
                         {
-                            if (!GetDecoratorValue("IgnoreContext", Decorator, out var Target)) continue;
+                            if (!GetDecoratorValue("ContextSkip", Decorator, out var Target)) continue;
                             if (Enum.TryParse<MatchContext>(Target, out var TargetContext))
                             {
                                 Patch.Context &= ~TargetContext;
@@ -123,6 +123,7 @@ internal class Patcher
             var Start2 = new List<int>();
             var Sections = new List<Tuple<int, int>>();
             var AllMatches = Injection.Match(After);
+            if (AllMatches.Count == 0) return Diffs;
 
             foreach (var MatchVar in AllMatches)
             {
@@ -182,14 +183,48 @@ internal class Patcher
             return Diffs;
         }
 
-        public static string Serialize(PatchBundle Patches)
+        public string Serialize(PatchBundle Patches)
         {
-            return DiffMatchPatch.patch_toText(Patches.Patches);
+            var Results = new PatchBundle(DiffMatchPatch.patch_deepCopy(Patches.Patches));
+            int TotalIncrement = 0;
+
+            foreach (var Patch in Results.Patches)
+            {
+                int Increment = 0;
+
+                foreach (var Diff in Patch.Diffs.Where(Diff => Diff.Operation == Operation.Insert))
+                {
+                    Diff.Text = Injection.Pack(Diff.Text, ref Increment);
+                }
+
+                Patch.Start2 += TotalIncrement;
+                Patch.Length2 += Increment;
+                TotalIncrement += Increment;
+            }
+
+            return DiffMatchPatch.patch_toText(Results.Patches);
         }
 
         public PatchBundle Deserialize(string Content)
         {
-            return HandleDecorators(new PatchBundle(DiffMatchPatch.patch_fromText(Content)));
+            var Patches = new PatchBundle(DiffMatchPatch.patch_fromText(Content));
+            int TotalIncrement = 0;
+
+            foreach (var Patch in Patches.Patches)
+            {
+                int Increment = 0;
+
+                foreach (var Diff in Patch.Diffs.Where(Diff => Diff.Operation == Operation.Insert))
+                {
+                    Diff.Text = Injection.Unpack(Diff.Text, ref Increment, Variables);
+                }
+
+                Patch.Start2 += TotalIncrement;
+                Patch.Length2 += Increment;
+                TotalIncrement += Increment;
+            }
+
+            return HandleDecorators(Patches);
         }
 
         public bool Apply(PatchBundle Patches, string Content, string DumpPath, bool ForceDump, out string Patched)
@@ -214,7 +249,7 @@ internal class Patcher
                 Console.Error.WriteLine("Error: Patch failed: Please merge the relevant changes manually from '{0}'", OutputPath);
             }
 
-            if (ForceDump)
+            if (ForceDump || FailureCount > 0)
             {
                 var OutputPath = $"{DumpPath}.html";
                 Utils.EnsureParentDirectoryExists(OutputPath);
@@ -225,8 +260,6 @@ internal class Patcher
                     return Acc;
                 });
                 File.WriteAllText(OutputPath, DiffMatchPatch.diff_prettyHtml(Diffs));
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.Error.WriteLine("Dumped: '{0}'", OutputPath);
             }
 
             Patched = Output;
@@ -290,9 +323,9 @@ internal class Patcher
         ".patch",
     };
 
-    public Patcher(ConfigSystem Config)
+    public Patcher(bool Protected)
     {
-        DefaultExtension = Config.GetEngineTag().Length > 0 ? Extensions[(int)PatchFileType.Protected] : Extensions[(int)PatchFileType.Main]; // All custom engine patches are protected
+        DefaultExtension = Protected ? Extensions[(int)PatchFileType.Protected] : Extensions[(int)PatchFileType.Main]; // All custom engine patches are protected
     }
 
     public bool Apply(IPatchBundle Patches, string Before, string DumpPath, bool ForceDump, out string Patched)
@@ -314,7 +347,7 @@ internal class Patcher
     {
         string PatchPath = CurrentPatch + DefaultExtension;
 
-        string Content = DMPContext.Serialize((DMPContext.PatchBundle)Patches);
+        string Content = Context.Serialize((DMPContext.PatchBundle)Patches);
         if (File.Exists(PatchPath) && File.ReadAllText(PatchPath) == Content) return false;
 
         File.WriteAllText(PatchPath, Content);
@@ -357,6 +390,11 @@ internal class Patcher
     {
         get => Context.Injection;
         set => Context.Injection = value;
+    }
+    public Dictionary<string, string> Variables
+    {
+        get => Context.Variables;
+        set => Context.Variables = value;
     }
     public string CommentTag
     {

@@ -1,7 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
 // SPDX-License-Identifier: MIT
 
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -17,14 +16,13 @@ internal static class ProjectSetup
 
     private static readonly string LinuxTemplate = @"
         DIR=`cd ""$(dirname ""$0"")""; pwd`
-        ""$DIR/../Crysknife/Crysknife.sh"" -P {0} -E {1} ""$@""
+        ""$DIR/../Crysknife/Crysknife.sh"" -P {0} ""$@""
     ".Replace("    ", string.Empty).Replace("\r\n", "\n");
 
     private static void GenerateSetupScripts(string TargetDirectory, string PluginName)
     {
         File.WriteAllText(Path.Combine(TargetDirectory, "Setup.bat"), string.Format(WindowsTemplate, Utils.UnifySeparators(PluginName, "\\")));
-        string Suffix = string.Concat(Enumerable.Repeat("/..", PluginName.Count(C => C is '/' or '\\')));
-        string LinuxScript = string.Format(LinuxTemplate, Utils.UnifySeparators(PluginName, "/"), "$DIR/../../.." + Suffix);
+        string LinuxScript = string.Format(LinuxTemplate, Utils.UnifySeparators(PluginName, "/"));
         File.WriteAllText(Path.Combine(TargetDirectory, "Setup.sh"), LinuxScript);
         File.WriteAllText(Path.Combine(TargetDirectory, "Setup.command"), LinuxScript);
         Console.ForegroundColor = ConsoleColor.Green;

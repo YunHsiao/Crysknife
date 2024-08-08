@@ -132,6 +132,7 @@ Injector 本身相对简单直接，并不会神奇地自动改变任何代码�
 * `-f` 或 `--force` 强制覆盖任何已存在的文件
 * `-d` 或 `--dry-run` 测试执行，所有输出会被安全映射到扩展目录的 `Intermediates/Crysknife/Playground` 下
 * `-v` 或 `--verbose` 详细 Log 模式
+* `-p` or `--protected` 所有 Patch 将从受保护的本地文件中存/取
 * `-t` 或 `--treat-patch-as-file` 将 Patch 视为普通文件，直接执行拷贝/链接
 * `-c` or `--clear-all-history` 清除所有现存 Patch，从零生成
 * `-k` or `--keep-all-history` 保留所有现存 Patch，只更新与当前引擎版本相关的内容
@@ -291,7 +292,6 @@ ScopedRule2=Predicate5
 * `CRYSKNIFE_PLUGIN_DIRECTORY`: 默认值为目标扩展根目录的完整路径，只读
 * `CRYSKNIFE_SOURCE_DIRECTORY`: 默认值为引擎源码根目录的完整路径，只读
 * `CRYSKNIFE_COMMENT_TAG`: 默认值为当前扩展的文件夹名，可自定义为其他更具区分度的标识符
-* `CRYSKNIFE_ENGINE_TAG`: 默认值为当前引擎版本号（`[MAJOR].[MINOR]`），可在本地配置中自定义为其他更具区分度的标识符
 
 ## Config 用法示例
 

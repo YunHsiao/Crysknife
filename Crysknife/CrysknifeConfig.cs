@@ -445,10 +445,10 @@ internal class ConfigSystem
 {
     private readonly List<ConfigSection> Sections = new();
     private readonly ConfigSectionHierarchy Hierarchy;
-    private readonly Dictionary<string, string> Variables = new();
     private readonly Dictionary<string, string> DependencyVariables = new();
     private readonly Dictionary<string, ConfigSystem> Dependencies = new();
     private readonly Dictionary<string, string> Children = new();
+    public readonly Dictionary<string, string> Variables = new();
     public readonly string PluginName;
 
     private static ConfigFile BaseConfig = new();
@@ -594,15 +594,46 @@ internal class ConfigSystem
         return string.Join('\n', BuiltinSections);
     }
 
-    private string? GetVariable(string Name)
+    private string GetVariable(string Name, string Default = "", bool Eval = true)
     {
         Variables.TryGetValue(Name, out var Result);
-        return Result;
+        if (Result != null && Eval) Result = Utils.MapVariables(Variables, Result);
+        return Result ?? Default;
     }
 
     public static ConfigSystem Create(string PluginName, string VariableOverrides)
     {
         return Create(PluginName, VariableOverrides, "");
+    }
+
+    public InjectionRegex CreateInjectionRegex(string Tag)
+    {
+        var PrefixRE = GetVariable("CRYSKNIFE_COMMENT_TAG_PREFIX_RE");
+        var SuffixRE = GetVariable("CRYSKNIFE_COMMENT_TAG_SUFFIX_RE");
+        var BeginRE = GetVariable("CRYSKNIFE_COMMENT_TAG_BEGIN_RE");
+        var EndRE = GetVariable("CRYSKNIFE_COMMENT_TAG_END_RE");
+
+        // Reconstructors can contain custom variables which we should not eval right away here
+        var PrefixCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_PREFIX_CTOR", PrefixRE, false);
+        var SuffixCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_SUFFIX_CTOR", SuffixRE, false);
+        var BeginCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_BEGIN_CTOR", BeginRE, false);
+        var EndCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_END_CTOR", EndRE, false);
+
+        if (!Utils.IsTruthyValue(GetVariable("CRYSKNIFE_DISABLE_CUSTOM_COMMENT_TAG")))
+        {
+            PrefixRE = GetVariable("CUSTOM_COMMENT_TAG_PREFIX_RE", PrefixRE);
+            SuffixRE = GetVariable("CUSTOM_COMMENT_TAG_SUFFIX_RE", SuffixRE);
+            BeginRE = GetVariable("CUSTOM_COMMENT_TAG_BEGIN_RE", BeginRE);
+            EndRE = GetVariable("CUSTOM_COMMENT_TAG_END_RE", EndRE);
+
+            PrefixCtor = GetVariable("CUSTOM_COMMENT_TAG_PREFIX_CTOR", PrefixRE, false);
+            SuffixCtor = GetVariable("CUSTOM_COMMENT_TAG_SUFFIX_CTOR", SuffixRE, false);
+            BeginCtor = GetVariable("CUSTOM_COMMENT_TAG_BEGIN_CTOR", BeginRE, false);
+            EndCtor = GetVariable("CUSTOM_COMMENT_TAG_END_CTOR", EndRE, false);
+        }
+
+        return new InjectionRegex(Tag, PrefixRE, SuffixRE, BeginRE, EndRE,
+            PrefixCtor, SuffixCtor, BeginCtor, EndCtor);
     }
 
     public IEnumerable<string> GetChildrenTags()
@@ -651,8 +682,7 @@ internal class ConfigSystem
         }
     }
 
-    public string GetCommentTag() { return GetVariable("CRYSKNIFE_COMMENT_TAG") ?? PluginName; }
-    public string GetEngineTag() { return GetVariable("CRYSKNIFE_ENGINE_TAG") ?? ""; }
+    public string GetCommentTag() { return GetVariable("CRYSKNIFE_COMMENT_TAG", PluginName); }
 
     public override string ToString()
     {

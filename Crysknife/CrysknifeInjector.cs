@@ -20,9 +20,10 @@ public enum JobOptions
     Force = 0x2,
     DryRun = 0x4,
     Verbose = 0x8,
-    TreatPatchAsFile = 0x10,
-    ClearAllHistory = 0x20,
-    KeepAllHistory = 0x40,
+    Protected = 0x10,
+    TreatPatchAsFile = 0x20,
+    ClearAllHistory = 0x40,
+    KeepAllHistory = 0x80,
 }
 
 public class Injector
@@ -32,13 +33,13 @@ public class Injector
         public readonly InjectionRegex Injection;
         private readonly List<InjectionRegex> Residuals = new();
 
-        public InjectionRegexGroup(string Parent, IEnumerable<string> Residuals)
+        public InjectionRegexGroup(ConfigSystem Config)
         {
-            Injection = new InjectionRegex(Parent);
+            Injection = Config.CreateInjectionRegex(Config.GetCommentTag());
 
-            foreach (var Residual in Residuals)
+            foreach (var Residual in Config.GetChildrenTags())
             {
-                this.Residuals.Add(new InjectionRegex(Residual));
+                Residuals.Add(Config.CreateInjectionRegex(Residual));
             }
         }
 
@@ -64,13 +65,15 @@ public class Injector
         public readonly string CommentTag;
         public readonly string Directory;
         public readonly InjectionRegexGroup PatchRegex;
+        public readonly Dictionary<string, string> Variables;
 
         public SourcePatchInfo(ConfigSystem Config)
         {
             PluginName = Config.PluginName;
             Directory = Utils.GetPatchDirectory(Config.PluginName);
             CommentTag = Config.GetCommentTag();
-            PatchRegex = new InjectionRegexGroup(CommentTag, Config.GetChildrenTags());
+            PatchRegex = new InjectionRegexGroup(Config);
+            Variables = Config.Variables;
         }
     }
 
@@ -80,6 +83,7 @@ public class Injector
         string ClearedTarget = SourcePatch.PatchRegex.Unpatch(TargetContent);
         PatcherInstance.CommentTag = SourcePatch.CommentTag;
         PatcherInstance.Injection = SourcePatch.PatchRegex.Injection;
+        PatcherInstance.Variables = SourcePatch.Variables;
         PatcherInstance.CurrentPatch = PatchPath;
         IPatchBundle? Patches = null;
 
@@ -104,7 +108,7 @@ public class Injector
             if (PatcherInstance.Save(Patches))
             {
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Patch updated: " + TargetPath);
+                Console.WriteLine("Patch updated: " + PatchPath);
             }
         }
 
@@ -122,7 +126,11 @@ public class Injector
 
             if (Patches.IsValid())
             {
-                bool Success = PatcherInstance.Apply(Patches, ClearedTarget, TargetPath, Options.HasFlag(JobOptions.DryRun), out var Patched);
+                string DumpPath = Options.HasFlag(JobOptions.DryRun) ? TargetPath
+                    : Path.Combine(Utils.GetPluginDirectory(SourcePatch.PluginName), "Intermediate", "Crysknife",
+                        Path.GetRelativePath(Utils.GetSourceDirectory(), TargetPath));
+
+                bool Success = PatcherInstance.Apply(Patches, ClearedTarget, DumpPath, Options.HasFlag(JobOptions.DryRun), out var Patched);
                 if (Success && !Patched.Equals(TargetContent, StringComparison.Ordinal))
                 {
                     if (TargetContent.Length != ClearedTarget.Length)
@@ -310,13 +318,6 @@ public class Injector
         File.WriteAllText(Path.Combine(SourcePatch.Directory, "CrysknifeCache.ini"), Config.ToString());
 
         bool VerboseLogging = Options.HasFlag(JobOptions.Verbose);
-        if (VerboseLogging)
-        {
-            Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine($"Processing '{DefaultConfig.PluginName}' Using Config:");
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine(Config);
-        }
 
         var Patches = new HashSet<string>();
         foreach (string SrcPath in Directory.GetFiles(SourcePatch.Directory, "*", new EnumerationOptions { RecurseSubdirectories = true }))
@@ -387,7 +388,7 @@ public class Injector
             ProcessPatch(Job, PatchPath, SourcePath, SourcePatch);
         }
 
-        Console.ForegroundColor = ConsoleColor.DarkBlue;
+        Console.ForegroundColor = ConsoleColor.Blue;
         Console.WriteLine("{0} job done: {1} <=> {2}", Job.ToString(), SourcePatch.Directory, Utils.GetSourceDirectory());
     }
 
@@ -409,7 +410,7 @@ public class Injector
         if (Options.HasFlag(JobOptions.DryRun)) VariableOverrides = string.Join(',', "CRYSKNIFE_DRY_RUN=1", VariableOverrides);
         DefaultConfig = ConfigSystem.Create(Utils.UnifySeparators(PluginName), VariableOverrides);
 
-        PatcherInstance = new Patcher(DefaultConfig);
+        PatcherInstance = new Patcher(Options.HasFlag(JobOptions.Protected));
 
         OverrideConfirm = Options.HasFlag(JobOptions.Force) ? Utils.ConfirmResult.Yes | Utils.ConfirmResult.ForAll : Utils.ConfirmResult.NotDecided;
     }
