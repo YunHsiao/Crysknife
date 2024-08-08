@@ -64,11 +64,12 @@ internal static class Launcher
 
         string EngineRoot = Directory.GetCurrentDirectory();
         EngineRoot = Path.GetFullPath(Path.Combine(EngineRoot[..(EngineRoot.IndexOf("Crysknife", StringComparison.Ordinal) - 1)], ".."));
+        if (Arguments.TryGetValue("E", out var Parameters)) EngineRoot = Path.GetFullPath(Path.Combine(Parameters, "Engine"));
 
         Injector.Init(EngineRoot);
 
         string VariableOverrides = "";
-        if (Arguments.TryGetValue("D", out var Parameters)) VariableOverrides = Parameters;
+        if (Arguments.TryGetValue("D", out Parameters)) VariableOverrides = Parameters;
 
         var Options = JobOptions.None;
         if (Arguments.ContainsKey("l") || Arguments.ContainsKey("link")) Options |= JobOptions.Link;

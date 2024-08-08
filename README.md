@@ -101,7 +101,7 @@ Where the special tweak is:
 
 If having to modify large blocks of engine code, remember there's always the macro guard approach which does not need to touch every line of the code:
 
-```
+```cpp
 #if 0 // ${Tag}${Comments}
 ** LARGE SOURCE BLOCK **
 #endif // ${Tag}${Comments}
@@ -110,7 +110,8 @@ If having to modify large blocks of engine code, remember there's always the mac
 ## Command Line Interface
 
 * `-P [PLUGIN]` The input plugin folder name (by default also as the comment guard tag). Always required.
-* `-D [VAR=VALUE,]...` Define config variables
+* `-E [ENGINE_ROOT]` The engine root directory, default to the engine in which this repo is located 
+* `-D [VAR=VALUE,]...` Define custom config variables
 
 ### Actions
 
@@ -122,7 +123,7 @@ If having to modify large blocks of engine code, remember there's always the mac
 * `-A` Apply existing patches and copy all new sources (default action)
 
 > Actions are combinatorial:  
-> e.g. `-G -A` for generate & apply (round trip), `-G -C` for generate & clear (retraction)
+> e.g. `-GA` for generate & apply (round trip), `-GC` for generate & clear (retraction)
 
 ### Modifiers
 
@@ -133,11 +134,13 @@ If having to modify large blocks of engine code, remember there's always the mac
 * `-d` or `--dry-run` Test run, safely executes the action with all engine output remapped to the plugin's `Intermediate/Crysknife/Playground` directory
 * `-v` or `--verbose` Log more verbosely about everything
 * `-t` or `--treat-patch-as-file` Treat patches as regular files, copy/link them directly
+* `-c` or `--clear-all-history` Discard all existing patches for other engine versions when generating
+* `-k` or `--keep-all-history` Keep all existing patches unchanged, only update current engine version specific patches when generating
 
 ### Parameters
 
-* `--patch-context [LENGTH]` Patch context length when generating patches, defaults to 50
-* `--content-tolerance [TOLERANCE]` Content tolerance in [0, 1] when matching sources, default to 0.5
+* `--patch-context [LENGTH]` Global patch context length when generating patches, defaults to 250
+* `--content-tolerance [TOLERANCE]` Content tolerance in [0, 1] when matching sources, default to 0.3
 * `--line-tolerance [TOLERANCE]` Line tolerance when matching sources, defaults to infinity (line numbers may vary significantly between engine versions)
 
 ## CLI Examples
@@ -162,7 +165,7 @@ Say we want to modify some existing engine source files:
 * `Setup.sh -G` afterward to update all patches before committing
 
 > Before releasing it is recommended to check the cleared source still works: (may require full recompilation) 
-> `Setup.sh -G -C` (The retraction action) 
+> `Setup.sh -GC` (The retraction action) 
 > This can be used to ensure all relevant changes are properly guarded.
 
 </details>
@@ -177,7 +180,7 @@ Say we want to permanently remove all our previous modifications from some exist
 
 If we only want to temporarily remove the patches from all files under `Engine/Source/Runtime/Engine`:
 
-* `Setup.sh -C -i Runtime/Engine` (To un-patch source files)
+* `Setup.sh -Ci Runtime/Engine` (To un-patch source files)
 * `Setup.sh -i Runtime/Engine` (To re-apply patches)
 
 </details>

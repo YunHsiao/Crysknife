@@ -86,6 +86,14 @@ internal class Patcher
                                 Patch.Context &= ~TargetContext;
                             }
                         }
+                        else if (Decorator.StartsWith("ContextLength", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (!GetDecoratorValue("ContextLength", Decorator, out var Target)) continue;
+                            if (int.TryParse(Target, out var Length))
+                            {
+                                DecoratePatch(ref Patch.ContextLength, Length, -1, "ContextLength");
+                            }
+                        }
                         else if (Decorator.StartsWith("EngineNewerThan", StringComparison.OrdinalIgnoreCase))
                         {
                             if (!GetDecoratorValue("EngineNewerThan", Decorator, out var Target)) continue;
@@ -97,14 +105,6 @@ internal class Patcher
                             if (!GetDecoratorValue("EngineOlderThan", Decorator, out var Target)) continue;
                             var ShouldSkip = Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target)) ? BooleanOverride.True : BooleanOverride.False;
                             DecoratePatch(ref Patch.Skip, ShouldSkip, BooleanOverride.Unspecified, "EngineOlderThan");
-                        }
-                        else if (Decorator.StartsWith("PatchContextLength", StringComparison.OrdinalIgnoreCase))
-                        {
-                            if (!GetDecoratorValue("PatchContextLength", Decorator, out var Target)) continue;
-                            if (int.TryParse(Target, out var Length))
-                            {
-                                DecoratePatch(ref Patch.ContextLength, Length, -1, "PatchContextLength");
-                            }
                         }
                         else
                         {

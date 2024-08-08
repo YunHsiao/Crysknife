@@ -133,9 +133,13 @@ internal static class Utils
     }
 
     private static readonly Regex SeparatorRE = new (@"[\\/]", RegexOptions.Compiled);
+    public static string UnifySeparators(string Value, string Target)
+    {
+        return SeparatorRE.Replace(Value, Target);
+    }
     public static string UnifySeparators(string Value)
     {
-        return SeparatorRE.Replace(Value, Path.DirectorySeparatorChar.ToString());
+        return UnifySeparators(Value, Path.DirectorySeparatorChar.ToString());
     }
 
     private static readonly Regex TruthyRE = new ("^(?:T|On)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
