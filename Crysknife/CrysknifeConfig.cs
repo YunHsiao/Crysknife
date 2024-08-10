@@ -34,7 +34,7 @@ internal class ConfigPredicate
     {
         var Wrapper = (string Cond) =>
         {
-            bool Invert = Cond.StartsWith('!');
+            var Invert = Cond.StartsWith('!');
             return Invert ? !Pred(Cond[1..]) : Pred(Cond);
         };
         return LogicalAnd ? Conditions.All(Wrapper) : Conditions.Any(Wrapper);
@@ -57,7 +57,7 @@ internal class ConfigPredicate
 
     public override string ToString()
     {
-        string LogicOp = LogicalAnd ? "Conjunction|" : "";
+        var LogicOp = LogicalAnd ? "Conjunction|" : "";
         return IsValid() ? $"{Keyword}:{LogicOp}{string.Join('|', Conditions)}" : string.Empty;
     }
 }
@@ -100,7 +100,7 @@ internal class ConfigPredicates
 
             new ConfigPredicate("TargetExists", Cond =>
             {
-                string TargetPath = Path.Combine(Utils.GetSourceDirectory(), Cond);
+                var TargetPath = Path.Combine(Utils.GetSourceDirectory(), Cond);
                 return File.Exists(TargetPath) || Directory.Exists(TargetPath);
             }),
             new ConfigPredicate("IsTruthy", Utils.IsTruthyValue),
@@ -124,8 +124,8 @@ internal class ConfigPredicates
             else if (Utils.GetContentIfStartsWith(Rule, "Conjunctions:", out var Content))
             {
                 var Scopes = Content.Split('|', Utils.SplitOptions).ToList();
-                bool AllTrue = Utils.FindAndRemoveString(Scopes, "All");
-                bool PredicatesTrue = Utils.FindAndRemoveString(Scopes, "Predicates");
+                var AllTrue = Utils.FindAndRemoveString(Scopes, "All");
+                var PredicatesTrue = Utils.FindAndRemoveString(Scopes, "Predicates");
                 if (AllTrue || Utils.FindAndRemoveString(Scopes, "Root")) CompileTimeCondition = LogicalAnd = true;
 
                 foreach (var Predicate in Predicates)
@@ -190,7 +190,7 @@ internal class ConfigRule
 
     public void SetValue(string Key, string Desc)
     {
-        bool IsBaseDomain = Key.StartsWith("Base", StringComparison.OrdinalIgnoreCase);
+        var IsBaseDomain = Key.StartsWith("Base", StringComparison.OrdinalIgnoreCase);
         (IsBaseDomain ? BasePredicates : UserPredicates).SetValue(Desc);
     }
 
@@ -207,10 +207,10 @@ internal class ConfigRule
 
     public override string ToString()
     {
-        string BaseDump = BasePredicates.ToString();
+        var BaseDump = BasePredicates.ToString();
         if (BaseDump.Length > 0) BaseDump = $"Base{Keyword}={BaseDump}";
 
-        string UserDump = UserPredicates.ToString();
+        var UserDump = UserPredicates.ToString();
         if (UserDump.Length > 0) UserDump = $"{Keyword}={UserDump}";
 
         return string.Join('\n', BaseDump, UserDump).Trim();
@@ -263,7 +263,7 @@ internal class ConfigSection
             }
         }
 
-        foreach (ConfigRule Rule in Rules)
+        foreach (var Rule in Rules)
         {
             Rule.Compile();
         }
@@ -275,7 +275,7 @@ internal class ConfigSection
         var ControllingDomain = Array.Find(TargetNames, TargetName => Target.StartsWith(TargetName, StringComparison.OrdinalIgnoreCase));
         if (ControllingDomain == null) return RemapResult.DoNotAffect;
 
-        bool ShouldSkip = Rules[0].Eval(Target);
+        var ShouldSkip = Rules[0].Eval(Target);
         if (VerboseLogging && ShouldSkip)
         {
             Console.ForegroundColor = ConsoleColor.Gray;
@@ -284,14 +284,14 @@ internal class ConfigSection
 
         if (ShouldSkip) return RemapResult.Skipped;
 
-        bool ShouldFlatten = Rules[1].Eval(Target);
+        var ShouldFlatten = Rules[1].Eval(Target);
         if (ShouldFlatten && VerboseLogging)
         {
             Console.ForegroundColor = ConsoleColor.Gray;
             Console.WriteLine($"Config: Flattened '{Target}' due to [{GetSectionName()}] flatten conditions");
         }
 
-        bool ShouldRemap = Rules[2].Eval(Target);
+        var ShouldRemap = Rules[2].Eval(Target);
         if (ShouldRemap && VerboseLogging)
         {
             Console.ForegroundColor = ConsoleColor.Gray;
@@ -322,7 +322,7 @@ internal class ConfigSection
 
     public override string ToString()
     {
-        string Predicates = string.Join('\n', Rules.Select(Predicate => Predicate.ToString())
+        var Predicates = string.Join('\n', Rules.Select(Predicate => Predicate.ToString())
             .Where(Predicate => Predicate.Length > 0));
         return $"[{GetSectionName()}]\n{Predicates}\nRemapTarget={RemapTarget.Replace(Utils.GetEngineRoot(), "${CRYSKNIFE_ENGINE_ROOT}")}";
     }
@@ -381,7 +381,7 @@ internal class ConfigSectionHierarchy
         var Node = Root;
         var Section = Root.Section;
 
-        foreach (string Folder in Target.Split(Path.DirectorySeparatorChar, Utils.SplitOptions))
+        foreach (var Folder in Target.Split(Path.DirectorySeparatorChar, Utils.SplitOptions))
         {
             if (!Node.Children.TryGetValue(Folder, out var Child)) break;
             if (Child.Section != null) Section = Child.Section;
@@ -398,9 +398,9 @@ internal class ConfigSectionHierarchy
 
     public static void Link(ConfigSectionHierarchy Root, List<ConfigSection> Sections)
     {
-        for (int Index = 0; Index < Sections.Count; ++Index)
+        foreach (var Index in Enumerable.Range(0, Sections.Count))
         {
-            foreach (string Target in Sections[Index].GetTargetNames())
+            foreach (var Target in Sections[Index].GetTargetNames())
             {
                 var Node = GetNearestNode(Root, Target)!;
                 Debug.Assert(Node != null && (Node.LinkedIndex < 0 || Node.LinkedIndex == Index));
@@ -418,7 +418,7 @@ internal class ConfigSectionHierarchy
             if (!Config.TryGetSection(Pair.Key, out var Section)) continue;
             var SectionNode = new ConfigFileSectionNode(Section);
 
-            foreach (string TargetName in ConfigSection.GetTargetNames(Pair.Value))
+            foreach (var TargetName in ConfigSection.GetTargetNames(Pair.Value))
             {
                 if (TargetName.Length == 0)
                 {
@@ -443,19 +443,19 @@ internal class ConfigSectionHierarchy
 
 internal class ConfigSystem
 {
+    private readonly Dictionary<string, string> Variables = new();
     private readonly List<ConfigSection> Sections = new();
     private readonly ConfigSectionHierarchy Hierarchy;
     private readonly Dictionary<string, string> DependencyVariables = new();
     private readonly Dictionary<string, ConfigSystem> Dependencies = new();
     private readonly Dictionary<string, string> Children = new();
-    public readonly Dictionary<string, string> Variables = new();
     public readonly string PluginName;
 
     private static ConfigFile BaseConfig = new();
     public static void Init()
     {
-        string RootPath = Utils.GetPluginDirectory("Crysknife");
-        string ConfigPath = Path.Combine(RootPath, "BaseCrysknife.ini");
+        var RootPath = Utils.GetPluginDirectory("Crysknife");
+        var ConfigPath = Path.Combine(RootPath, "BaseCrysknife.ini");
         if (File.Exists(ConfigPath)) BaseConfig = new ConfigFile(ConfigPath);
         ConfigPath = Path.Combine(RootPath, "BaseCrysknifeLocal.ini");
         if (File.Exists(ConfigPath)) BaseConfig.Merge(new ConfigFile(ConfigPath));
@@ -464,12 +464,12 @@ internal class ConfigSystem
 
     private static ConfigFile CreateConfigFile(string PluginName, string VariableOverrides)
     {
-        string ConfigPath = GetConfigPath(PluginName);
-        ConfigFile Config = File.Exists(ConfigPath) ? new ConfigFile(ConfigPath).Merge(BaseConfig, false) : BaseConfig;
-        string LocalConfigPath = GetConfigPath(PluginName, ConfigType.Local);
+        var ConfigPath = GetConfigPath(PluginName);
+        var Config = File.Exists(ConfigPath) ? new ConfigFile(ConfigPath).Merge(BaseConfig, false) : BaseConfig;
+        var LocalConfigPath = GetConfigPath(PluginName, ConfigType.Local);
         if (File.Exists(LocalConfigPath)) Config.Merge(new ConfigFile(LocalConfigPath));
 
-        string FinalOverrides = string.Join(',',
+        var FinalOverrides = string.Join(',',
             $"CRYSKNIFE_ENGINE_ROOT={Utils.GetEngineRoot()}",
             $"CRYSKNIFE_SOURCE_DIRECTORY={Path.Combine("${CRYSKNIFE_ENGINE_ROOT}", Utils.GetEngineRelativePath(Utils.GetSourceDirectory()))}",
             $"CRYSKNIFE_PLUGIN_DIRECTORY={Path.Combine("${CRYSKNIFE_ENGINE_ROOT}", Utils.GetEngineRelativePath(Utils.GetPluginDirectory(PluginName)))}",
@@ -487,7 +487,7 @@ internal class ConfigSystem
     }
     private static string GetConfigPath(string PluginName, ConfigType Type = ConfigType.Main)
     {
-        string Directory = Utils.GetPatchDirectory(PluginName);
+        var Directory = Utils.GetPatchDirectory(PluginName);
         return Type switch
         {
             ConfigType.Local => Path.Combine(Directory, "CrysknifeLocal.ini"),
@@ -508,7 +508,7 @@ internal class ConfigSystem
     private ConfigSystem(string PluginName, string VariableOverrides)
     {
         this.PluginName = PluginName; 
-        ConfigFile Config = CreateConfigFile(PluginName, VariableOverrides);
+        var Config = CreateConfigFile(PluginName, VariableOverrides);
 
         var SectionNames = Config.SectionNames.ToList();
 
@@ -557,7 +557,7 @@ internal class ConfigSystem
             if (Config.Dependencies.ContainsKey(PluginName)) continue;
 
             var Parent = Create(Pair.Key, VariableOverrides, Pair.Value);
-            ConfigFile ParentConfigCache = new ConfigFile(GetConfigPath(Pair.Key, ConfigType.Cache));
+            var ParentConfigCache = new ConfigFile(GetConfigPath(Pair.Key, ConfigType.Cache));
             if (ParentConfigCache.TryGetSection("Children", out var CachedChildren))
             {
                 foreach (var Line in CachedChildren.Lines)
@@ -585,7 +585,7 @@ internal class ConfigSystem
         if (Variables.Count != 0) BuiltinSections.Add("[Variables]\n" + Variables.Aggregate("", (Current, Pair) =>
         {
             if (Pair.Key.Equals("CRYSKNIFE_ENGINE_ROOT", StringComparison.OrdinalIgnoreCase)) return Current;
-            string Expr = $"{Pair.Key}={Pair.Value}\n";
+            var Expr = $"{Pair.Key}={Pair.Value}\n";
             return Pair.Key.StartsWith("Crysknife", StringComparison.OrdinalIgnoreCase) ? Expr + Current : Current + Expr;
         }));
         if (DependencyVariables.Count != 0) BuiltinSections.Add("[Dependencies]\n" + DependencyVariables.Aggregate("", (Current, Pair) => Current + $"{Pair.Key}={Pair.Value}\n"));
@@ -608,37 +608,42 @@ internal class ConfigSystem
 
     public InjectionRegex CreateInjectionRegex(string Tag)
     {
-        var PrefixRE = GetVariable("CRYSKNIFE_COMMENT_TAG_PREFIX_RE");
-        var SuffixRE = GetVariable("CRYSKNIFE_COMMENT_TAG_SUFFIX_RE");
-        var BeginRE = GetVariable("CRYSKNIFE_COMMENT_TAG_BEGIN_RE");
-        var EndRE = GetVariable("CRYSKNIFE_COMMENT_TAG_END_RE");
+        var PrefixRegex = GetVariable("CRYSKNIFE_COMMENT_TAG_PREFIX_RE");
+        var SuffixRegex = GetVariable("CRYSKNIFE_COMMENT_TAG_SUFFIX_RE");
+        var BeginRegex = GetVariable("CRYSKNIFE_COMMENT_TAG_BEGIN_RE");
+        var EndRegex = GetVariable("CRYSKNIFE_COMMENT_TAG_END_RE");
 
         // Reconstructors can contain custom variables which we should not eval right away here
-        var PrefixCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_PREFIX_CTOR", PrefixRE, false);
-        var SuffixCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_SUFFIX_CTOR", SuffixRE, false);
-        var BeginCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_BEGIN_CTOR", BeginRE, false);
-        var EndCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_END_CTOR", EndRE, false);
+        var PrefixCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_PREFIX_CTOR", PrefixRegex, false);
+        var SuffixCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_SUFFIX_CTOR", SuffixRegex, false);
+        var BeginCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_BEGIN_CTOR", BeginRegex, false);
+        var EndCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_END_CTOR", EndRegex, false);
 
-        if (!Utils.IsTruthyValue(GetVariable("CRYSKNIFE_DISABLE_CUSTOM_COMMENT_TAG")))
+        if (!Utils.IsTruthyValue(GetVariable("CRYSKNIFE_BYPASS_CUSTOM_COMMENT_TAG")))
         {
-            PrefixRE = GetVariable("CUSTOM_COMMENT_TAG_PREFIX_RE", PrefixRE);
-            SuffixRE = GetVariable("CUSTOM_COMMENT_TAG_SUFFIX_RE", SuffixRE);
-            BeginRE = GetVariable("CUSTOM_COMMENT_TAG_BEGIN_RE", BeginRE);
-            EndRE = GetVariable("CUSTOM_COMMENT_TAG_END_RE", EndRE);
+            PrefixRegex = GetVariable("CUSTOM_COMMENT_TAG_PREFIX_RE", PrefixRegex);
+            SuffixRegex = GetVariable("CUSTOM_COMMENT_TAG_SUFFIX_RE", SuffixRegex);
+            BeginRegex = GetVariable("CUSTOM_COMMENT_TAG_BEGIN_RE", BeginRegex);
+            EndRegex = GetVariable("CUSTOM_COMMENT_TAG_END_RE", EndRegex);
 
-            PrefixCtor = GetVariable("CUSTOM_COMMENT_TAG_PREFIX_CTOR", PrefixRE, false);
-            SuffixCtor = GetVariable("CUSTOM_COMMENT_TAG_SUFFIX_CTOR", SuffixRE, false);
-            BeginCtor = GetVariable("CUSTOM_COMMENT_TAG_BEGIN_CTOR", BeginRE, false);
-            EndCtor = GetVariable("CUSTOM_COMMENT_TAG_END_CTOR", EndRE, false);
+            PrefixCtor = GetVariable("CUSTOM_COMMENT_TAG_PREFIX_CTOR", PrefixRegex, false);
+            SuffixCtor = GetVariable("CUSTOM_COMMENT_TAG_SUFFIX_CTOR", SuffixRegex, false);
+            BeginCtor = GetVariable("CUSTOM_COMMENT_TAG_BEGIN_CTOR", BeginRegex, false);
+            EndCtor = GetVariable("CUSTOM_COMMENT_TAG_END_CTOR", EndRegex, false);
         }
 
-        return new InjectionRegex(Tag, PrefixRE, SuffixRE, BeginRE, EndRE,
+        return new InjectionRegex(Tag, PrefixRegex, SuffixRegex, BeginRegex, EndRegex,
             PrefixCtor, SuffixCtor, BeginCtor, EndCtor);
     }
 
     public IEnumerable<string> GetChildrenTags()
     {
         return Children.Values;
+    }
+
+    public IReadOnlyDictionary<string, string> GetVariables()
+    {
+        return Variables;
     }
 
     public void Dispatch(Action<ConfigSystem> Action, bool ParentFirst)

@@ -83,7 +83,9 @@ Injector 本身相对简单直接，并不会神奇地自动改变任何代码�
 
 > 如果不影响性能的话，尽量选择最有代表性的注入点，如类的开始，长期存在的公开接口后等，可以大大提高在不同版本的引擎间自动匹配 Patch 的成功率。
 
-对于要直接修改的引擎源码，遵循如下流程：
+### 删改引擎源码
+
+对于要直接修改的官方引擎源码，遵循如下流程：
 * 将要修改的引擎代码全部注释掉（暂只支持行注释 "//" ）
 * 将注释掉的代码加任何一种上述形式的注释桩，外加一个小变化*
 * 在此之上再按标准流程，继续正常新增你自己的代码
@@ -105,6 +107,27 @@ Injector 本身相对简单直接，并不会神奇地自动改变任何代码�
 ** LARGE SOURCE BLOCK **
 #endif // ${Tag}${Comments}
 ```
+
+### 装饰器
+
+在注释桩修饰的代码内，可以通过装饰器的形式配置一些逐代码块的参数，来提高比如模糊匹配过程的稳定性：
+
+```cpp
+// ... Anywhere inside a guarded block
+// @Crysknife(${Directive} = ${Value})
+```
+
+### 装饰器指令
+
+`ContextSkip=[UPPER|LOWER|ALL]`
+* 指定的上下文方向将会被忽略，不参与匹配过程，默认所有方向都会匹配
+
+`ContextLength=[LENGTH]`
+* 对每个上下文方向，最多只匹配到指定长度，默认为 64（最大值）
+
+`EngineNewerThan=[VERSION]`<br>
+`EngineOlderThan=[VERSION]`
+* 将当前代码块标记为引擎版本相关，应用时只会影响匹配的引擎版本
 
 ## 命令行参数
 
@@ -132,10 +155,10 @@ Injector 本身相对简单直接，并不会神奇地自动改变任何代码�
 * `-f` 或 `--force` 强制覆盖任何已存在的文件
 * `-d` 或 `--dry-run` 测试执行，所有输出会被安全映射到扩展目录的 `Intermediates/Crysknife/Playground` 下
 * `-v` 或 `--verbose` 详细 Log 模式
-* `-p` or `--protected` 所有 Patch 将从受保护的本地文件中存/取
+* `-p` 或 `--protected` 私域模式，所有 Patch 将从受保护的本地文件中存/取
+* `-n` 或 `--incremental` 智能匹配历史 Patch，只做增量更新
 * `-t` 或 `--treat-patch-as-file` 将 Patch 视为普通文件，直接执行拷贝/链接
-* `-c` or `--clear-all-history` 清除所有现存 Patch，从零生成
-* `-k` or `--keep-all-history` 保留所有现存 Patch，只更新与当前引擎版本相关的内容
+* `-b` 或 `--bypass-custom-comment-tag` 临时禁用已配置的注释桩自定义格式
 
 ### 参数类
 
@@ -289,9 +312,11 @@ ScopedRule2=Predicate5
 
 ### 内置变量
 
-* `CRYSKNIFE_PLUGIN_DIRECTORY`: 默认值为目标扩展根目录的完整路径，只读
-* `CRYSKNIFE_SOURCE_DIRECTORY`: 默认值为引擎源码根目录的完整路径，只读
+* `CRYSKNIFE_ENGINE_ROOT`: 引擎 `Engine` 目录的完整路径，只读
+* `CRYSKNIFE_PLUGIN_DIRECTORY`: 目标扩展根目录的完整路径，只读
+* `CRYSKNIFE_SOURCE_DIRECTORY`: 引擎源码根目录的完整路径，只读
 * `CRYSKNIFE_COMMENT_TAG`: 默认值为当前扩展的文件夹名，可自定义为其他更具区分度的标识符
+* `(CRYSKNIFE|CUSTOM)_COMMENT_TAG_(PREFIX|SUFFIX|BEGIN|END)_(RE|CTOR)`: 注释桩的匹配正则和重建构造
 
 ## Config 用法示例
 

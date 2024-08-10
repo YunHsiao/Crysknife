@@ -84,6 +84,8 @@ The comment tag is defaulted to plugin folder name but can be modified if needed
 > For non-performance-critical code, try to find the most representative context to insert your code (beginning of class,
 > after long-standing public interfaces, etc.), which can greatly increase the chances of finding matches in different engine bases.
 
+### Modifying Existing Code
+
 Additionally, to modify the stock engine code, follow these steps:
 * Comment out the original code block (only line comments are supported atm.)
 * Guard the comment block using any of the above forms, with one special tweak*
@@ -106,6 +108,27 @@ If having to modify large blocks of engine code, remember there's always the mac
 ** LARGE SOURCE BLOCK **
 #endif // ${Tag}${Comments}
 ```
+
+### Decorators
+
+To improve the robustness of the fuzzy-match process, etc. on a per-code-block basis, inline decorators can be specified inside the guarded block in the following format: 
+
+```cpp
+// ... Somewhere inside any guarded block
+// @Crysknife(${Directive} = ${Value})
+```
+
+### Supported Decorator Directives
+
+`ContextSkip=[UPPER|LOWER|ALL]`
+* Specified context direction will be skipped when fuzzy-matching, by default all contexts are matched
+
+`ContextLength=[LENGTH]`
+* For each matching direction, only match up to the specified length of the context, default is 64 (maximum)
+
+`EngineNewerThan=[VERSION]`<br>
+`EngineOlderThan=[VERSION]`
+* Mark the Enclosing code block as engine-version-relevant, so it would only apply to matching engine versions
 
 ## Command Line Interface
 
@@ -133,10 +156,10 @@ If having to modify large blocks of engine code, remember there's always the mac
 * `-f` or `--force` Force override existing files
 * `-d` or `--dry-run` Test run, safely executes the action with all engine output remapped to the plugin's `Intermediate/Crysknife/Playground` directory
 * `-v` or `--verbose` Log more verbosely about everything
-* `-p` or `--protected` Patches will be saved to / loaded from protected sources
+* `-p` or `--protected` Patches will be saved to / loaded from protected sources which will not be committed
+* `-n` or `--incremental` Update patches incrementally based on existing patch status
 * `-t` or `--treat-patch-as-file` Treat patches as regular files, copy/link them directly
-* `-c` or `--clear-all-history` Discard all existing patches for other engine versions when generating
-* `-k` or `--keep-all-history` Keep all existing patches unchanged, only update current engine version specific patches when generating
+* `-b` or `--bypass-custom-comment-tag` Bypass custom comment tag formats
 
 ### Parameters
 
@@ -291,9 +314,11 @@ ScopedRule2=Predicate5
 
 ### Built-in Variables
 
-* `CRYSKNIFE_PLUGIN_DIRECTORY`: Default to full path to the target plugin directory, readonly
-* `CRYSKNIFE_SOURCE_DIRECTORY`: Default to full path to the engine source directory, readonly
+* `CRYSKNIFE_ENGINE_ROOT`: Full path to the `Engine` folder, readonly
+* `CRYSKNIFE_PLUGIN_DIRECTORY`: Full path to the target plugin directory, readonly
+* `CRYSKNIFE_SOURCE_DIRECTORY`: Full path to the engine source directory, readonly
 * `CRYSKNIFE_COMMENT_TAG`: Default to the plugin folder name, you can assign a more distinctive name if needed
+* `(CRYSKNIFE|CUSTOM)_COMMENT_TAG_(PREFIX|SUFFIX|BEGIN|END)_(RE|CTOR)`: Regex matchers & re-constructors of the comment tag
 
 ## Config Examples
 

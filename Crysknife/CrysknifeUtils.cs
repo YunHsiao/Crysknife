@@ -7,29 +7,29 @@ namespace Crysknife;
 
 internal class InjectionRegexForm
 {
-    private static readonly Regex CommentRE = new (@"^(\s*)//\s*", RegexOptions.Multiline | RegexOptions.Compiled);
+    private static readonly Regex CommentRegex = new (@"^(\s*)//\s*", RegexOptions.Multiline | RegexOptions.Compiled);
     private readonly string CommentTag;
-    private readonly Regex RE;
+    private readonly Regex Pattern;
 
     public InjectionRegexForm(string CommentTag, string Pattern, RegexOptions Options)
     {
         this.CommentTag = CommentTag;
-        RE = new Regex(Pattern, Options);
+        this.Pattern = new Regex(Pattern, Options);
     }
 
     public Match Match(string Content)
     {
-        return RE.Match(Content);
+        return Pattern.Match(Content);
     }
 
     public string Unpatch(string Content)
     {
-        return RE.Replace(Content, Matched => Replace(Matched.Groups["Tag"].Value, Matched.Groups["Content"].Value, CommentTag));
+        return Pattern.Replace(Content, Matched => Replace(Matched.Groups["Tag"].Value, Matched.Groups["Content"].Value, CommentTag));
     }
 
-    public string Pack(string Content)
+    public string Pack(string Content, bool SkipCaptures)
     {
-        return RE.Replace(Content, Matched =>
+        return Pattern.Replace(Content, Matched =>
         {
             Group CurrentTag;
             string Result;
@@ -47,10 +47,13 @@ internal class InjectionRegexForm
                 Result += $"@CrysknifeCT({Matched.Groups["Tag"].Value[CommentTag.Length..]})\n";
             }
 
-            foreach (var Index in Enumerable.Range(0, 10))
+            if (!SkipCaptures)
             {
-                if (!Matched.Groups.TryGetValue($"Capture{Index}", out var Capture)) break;
-                Result += $"@CrysknifeCTCapture{Index}({Capture.Value})\n";
+                foreach (var Index in Enumerable.Range(0, 10))
+                {
+                    if (!Matched.Groups.TryGetValue($"Capture{Index}", out var Capture)) break;
+                    Result += $"@CrysknifeCTCapture{Index}({Capture.Value})\n";
+                }
             }
 
             if (EndTag != null)
@@ -69,7 +72,7 @@ internal class InjectionRegexForm
     {
         if (Tag.StartsWith(CommentTag + '-')) // Restore deletions
         {
-            return CommentRE.Replace(Content, ContentMatch => ContentMatch.Groups[1].Value);
+            return CommentRegex.Replace(Content, ContentMatch => ContentMatch.Groups[1].Value);
         }
         return ""; // Remove injections
     }
@@ -77,7 +80,7 @@ internal class InjectionRegexForm
 
 internal class InjectionReconstructor
 {
-    private static readonly Regex ReconstructorRE = new (@"@CrysknifeCT(\w*)\(([^\n]*)\)\n", RegexOptions.Compiled);
+    private static readonly Regex ReconstructorRegex = new (@"@CrysknifeCT(\w*)\(([^\n]*)\)\n", RegexOptions.Compiled);
     private readonly string Tag;
     private readonly string Prefix;
     private readonly string Suffix;
@@ -93,11 +96,11 @@ internal class InjectionReconstructor
         this.End = End;
     }
 
-    public string Unpack(string Content, Dictionary<string, string> Variables)
+    public string Unpack(string Content, IReadOnlyDictionary<string, string> Variables)
     {
         var CaptureRecord = new Dictionary<string, string>();
 
-        string Result = ReconstructorRE.Replace(Content, Matched =>
+        var Result = ReconstructorRegex.Replace(Content, Matched =>
         {
             if (Matched.Groups[1].Value.StartsWith("Capture"))
             {
@@ -105,7 +108,7 @@ internal class InjectionReconstructor
                 return string.Empty;
             }
 
-            string Reconstructed = Prefix + Tag + Matched.Groups[2].Value + Suffix;
+            var Reconstructed = Prefix + Tag + Matched.Groups[2].Value + Suffix;
 
             return Matched.Groups[1].Value switch
             {
@@ -129,7 +132,7 @@ internal class InjectionRegex
     public InjectionRegex(string Tag, string Prefix, string Suffix, string Begin, string End,
         string PrefixCtor, string SuffixCtor, string BeginCtor, string EndCtor)
     {
-        string CommentTag = Tag + @"[^\n]*?"; // Allow some comments in between
+        var CommentTag = Tag + @"[^\n]*?"; // Allow some comments in between
         Forms = new []
         {
             // Form order matters here, specific -> general
@@ -158,16 +161,16 @@ internal class InjectionRegex
         return Forms.Aggregate(Content, (Acc, Form) => Form.Unpatch(Acc));
     }
 
-    public string Pack(string Content, ref int Increment)
+    public string Pack(string Content, ref int Increment, bool SkipCaptures)
     {
-        string Result = Forms.Aggregate(Content, (Acc, Form) => Form.Pack(Acc));
+        var Result = Forms.Aggregate(Content, (Acc, Form) => Form.Pack(Acc, SkipCaptures));
         Increment += Result.Length - Content.Length;
         return Result;
     }
 
-    public string Unpack(string Content, ref int Increment, Dictionary<string, string> Variables)
+    public string Unpack(string Content, ref int Increment, IReadOnlyDictionary<string, string> Variables)
     {
-        string Result = Reconstructors.Unpack(Content, Variables);
+        var Result = Reconstructors.Unpack(Content, Variables);
         Increment += Result.Length - Content.Length;
         return Result;
     }
@@ -207,19 +210,19 @@ internal readonly struct EngineVersion
 
 internal static class Utils
 {
-    private static readonly Regex EngineVersionRE = new (@"#define\s+ENGINE_MAJOR_VERSION\s+(\d+)\s*#define\s+ENGINE_MINOR_VERSION\s+(\d+)\s*#define\s+ENGINE_PATCH_VERSION\s+(\d+)", RegexOptions.Compiled);
+    private static readonly Regex EngineVersionRegex = new (@"#define\s+ENGINE_MAJOR_VERSION\s+(\d+)\s*#define\s+ENGINE_MINOR_VERSION\s+(\d+)\s*#define\s+ENGINE_PATCH_VERSION\s+(\d+)", RegexOptions.Compiled);
     private static string GetCurrentEngineVersion(string SourceDirectory)
     {
-        var VersionMatch = EngineVersionRE.Match(File.ReadAllText(Path.Combine(SourceDirectory, "Runtime/Launch/Resources/Version.h")));
+        var VersionMatch = EngineVersionRegex.Match(File.ReadAllText(Path.Combine(SourceDirectory, "Runtime/Launch/Resources/Version.h")));
         return $"{VersionMatch.Groups[1].Value}.{VersionMatch.Groups[2].Value}.{VersionMatch.Groups[3].Value}";
     }
     public static EngineVersion CurrentEngineVersion;
 
-    private static readonly Regex InjectionDirectiveRE = new (@"@Crysknife\((.+)\)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex InjectionDirectiveRegex = new (@"@Crysknife\((.+)\)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     public static string GetInjectionDecorators(string Content)
     {
-        string Result = "";
-        var DirectiveMatch = InjectionDirectiveRE.Match(Content);
+        var Result = "";
+        var DirectiveMatch = InjectionDirectiveRegex.Match(Content);
         while (DirectiveMatch.Success)
         {
             Result = string.Join(',', Result, DirectiveMatch.Groups[1].Value);
@@ -228,17 +231,17 @@ internal static class Utils
         return Result;
     }
 
-    private static readonly Regex SeparatorRE = new (@"[\\/]", RegexOptions.Compiled);
+    private static readonly Regex SeparatorRegex = new (@"[\\/]", RegexOptions.Compiled);
     public static string UnifySeparators(string Value, string Target)
     {
-        return SeparatorRE.Replace(Value, Target);
+        return SeparatorRegex.Replace(Value, Target);
     }
     public static string UnifySeparators(string Value)
     {
         return UnifySeparators(Value, Path.DirectorySeparatorChar.ToString());
     }
 
-    private static readonly Regex TruthyRE = new ("^(?:T|On)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex TruthyRegex = new ("^(?:T|On)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex BinaryOps = new ("(==|!=|>|<|>=|<=)", RegexOptions.Compiled);
     public static bool IsTruthyValue(string Value)
     {
@@ -259,22 +262,22 @@ internal static class Utils
             };
         }
         if (int.TryParse(Value, out var Number)) return Number > 0;
-        return TruthyRE.IsMatch(Value);
+        return TruthyRegex.IsMatch(Value);
     }
 
-    private static readonly Regex VariableRE = new (@"\${([\w|]+)}", RegexOptions.Compiled);
+    private static readonly Regex VariableRegex = new (@"\${([\w|]+)}", RegexOptions.Compiled);
 
-    public static string MapVariables(IDictionary<string, string> Variables, string Input, bool Recurse = true, bool WarnIfFailed = true)
+    public static string MapVariables(IReadOnlyDictionary<string, string> Variables, string Input, bool Recurse = true, bool WarnIfFailed = true)
     {
         MapVariables(Variables, Input, Recurse, WarnIfFailed, out var Result);
         return Result;
     }
 
-    public static bool MapVariables(IDictionary<string, string> Variables, string Input, bool Recurse, bool WarnIfFailed, out string Result)
+    public static bool MapVariables(IReadOnlyDictionary<string, string> Variables, string Input, bool Recurse, bool WarnIfFailed, out string Result)
     {
-        bool AllSuccess = true;
+        var AllSuccess = true;
 
-        Result = VariableRE.Replace(Input, Matched =>
+        Result = VariableRegex.Replace(Input, Matched =>
         {
             foreach (var Name in Matched.Groups[1].Value.Split('|'))
             {
@@ -364,7 +367,7 @@ internal static class Utils
 
         if (Response == ConsoleKey.C)
         {
-            Utils.Abort();
+            Abort();
         }
 
         return Response switch
@@ -405,6 +408,17 @@ internal static class Utils
     public static string GetEngineRelativePath(string TargetPath)
     {
         return Path.GetRelativePath(EngineRoot, TargetPath);
+    }
+
+    // Se7en        -> se7en
+    // Addr2Line    -> addr_2_line
+    // HTMLElement  -> html_element
+    // OptionA      -> option_a
+    // Route66      -> route_66
+    private static readonly Regex CaseRegex = new (@"(?:(?<=[a-zA-Z\d])[A-Z](?=[a-z]|$|\s))|(?:(?<=[a-zA-Z])\d(?=[A-Z\d]|$|\s))", RegexOptions.Compiled);
+    public static string CamelCaseToSnakeCase(string Value)
+    {
+        return CaseRegex.Replace(Value, Match => $"_{Match.Value}").ToLower();
     }
 
     public static void Abort()

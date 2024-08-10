@@ -14,7 +14,7 @@ internal interface IPatchBundle
 
 internal class Patcher
 {
-    private class DMPContext
+    private class DmpContext
     {
         public class PatchBundle : IPatchBundle
         {
@@ -32,12 +32,15 @@ internal class Patcher
 
         private readonly DiffMatchPatch Context = new()
         {
-            MatchThreshold = 0.3f, // Be more strict on matches
-            MatchDistance = int.MaxValue, // Line number may vary significantly
+            // Be more strict on matches
+            PatchDeleteThreshold = 0.3f,
+            MatchThreshold = 0.3f,
+            // Line number may vary significantly
+            MatchDistance = int.MaxValue
         };
         public short PatchContextLength = 250; // ~5 loc
         public InjectionRegex Injection = null!;
-        public Dictionary<string, string> Variables = null!;
+        public IReadOnlyDictionary<string, string> Variables = null!;
         public string CommentTag = string.Empty;
         public string CurrentPatch = string.Empty;
 
@@ -55,7 +58,7 @@ internal class Patcher
         private bool GetDecoratorValue(string Key, string Content, out string Value)
         {
             Value = string.Empty;
-            int Index = Content.IndexOf('=');
+            var Index = Content.IndexOf('=');
             if (Index < 0)
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
@@ -73,7 +76,7 @@ internal class Patcher
             {
                 foreach (var Diff in Patch.Diffs.Where(Diff => Diff.Operation == Operation.Insert))
                 {
-                    string Decorators = Utils.GetInjectionDecorators(Diff.Text);
+                    var Decorators = Utils.GetInjectionDecorators(Diff.Text);
                     if (Decorators.Length == 0) continue;
 
                     foreach (var Decorator in Decorators.Split(',', Utils.SplitOptions))
@@ -131,7 +134,7 @@ internal class Patcher
 
                 while (Matched.Success)
                 {
-                    int MatchEnd = Matched.Index + Matched.Length;
+                    var MatchEnd = Matched.Index + Matched.Length;
 
                     if (Sections.All(S => MatchEnd <= S.Item1 || Matched.Index >= S.Item2))
                     {
@@ -152,7 +155,7 @@ internal class Patcher
             }
 
             Sections.Sort();
-            int CurrentStart = 0;
+            var CurrentStart = 0;
             foreach (var Section in Sections)
             {
                 if (Section.Item1 > CurrentStart)
@@ -183,18 +186,18 @@ internal class Patcher
             return Diffs;
         }
 
-        public string Serialize(PatchBundle Patches)
+        private PatchBundle Pack(PatchBundle Patches, bool SkipCaptures)
         {
             var Results = new PatchBundle(DiffMatchPatch.patch_deepCopy(Patches.Patches));
-            int TotalIncrement = 0;
+            var TotalIncrement = 0;
 
             foreach (var Patch in Results.Patches)
             {
-                int Increment = 0;
+                var Increment = 0;
 
                 foreach (var Diff in Patch.Diffs.Where(Diff => Diff.Operation == Operation.Insert))
                 {
-                    Diff.Text = Injection.Pack(Diff.Text, ref Increment);
+                    Diff.Text = Injection.Pack(Diff.Text, ref Increment, SkipCaptures);
                 }
 
                 Patch.Start2 += TotalIncrement;
@@ -202,17 +205,16 @@ internal class Patcher
                 TotalIncrement += Increment;
             }
 
-            return DiffMatchPatch.patch_toText(Results.Patches);
+            return Results;
         }
 
-        public PatchBundle Deserialize(string Content)
+        private PatchBundle Unpack(PatchBundle Patches)
         {
-            var Patches = new PatchBundle(DiffMatchPatch.patch_fromText(Content));
-            int TotalIncrement = 0;
+            var TotalIncrement = 0;
 
             foreach (var Patch in Patches.Patches)
             {
-                int Increment = 0;
+                var Increment = 0;
 
                 foreach (var Diff in Patch.Diffs.Where(Diff => Diff.Operation == Operation.Insert))
                 {
@@ -224,27 +226,43 @@ internal class Patcher
                 TotalIncrement += Increment;
             }
 
-            return HandleDecorators(Patches);
+            return Patches;
+        }
+
+        public string Serialize(PatchBundle Patches, bool SkipCapture)
+        {
+            return DiffMatchPatch.patch_toText(Pack(Patches, SkipCapture).Patches);
+        }
+
+        public PatchBundle Deserialize(string Content)
+        {
+            var Patches = new PatchBundle(DiffMatchPatch.patch_fromText(Content));
+            return HandleDecorators(Unpack(Patches));
         }
 
         public bool Apply(PatchBundle Patches, string Content, string DumpPath, bool ForceDump, out string Patched)
         {
-            var (Output, Success, Indices) = Context.patch_apply(Patches.Patches, Content);
+            var Result = Context.patch_apply(Patches.Patches, Content, true);
 
-            int FailureCount = 0;
+            var FailureCount = 0;
             var Record = new BitArray(Patches.Patches.Count);
-            for (int Index = 0; Index < Success.Length; ++Index)
+            foreach (var Index in Enumerable.Range(0, Result.Locations.Count).Where(Index => Result.Locations[Index] < 0))
             {
-                if (Success[Index]) continue;
                 FailureCount++;
 
-                var MappedIndex = Indices[Index];
+                var MappedIndex = Result.Indices[Index];
                 if (Record[MappedIndex]) continue;
                 Record[MappedIndex] = true;
                 var OutputPath = $"{DumpPath}.{MappedIndex}.html";
 
                 Utils.EnsureParentDirectoryExists(OutputPath);
-                File.WriteAllText(OutputPath, DiffMatchPatch.diff_prettyHtml(Patches.Patches[MappedIndex].Diffs));
+                var Diffs = new List<Diff>(Result.Patches[Index].Diffs)
+                {
+                    new (Operation.Equal, new string('=', 50) + " ↓↓↓ COMPLETE CONTEXT ↓↓↓ " + new string('=', 50))
+                };
+                Diffs.AddRange(Patches.Patches[MappedIndex].Diffs);
+
+                File.WriteAllText(OutputPath, DiffMatchPatch.diff_prettyHtml(Diffs));
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.Error.WriteLine("Error: Patch failed: Please merge the relevant changes manually from '{0}'", OutputPath);
             }
@@ -262,45 +280,145 @@ internal class Patcher
                 File.WriteAllText(OutputPath, DiffMatchPatch.diff_prettyHtml(Diffs));
             }
 
-            Patched = Output;
-            return FailureCount < Success.Length; // Success if any patch is applied
+            Patched = Result.Text;
+            return FailureCount < Result.Locations.Count; // Success if any patch is applied
         }
 
         public PatchBundle Diff(string Before, string After)
         {
-            // Adjust the margin temporarily to get longer context
-            // patch_apply need this to be within MatchMaxBits
-            var OldValue = Context.PatchMargin;
-            Context.PatchMargin = PatchContextLength;
-
             // var Diffs = Context.diff_main(Before, After);
             var Diffs = MakeDiffs(Before, After);
-            var Patches = Context.patch_make(Before, Diffs);
-            var Result = HandleDecorators(new PatchBundle(Patches));
 
+            // Only adjust the margin temporarily to get a longer context
+            // patch_apply still need this to be within MatchMaxBits
+            var OldValue = Context.PatchMargin;
+            Context.PatchMargin = PatchContextLength;
+            var Patches = Context.patch_make(Before, Diffs);
             Context.PatchMargin = OldValue;
+
+            var Result = HandleDecorators(new PatchBundle(Patches));
             return Result;
         }
 
-        public static PatchBundle Merge(PatchBundle History, PatchBundle New, bool KeepAllHistory)
+        public PatchBundle Merge(PatchBundle History, PatchBundle New, string Text, bool Incremental)
         {
-            if (KeepAllHistory)
+            if (!Incremental)
             {
-                var FilteredHistory = new PatchBundle(History.Patches.Where(Patch => Patch.Skip != BooleanOverride.False).ToList());
-                FilteredHistory.Patches.AddRange(New.Patches.Where(Patch => Patch.Skip == BooleanOverride.False));
-                FilteredHistory.Patches.Sort((A, B) => A.Start1 - B.Start1);
-                return FilteredHistory;
+                New.Patches.AddRange(History.Patches.Where(Patch => Patch.Skip == BooleanOverride.True));
+                // Techniquely we shouldn't sort at all because of DMP's rolling context
+                // But for our purposes this should be fine
+                New.Patches.Sort((A, B) => A.Start1 - B.Start1); 
+                return New;
             }
 
-            New.Patches.AddRange(History.Patches.Where(Patch => Patch.Skip == BooleanOverride.True));
-            New.Patches.Sort((A, B) => A.Start1 - B.Start1);
-            return New;
+            // Discard the new one if associated history is found
+            var Preserved = new HashSet<int>();
+            var DiscardedNew = new HashSet<int>();
+
+            // Should always compare the packed distance, without captures
+            var PackedNew = Pack(New, true);
+            var PackedHistory = Pack(History, true);
+            var Result = Context.patch_apply(PackedHistory.Patches, Text, true);
+            var HistoryRecord = new Dictionary<int, List<int>>();
+            var NewRecord = new Dictionary<int, List<int>>();
+            foreach (var HistoryIndex in Enumerable.Range(0, PackedHistory.Patches.Count))
+            {
+                var HistoryPatch = PackedHistory.Patches[HistoryIndex];
+
+                if (HistoryPatch.Skip != BooleanOverride.Unspecified)
+                {
+                    // Always preserve for different engine versions
+                    if (HistoryPatch.Skip == BooleanOverride.True) Preserved.Add(HistoryIndex);
+                    continue; // Always discard for this engine version 
+                }
+
+                // Always discard if invalid
+                if (Result.Locations.Where((_, Index) => Result.Indices[Index] == HistoryIndex)
+                    .Any(Loc => Loc < 0)) continue;
+
+                var RelevantIndices = GetRelevantPatches(HistoryIndex);
+                HistoryRecord.Add(HistoryIndex, RelevantIndices);
+                foreach (var Index in RelevantIndices)
+                {
+                    if (!NewRecord.ContainsKey(Index)) NewRecord.Add(Index, new List<int>());
+                    NewRecord[Index].Add(HistoryIndex);
+                }
+            }
+
+            foreach (var Pair in HistoryRecord)
+            {
+                var Patch = PackedHistory.Patches[Pair.Key];
+                if (!InsertionEquals(Patch, PackedNew.Patches, Pair.Value)) continue;
+                Preserved.Add(Pair.Key);
+            }
+
+            foreach (var Pair in NewRecord)
+            {
+                var Patch = PackedNew.Patches[Pair.Key];
+                if (!InsertionEquals(Patch, PackedHistory.Patches, Pair.Value)) continue;
+	            DiscardedNew.Add(Pair.Key);
+	        }
+
+            var FilteredHistory = new PatchBundle(History.Patches.Where((_, Index) => Preserved.Contains(Index)).ToList());
+            FilteredHistory.Patches.AddRange(New.Patches.Where((_, Index) => !DiscardedNew.Contains(Index)));
+            FilteredHistory.Patches.Sort((A, B) => A.Start1 - B.Start1);
+            return FilteredHistory;
+
+            List<int> GetRelevantPatches(int HistoryIndex)
+            {
+	            var RelevantPatches = new List<int>();
+
+                foreach (var NewIndex in Enumerable.Range(0, PackedNew.Patches.Count))
+	            {
+		            var NewPatch = PackedNew.Patches[NewIndex];
+		            var ValidStart = NewPatch.Start2 + NewPatch.Diffs.First().Text.Length - DiffMatchPatch.MatchMaxBits;
+		            var ValidEnd = NewPatch.Start2 + NewPatch.Length2 - NewPatch.Diffs.Last().Text.Length + DiffMatchPatch.MatchMaxBits;
+
+                    if (Enumerable.Range(0, Result.Indices.Count)
+                        .Where(Index => Result.Indices[Index] == HistoryIndex)
+                        .All(ResultIndex =>
+                        {
+                            var Location = Result.Locations[ResultIndex];
+                            return Location >= ValidStart || Location < ValidEnd;
+                        }))
+                    {
+                        RelevantPatches.Add(NewIndex);
+                    }
+	            }
+
+	            return RelevantPatches;
+            }
+
+            bool InsertionEquals(Patch Patch, IReadOnlyList<Patch> AllPatches, IReadOnlyList<int> RelevantIndices)
+            {
+                var Record = new HashSet<int>();
+	            return Patch.Diffs
+		            .Where(Diff => Diff.Operation == Operation.Insert)
+                    .All(Target => RelevantIndices.Any(PatchIndex =>
+                    {
+                        var Diffs = AllPatches[PatchIndex].Diffs;
+                        return Enumerable.Range(0, Diffs.Count)
+                            .Where(DiffIndex => Diffs[DiffIndex].Operation == Operation.Insert)
+                            .Any(DiffIndex =>
+                            {
+                                int Hash = (PatchIndex << 16) | DiffIndex;
+                                if (Record.Contains(Hash)) return false;
+
+                                var LocalDiffs = Context.diff_main(Target.Text, Diffs[DiffIndex].Text);
+                                var Distance = DiffMatchPatch.diff_levenshtein(LocalDiffs);
+                                if (Distance >= 3) return false;
+
+                                Record.Add(Hash);
+                                return true;
+                            });
+                    }));
+            }
         }
 
         public float MatchContentTolerance
         {
             get => Context.MatchThreshold;
-            set => Context.MatchThreshold = value;
+            set => Context.PatchDeleteThreshold = Context.MatchThreshold = value;
         }
         public int MatchLineTolerance
         {
@@ -309,7 +427,7 @@ internal class Patcher
         }
     }
 
-    private readonly DMPContext Context = new();
+    private readonly DmpContext Context = new();
     public readonly string DefaultExtension;
 
     private enum PatchFileType
@@ -330,40 +448,36 @@ internal class Patcher
 
     public bool Apply(IPatchBundle Patches, string Before, string DumpPath, bool ForceDump, out string Patched)
     {
-        return Context.Apply((DMPContext.PatchBundle)Patches, Before, DumpPath, ForceDump, out Patched);
+        return Context.Apply((DmpContext.PatchBundle)Patches, Before, DumpPath, ForceDump, out Patched);
     }
 
-    public IPatchBundle Generate(string Before, string After)
+    public IPatchBundle Generate(string Before, string After, bool Incremental)
     {
-        return Context.Diff(Before, After);
+        return Context.Merge((DmpContext.PatchBundle)Load(), Context.Diff(Before, After), Before, Incremental);
     }
 
-    public IPatchBundle Generate(string Before, string After, bool KeepAllHistory)
+    public bool Save(IPatchBundle Patches, bool ShouldSave = true)
     {
-        return DMPContext.Merge((DMPContext.PatchBundle)Load(), (DMPContext.PatchBundle)Generate(Before, After), KeepAllHistory);
-    }
+        var PatchPath = CurrentPatch + DefaultExtension;
+        Debug.Assert(File.Exists(PatchPath));
 
-    public bool Save(IPatchBundle Patches)
-    {
-        string PatchPath = CurrentPatch + DefaultExtension;
+        var Content = Context.Serialize((DmpContext.PatchBundle)Patches, DefaultExtension == Extensions[(int)PatchFileType.Main]);
 
-        string Content = Context.Serialize((DMPContext.PatchBundle)Patches);
-        if (File.Exists(PatchPath) && File.ReadAllText(PatchPath) == Content) return false;
-
-        File.WriteAllText(PatchPath, Content);
-        return true;
+        var Differs = File.ReadAllText(PatchPath) != Content;
+        if (Differs && ShouldSave) File.WriteAllText(PatchPath, Content);
+        return Differs;
     }
 
     public IPatchBundle Load()
     {
-        string PatchPath = CurrentPatch + DefaultExtension;
+        var PatchPath = CurrentPatch + DefaultExtension;
         if (!File.Exists(PatchPath)) PatchPath = CurrentPatch + Extensions[(int)PatchFileType.Main];
         return Context.Deserialize(File.ReadAllText(PatchPath));
     }
 
     public static string GetSourcePath(string FullPath)
     {
-        foreach (string Extension in Extensions)
+        foreach (var Extension in Extensions)
         {
             if (FullPath.EndsWith(Extension)) return FullPath[..^Extension.Length];
         }
@@ -391,7 +505,7 @@ internal class Patcher
         get => Context.Injection;
         set => Context.Injection = value;
     }
-    public Dictionary<string, string> Variables
+    public IReadOnlyDictionary<string, string> Variables
     {
         get => Context.Variables;
         set => Context.Variables = value;

@@ -13,7 +13,7 @@ internal static class Launcher
         var CurrentKey = string.Empty;
         var CurrentValue = new StringBuilder(256);
 
-        foreach (string Arg in Args)
+        foreach (var Arg in Args)
         {
             if (!Arg.StartsWith("-"))
             {
@@ -54,7 +54,7 @@ internal static class Launcher
     {
         var Arguments = ParseArguments(Args);
 
-        if (!Arguments.TryGetValue("P", out string? PluginName))
+        if (!Arguments.TryGetValue("P", out var PluginName))
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("Please specify the plugin name, where the source patches are located.");
@@ -62,24 +62,22 @@ internal static class Launcher
             return;
         }
 
-        string EngineRoot = Directory.GetCurrentDirectory();
+        var EngineRoot = Directory.GetCurrentDirectory();
         EngineRoot = Path.GetFullPath(Path.Combine(EngineRoot[..(EngineRoot.IndexOf("Crysknife", StringComparison.Ordinal) - 1)], ".."));
         if (Arguments.TryGetValue("E", out var Parameters)) EngineRoot = Path.GetFullPath(Path.Combine(Parameters, "Engine"));
 
         Injector.Init(EngineRoot);
 
-        string VariableOverrides = "";
+        var VariableOverrides = string.Empty;
         if (Arguments.TryGetValue("D", out Parameters)) VariableOverrides = Parameters;
 
+        // First letter of each enum name is used as the command flag
         var Options = JobOptions.None;
-        if (Arguments.ContainsKey("l") || Arguments.ContainsKey("link")) Options |= JobOptions.Link;
-        if (Arguments.ContainsKey("f") || Arguments.ContainsKey("force")) Options |= JobOptions.Force;
-        if (Arguments.ContainsKey("d") || Arguments.ContainsKey("dry-run")) Options |= JobOptions.DryRun;
-        if (Arguments.ContainsKey("v") || Arguments.ContainsKey("verbose")) Options |= JobOptions.Verbose;
-        if (Arguments.ContainsKey("p") || Arguments.ContainsKey("protected")) Options |= JobOptions.Protected;
-        if (Arguments.ContainsKey("t") || Arguments.ContainsKey("treat-patch-as-file")) Options |= JobOptions.TreatPatchAsFile;
-        if (Arguments.ContainsKey("c") || Arguments.ContainsKey("clear-all-history")) Options |= JobOptions.ClearAllHistory;
-        if (Arguments.ContainsKey("k") || Arguments.ContainsKey("keep-all-history")) Options |= JobOptions.KeepAllHistory;
+        foreach (var (Name, Value) in Enum.GetNames<JobOptions>().Zip(Enum.GetValues<JobOptions>()).Where(Pair => Pair.Second != JobOptions.None))
+        {
+            var FormattedKey = Injector.CamelCaseToSnakeCase(Name[Name.IndexOf(Name.First(char.IsUpper))..]).Replace('_', '-');
+            if (Arguments.ContainsKey($"{char.ToLower(Name.First())}") || Arguments.ContainsKey(FormattedKey)) Options |= Value;
+        }
 
         var InjectorInstance = new Injector(PluginName, VariableOverrides, Options);
         var Job = JobType.None;

@@ -22,7 +22,7 @@ internal static class ProjectSetup
     private static void GenerateSetupScripts(string TargetDirectory, string PluginName)
     {
         File.WriteAllText(Path.Combine(TargetDirectory, "Setup.bat"), string.Format(WindowsTemplate, Utils.UnifySeparators(PluginName, "\\")));
-        string LinuxScript = string.Format(LinuxTemplate, Utils.UnifySeparators(PluginName, "/"));
+        var LinuxScript = string.Format(LinuxTemplate, Utils.UnifySeparators(PluginName, "/"));
         File.WriteAllText(Path.Combine(TargetDirectory, "Setup.sh"), LinuxScript);
         File.WriteAllText(Path.Combine(TargetDirectory, "Setup.command"), LinuxScript);
         Console.ForegroundColor = ConsoleColor.Green;
@@ -39,7 +39,7 @@ internal static class ProjectSetup
 
     private static void PatchPluginDescription(string TargetDirectory, string PluginName)
     {
-        string PluginDescFile = Path.Combine(TargetDirectory, PluginName + ".uplugin");
+        var PluginDescFile = Path.Combine(TargetDirectory, PluginName + ".uplugin");
         if (!File.Exists(PluginDescFile))
         {
             Console.ForegroundColor = ConsoleColor.Red;
@@ -102,7 +102,7 @@ internal static class ProjectSetup
 
     private static void WriteDefaultConfig(string SourcePatchDirectory, string PluginName)
     {
-        string ConfigPath = Path.Combine(SourcePatchDirectory, "Crysknife.ini");
+        var ConfigPath = Path.Combine(SourcePatchDirectory, "Crysknife.ini");
         if (File.Exists(ConfigPath)) return;
         File.WriteAllText(ConfigPath, string.Format(ConfigTemplate, PluginName.ToUpper()));
     }
@@ -116,9 +116,9 @@ internal static class ProjectSetup
 
     private static void WriteIgnoreFile(string TargetDirectory)
     {
-        string IgnoreFile = Path.Combine(TargetDirectory, ".gitignore");
-        string Content = File.Exists(IgnoreFile) ? File.ReadAllText(IgnoreFile) : "";
-        string MissingList = string.Join('\n', IgnoredFiles.Where(File => !Content.Contains(File)));
+        var IgnoreFile = Path.Combine(TargetDirectory, ".gitignore");
+        var Content = File.Exists(IgnoreFile) ? File.ReadAllText(IgnoreFile) : "";
+        var MissingList = string.Join('\n', IgnoredFiles.Where(File => !Content.Contains(File)));
         if (MissingList.Length != 0)
         {
             File.WriteAllText(IgnoreFile, string.Join('\n', Content, MissingList));   
@@ -127,11 +127,11 @@ internal static class ProjectSetup
 
     public static void Generate(string PluginName)
     {
-        string TargetDirectory = Utils.GetPluginDirectory(PluginName);
+        var TargetDirectory = Utils.GetPluginDirectory(PluginName);
         PatchPluginDescription(TargetDirectory, PluginName);
         GenerateSetupScripts(TargetDirectory, PluginName);
         WriteIgnoreFile(TargetDirectory);
-        string SourcePatchDirectory = Path.Combine(TargetDirectory, "SourcePatch");
+        var SourcePatchDirectory = Path.Combine(TargetDirectory, "SourcePatch");
         Utils.EnsureParentDirectoryExists(SourcePatchDirectory);
         WriteDefaultConfig(SourcePatchDirectory, PluginName);
     }

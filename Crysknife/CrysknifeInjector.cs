@@ -12,6 +12,7 @@ public enum JobType
     Apply = 0x4,
 }
 
+// ReSharper disable InconsistentNaming
 [Flags]
 public enum JobOptions
 {
@@ -21,10 +22,11 @@ public enum JobOptions
     DryRun = 0x4,
     Verbose = 0x8,
     Protected = 0x10,
-    TreatPatchAsFile = 0x20,
-    ClearAllHistory = 0x40,
-    KeepAllHistory = 0x80,
+    nIncremental = 0x20,
+    TreatPatchAsFile = 0x40,
+    BypassCustomCommentTag = 0x80,
 }
+// ReSharper restore InconsistentNaming
 
 public class Injector
 {
@@ -65,22 +67,22 @@ public class Injector
         public readonly string CommentTag;
         public readonly string Directory;
         public readonly InjectionRegexGroup PatchRegex;
-        public readonly Dictionary<string, string> Variables;
+        public readonly IReadOnlyDictionary<string, string> Variables;
 
         public SourcePatchInfo(ConfigSystem Config)
         {
             PluginName = Config.PluginName;
             Directory = Utils.GetPatchDirectory(Config.PluginName);
             CommentTag = Config.GetCommentTag();
+            Variables = Config.GetVariables();
             PatchRegex = new InjectionRegexGroup(Config);
-            Variables = Config.Variables;
         }
     }
 
     private void ProcessPatch(JobType Job, string PatchPath, string TargetPath, SourcePatchInfo SourcePatch)
     {
-        string TargetContent = SourcePatch.PatchRegex.ClearResiduals(File.ReadAllText(TargetPath));
-        string ClearedTarget = SourcePatch.PatchRegex.Unpatch(TargetContent);
+        var TargetContent = SourcePatch.PatchRegex.ClearResiduals(File.ReadAllText(TargetPath));
+        var ClearedTarget = SourcePatch.PatchRegex.Unpatch(TargetContent);
         PatcherInstance.CommentTag = SourcePatch.CommentTag;
         PatcherInstance.Injection = SourcePatch.PatchRegex.Injection;
         PatcherInstance.Variables = SourcePatch.Variables;
@@ -89,8 +91,7 @@ public class Injector
 
         if (Job.HasFlag(JobType.Generate))
         {
-            Patches = Options.HasFlag(JobOptions.ClearAllHistory) ? PatcherInstance.Generate(ClearedTarget, TargetContent)
-                : PatcherInstance.Generate(ClearedTarget, TargetContent, Options.HasFlag(JobOptions.KeepAllHistory));
+            Patches = PatcherInstance.Generate(ClearedTarget, TargetContent, Options.HasFlag(JobOptions.nIncremental));
 
             if (!Patches.IsValid())
             {
@@ -126,11 +127,11 @@ public class Injector
 
             if (Patches.IsValid())
             {
-                string DumpPath = Options.HasFlag(JobOptions.DryRun) ? TargetPath
+                var DumpPath = Options.HasFlag(JobOptions.DryRun) ? TargetPath
                     : Path.Combine(Utils.GetPluginDirectory(SourcePatch.PluginName), "Intermediate", "Crysknife",
                         Path.GetRelativePath(Utils.GetSourceDirectory(), TargetPath));
 
-                bool Success = PatcherInstance.Apply(Patches, ClearedTarget, DumpPath, Options.HasFlag(JobOptions.DryRun), out var Patched);
+                var Success = PatcherInstance.Apply(Patches, ClearedTarget, DumpPath, Options.HasFlag(JobOptions.DryRun), out var Patched);
                 if (Success && !Patched.Equals(TargetContent, StringComparison.Ordinal))
                 {
                     if (TargetContent.Length != ClearedTarget.Length)
@@ -153,9 +154,9 @@ public class Injector
 
     private void ProcessFile(JobType Job, string SrcPath, string DstPath)
     {
-        bool Exists = File.Exists(DstPath);
-        bool IsSymLink = Exists && new FileInfo(DstPath).Attributes.HasFlag(FileAttributes.ReparsePoint);
-        bool UpToDate = Exists && !IsSymLink && File.ReadAllText(SrcPath) == File.ReadAllText(DstPath);
+        var Exists = File.Exists(DstPath);
+        var IsSymLink = Exists && new FileInfo(DstPath).Attributes.HasFlag(FileAttributes.ReparsePoint);
+        var UpToDate = Exists && !IsSymLink && File.ReadAllText(SrcPath) == File.ReadAllText(DstPath);
 
         if (Job.HasFlag(JobType.Generate) && !IsSymLink && !UpToDate)
         {
@@ -190,7 +191,7 @@ public class Injector
 
         if (Job.HasFlag(JobType.Apply))
         {
-            bool ShouldBeSymLink = Options.HasFlag(JobOptions.Link);
+            var ShouldBeSymLink = Options.HasFlag(JobOptions.Link);
             if (UpToDate || IsSymLink && ShouldBeSymLink) return;
 
             if (Exists)
@@ -221,18 +222,18 @@ public class Injector
     {
         var PatchedPaths = new List<string>();
 
-        foreach (string InputPath in InputPaths.Split())
+        foreach (var InputPath in InputPaths.Split())
         {
             if (Path.GetExtension(InputPath) != string.Empty)
             {
-                string FilePath = InputPath;
+                var FilePath = InputPath;
                 if (!File.Exists(FilePath)) FilePath = Path.Combine(Utils.GetSourceDirectory(), FilePath);
                 if (!File.Exists(FilePath)) continue;
                 PatchedPaths.Add(FilePath);
             }
             else
             {
-                string DirPath = InputPath;
+                var DirPath = InputPath;
                 if (!Directory.Exists(DirPath)) DirPath = Path.Combine(Utils.GetSourceDirectory(), DirPath);
                 if (!Directory.Exists(DirPath)) continue;
                 PatchedPaths.AddRange(Directory.GetFiles(DirPath, "*", new EnumerationOptions
@@ -240,10 +241,10 @@ public class Injector
             }
         }
 
-        foreach (string PatchedPath in PatchedPaths)
+        foreach (var PatchedPath in PatchedPaths)
         {
-            string RelativePath = Path.GetRelativePath(Utils.GetSourceDirectory(), PatchedPath);
-            string PatchPath = Path.Combine(SourcePatch.Directory, RelativePath);
+            var RelativePath = Path.GetRelativePath(Utils.GetSourceDirectory(), PatchedPath);
+            var PatchPath = Path.Combine(SourcePatch.Directory, RelativePath);
 
             // Register any file contains the project name
             if (Path.GetFileName(PatchedPath).Contains(SourcePatch.PluginName))
@@ -273,18 +274,18 @@ public class Injector
     {
         var PatchedPaths = new List<string>();
 
-        foreach (string InputPath in InputPaths.Split())
+        foreach (var InputPath in InputPaths.Split())
         {
             if (Path.GetExtension(InputPath) != string.Empty)
             {
-                string FilePath = InputPath;
+                var FilePath = InputPath;
                 if (!File.Exists(FilePath)) FilePath = Path.Combine(Utils.GetSourceDirectory(), FilePath);
                 if (!File.Exists(FilePath)) continue;
                 PatchedPaths.Add(FilePath);
             }
             else
             {
-                string DirPath = InputPath;
+                var DirPath = InputPath;
                 if (!Directory.Exists(DirPath)) DirPath = Path.Combine(Utils.GetSourceDirectory(), DirPath);
                 if (!Directory.Exists(DirPath)) continue;
                 PatchedPaths.AddRange(Directory.GetFiles(DirPath, "*", new EnumerationOptions
@@ -292,10 +293,10 @@ public class Injector
             }
         }
 
-        foreach (string PatchedPath in PatchedPaths)
+        foreach (var PatchedPath in PatchedPaths)
         {
-            string RelativePath = Path.GetRelativePath(Utils.GetSourceDirectory(), PatchedPath);
-            string PatchPath = Path.Combine(SourcePatch.Directory, RelativePath + PatcherInstance.DefaultExtension);
+            var RelativePath = Path.GetRelativePath(Utils.GetSourceDirectory(), PatchedPath);
+            var PatchPath = Path.Combine(SourcePatch.Directory, RelativePath + PatcherInstance.DefaultExtension);
             if (!File.Exists(PatchPath)) continue;
 
             ProcessPatch(JobType.Clear, PatchPath, PatchedPath, SourcePatch);
@@ -307,7 +308,7 @@ public class Injector
 
     private static bool RemapPatch(ConfigSystem Config, string Input, out string Output, bool VerboseLogging)
     {
-        bool Proceed = Config.Remap(Input + ".patch", out var Temp, VerboseLogging);
+        var Proceed = Config.Remap(Input + ".patch", out var Temp, VerboseLogging);
         Output = Temp[..^6];
         return Proceed;
     }
@@ -317,27 +318,27 @@ public class Injector
         var SourcePatch = new SourcePatchInfo(Config);
         File.WriteAllText(Path.Combine(SourcePatch.Directory, "CrysknifeCache.ini"), Config.ToString());
 
-        bool VerboseLogging = Options.HasFlag(JobOptions.Verbose);
+        var VerboseLogging = Options.HasFlag(JobOptions.Verbose);
 
         var Patches = new HashSet<string>();
-        foreach (string SrcPath in Directory.GetFiles(SourcePatch.Directory, "*", new EnumerationOptions { RecurseSubdirectories = true }))
+        foreach (var SrcPath in Directory.GetFiles(SourcePatch.Directory, "*", new EnumerationOptions { RecurseSubdirectories = true }))
         {
             if (!SrcPath.Contains(InclusiveFilter) || SrcPath.Contains(ExclusiveFilter)) continue;
 
-            string RelativePath = Path.GetRelativePath(SourcePatch.Directory, SrcPath);
+            var RelativePath = Path.GetRelativePath(SourcePatch.Directory, SrcPath);
             if (RelativePath.EndsWith(".patch", StringComparison.OrdinalIgnoreCase)) // Patch existing files
             {
                 Patches.Add(Patcher.GetSourcePath(RelativePath));
             }
             else if (Config.Remap(RelativePath, out var DstRelativePath, VerboseLogging))
             {
-                string OutputPath = Path.Combine(Utils.GetSourceDirectory(), DstRelativePath);
+                var OutputPath = Path.GetFullPath(Path.Combine(Utils.GetSourceDirectory(), DstRelativePath));
 
                 // When dry running, sync with original output path unconditionally
                 if (Options.HasFlag(JobOptions.DryRun) && RelativePath != DstRelativePath)
                 {
                     Utils.EnsureParentDirectoryExists(OutputPath);
-                    string OriginalDstPath = Path.Combine(Utils.GetSourceDirectory(), RelativePath);
+                    var OriginalDstPath = Path.Combine(Utils.GetSourceDirectory(), RelativePath);
                     if (File.Exists(OriginalDstPath)) Utils.FileAccessGuard(() => File.Copy(OriginalDstPath, OutputPath, true), OutputPath);
                     else File.Delete(OutputPath);
                 }
@@ -350,31 +351,29 @@ public class Injector
         {
             if (!RemapPatch(Config, RelativePath, out var NewRelativePath, VerboseLogging)) continue;
 
-            string PatchPath = Path.Combine(SourcePatch.Directory, RelativePath);
-            string SourcePath = Path.GetFullPath(Path.Combine(Utils.GetSourceDirectory(), NewRelativePath));
+            var PatchPath = Path.Combine(SourcePatch.Directory, RelativePath);
+            var SourcePath = Path.GetFullPath(Path.Combine(Utils.GetSourceDirectory(), NewRelativePath));
 
             if (Options.HasFlag(JobOptions.TreatPatchAsFile))
             {
-                foreach (string PatchSuffix in Patcher.Extensions)
+                foreach (var PatchSuffix in Patcher.Extensions)
                 {
-                    string PatchFilePath = PatchPath + PatchSuffix;
+                    var PatchFilePath = PatchPath + PatchSuffix;
                     if (File.Exists(PatchFilePath)) ProcessFile(Job, PatchFilePath, SourcePath + PatchSuffix);
                 }
                 continue;
             }
-            string OriginalSourcePath = Path.Combine(Utils.GetSourceDirectory(), RelativePath);
+            var OriginalSourcePath = Path.Combine(Utils.GetSourceDirectory(), RelativePath);
 
             // When remapping patches, sync from original source if not exist
-            if (OriginalSourcePath != SourcePath && !File.Exists(SourcePath))
+            if (OriginalSourcePath != SourcePath && File.Exists(OriginalSourcePath))
             {
                 Utils.EnsureParentDirectoryExists(SourcePath);
-                Utils.FileAccessGuard(() => File.Copy(OriginalSourcePath, SourcePath), SourcePath);
-            }
-
-            // When dry running, sync with original output path unconditionally
-            if (Options.HasFlag(JobOptions.DryRun) && OriginalSourcePath != SourcePath)
-            {
-                Utils.FileAccessGuard(() => File.Copy(OriginalSourcePath, SourcePath, true), SourcePath);
+                if (!File.Exists(SourcePath) || Options.HasFlag(JobOptions.DryRun))
+                {
+                    File.Delete(SourcePath);
+                    Utils.FileAccessGuard(() => File.Copy(OriginalSourcePath, SourcePath), SourcePath);
+                }
             }
 
             // The original source file have to exist
@@ -408,6 +407,7 @@ public class Injector
         this.Options = Options;
 
         if (Options.HasFlag(JobOptions.DryRun)) VariableOverrides = string.Join(',', "CRYSKNIFE_DRY_RUN=1", VariableOverrides);
+        if (Options.HasFlag(JobOptions.BypassCustomCommentTag)) VariableOverrides = string.Join(',', "CRYSKNIFE_BYPASS_CUSTOM_COMMENT_TAG=1", VariableOverrides);
         DefaultConfig = ConfigSystem.Create(Utils.UnifySeparators(PluginName), VariableOverrides);
 
         PatcherInstance = new Patcher(Options.HasFlag(JobOptions.Protected));
@@ -460,6 +460,11 @@ public class Injector
     public void GenerateSetupScripts()
     {
         ProjectSetup.Generate(DefaultConfig.PluginName);
+    }
+
+    public static string CamelCaseToSnakeCase(string Value)
+    {
+        return Utils.CamelCaseToSnakeCase(Value);
     }
 
     public void Process(JobType Job)

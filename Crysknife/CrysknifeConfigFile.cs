@@ -28,7 +28,7 @@ internal class ConfigLine
 	}
 	public override string ToString()
 	{
-		string Prefix = Action switch
+		var Prefix = Action switch
 		{
 			ConfigLineAction.Add => "+",
 			ConfigLineAction.RemoveKey => "!",
@@ -49,7 +49,7 @@ internal class ConfigFileSection
 		Result.Clear();
 		foreach (var Line in Lines)
 		{
-			string Value = MapFunc != null ? MapFunc(Line.Value) : Line.Value;
+			var Value = MapFunc != null ? MapFunc(Line.Value) : Line.Value;
 			switch (Line.Action)
 			{
 				case ConfigLineAction.Set:
@@ -99,24 +99,24 @@ internal class ConfigFile
 
 		while (true)
 		{
-			string? Line = Reader.ReadLine();
+			var Line = Reader.ReadLine();
 			if (Line == null)
 			{
 				break;
 			}
 
 			// Find the first non-whitespace character
-			for (int StartIdx = 0; StartIdx < Line.Length; StartIdx++)
+			for (var StartIdx = 0; StartIdx < Line.Length; StartIdx++)
 			{
 				if (Line[StartIdx] == ' ' || Line[StartIdx] == '\t') continue;
 
 				// Find the last non-whitespace character. If it's an escaped newline, merge the following line with it.
-				int EndIdx = Line.Length;
+				var EndIdx = Line.Length;
 				while (EndIdx > StartIdx)
 				{
 					if (Line[EndIdx - 1] == '\\')
 					{
-						string? NextLine = Reader.ReadLine();
+						var NextLine = Reader.ReadLine();
 						if (NextLine == null)
 						{
 							break;
@@ -149,7 +149,7 @@ internal class ConfigFile
 					CurrentSection = null;
 					if (Line[EndIdx - 1] == ']')
 					{
-						string SectionName = Line.Substring(StartIdx + 1, EndIdx - StartIdx - 2);
+						var SectionName = Line.Substring(StartIdx + 1, EndIdx - StartIdx - 2);
 
 						// lookup remaps
 						SectionName = RemapSectionOrKey(SectionNameRemap, SectionName, $"which is a config section in '{Location}'");
@@ -180,17 +180,17 @@ internal class ConfigFile
 		string Line, int StartIdx, int EndIdx, ConfigLineAction DefaultAction, IDictionary<string, ConfigFileSection> Sections)
 	{
 		// Find the '=' character separating key and value
-		int EqualsIdx = Line.IndexOf('=', StartIdx, EndIdx - StartIdx);
+		var EqualsIdx = Line.IndexOf('=', StartIdx, EndIdx - StartIdx);
 		if (EqualsIdx == -1 && Line[StartIdx] != '!')
 		{
 			return;
 		}
 
 		// Keep track of the start of the key name
-		int KeyStartIdx = StartIdx;
+		var KeyStartIdx = StartIdx;
 
 		// Remove the +/-/! prefix, if present
-		ConfigLineAction Action = DefaultAction;
+		var Action = DefaultAction;
 		if (Line[KeyStartIdx] == '+' || Line[KeyStartIdx] == '-' || Line[KeyStartIdx] == '!')
 		{
 			Action = Line[KeyStartIdx] == '+' ? ConfigLineAction.Add : Line[KeyStartIdx] == '!' ? ConfigLineAction.RemoveKey : ConfigLineAction.RemoveKeyValue;
@@ -209,7 +209,7 @@ internal class ConfigFile
 		}
 
 		// Remove trailing spaces after the name of the key
-		int KeyEndIdx = EqualsIdx;
+		var KeyEndIdx = EqualsIdx;
 		for (; KeyEndIdx > KeyStartIdx; KeyEndIdx--)
 		{
 			if (Line[KeyEndIdx - 1] != ' ' && Line[KeyEndIdx - 1] != '\t')
@@ -225,7 +225,7 @@ internal class ConfigFile
 		}
 
 		// Skip whitespace between the '=' and the start of the value
-		int ValueStartIdx = EqualsIdx + 1;
+		var ValueStartIdx = EqualsIdx + 1;
 		for (; ValueStartIdx < EndIdx; ValueStartIdx++)
 		{
 			if (Line[ValueStartIdx] != ' ' && Line[ValueStartIdx] != '\t')
@@ -235,7 +235,7 @@ internal class ConfigFile
 		}
 
 		// Strip quotes around the value if present
-		int ValueEndIdx = EndIdx;
+		var ValueEndIdx = EndIdx;
 		if (ValueEndIdx >= ValueStartIdx + 2 && Line[ValueStartIdx] == '"' && Line[ValueEndIdx - 1] == '"')
 		{
 			ValueStartIdx++;
@@ -243,23 +243,23 @@ internal class ConfigFile
 		}
 
 		// Add it to the config section
-		string Key = Line.Substring(KeyStartIdx, KeyEndIdx - KeyStartIdx);
-		string Value = Line.Substring(ValueStartIdx, ValueEndIdx - ValueStartIdx);
+		var Key = Line.Substring(KeyStartIdx, KeyEndIdx - KeyStartIdx);
+		var Value = Line.Substring(ValueStartIdx, ValueEndIdx - ValueStartIdx);
 
 		// remap the key if needed
-		string NewKey = RemapSectionOrKey(KeyRemap, Key, $"which is a config key in section [{Section.Name}], in '{Filename}'");
+		var NewKey = RemapSectionOrKey(KeyRemap, Key, $"which is a config key in section [{Section.Name}], in '{Filename}'");
 
 		// look for a section:name remap
 		if (!NewKey.Equals(Key) && NewKey.Contains(':'))
 		{
-			string SectionName = NewKey[..NewKey.IndexOf(':')];
+			var SectionName = NewKey[..NewKey.IndexOf(':')];
 			if (!Sections.TryGetValue(SectionName, out var CurrentSection))
 			{
 				CurrentSection = new ConfigFileSection(SectionName);
 				Sections.Add(SectionName, CurrentSection);
 			}
 
-			string KeyName = NewKey[(NewKey.IndexOf(':') + 1)..];
+			var KeyName = NewKey[(NewKey.IndexOf(':') + 1)..];
 			CurrentSection.Lines.Add(new ConfigLine(Action, KeyName, Value));
 
 			return;
@@ -290,7 +290,7 @@ internal class ConfigFile
 		try
 		{
 			// read the special ConfigRedirects.ini file into sections
-			string ConfigRemapFile = Path.Combine(RootDirectory, "ConfigRedirects.ini");
+			var ConfigRemapFile = Path.Combine(RootDirectory, "ConfigRedirects.ini");
 			if (File.Exists(ConfigRemapFile))
 			{
 				ReadIntoSections(ConfigRemapFile, Sections, ConfigLineAction.Set);
@@ -309,7 +309,7 @@ internal class ConfigFile
 			// remember a remap for section names
 			if (Pair.Key.Equals("SectionNameRemap", StringComparison.InvariantCultureIgnoreCase))
 			{
-				foreach (ConfigLine Line in Pair.Value.Lines)
+				foreach (var Line in Pair.Value.Lines)
 				{
 					SectionNameRemap.Add(Line.Key, Line.Value);
 				}
@@ -319,7 +319,7 @@ internal class ConfigFile
 				// any other section is rmembered by the section name here, and each key/value pair is a remap for the given section
 				Dictionary<string, string> KeyRemap = new(StringComparer.InvariantCultureIgnoreCase);
 				SectionKeyRemap.Add(Pair.Key, KeyRemap);
-				foreach (ConfigLine Line in Pair.Value.Lines)
+				foreach (var Line in Pair.Value.Lines)
 				{
 					KeyRemap.Add(Line.Key, Line.Value);
 				}
@@ -336,7 +336,7 @@ internal class ConfigFile
 
 	public ConfigFile Merge(ConfigFile File, bool AppendToTail = true)
 	{
-		foreach (string SectionName in File.SectionNames)
+		foreach (var SectionName in File.SectionNames)
 		{
 			if (!File.TryGetSection(SectionName, out var BaseSection)) continue;
 
@@ -355,7 +355,7 @@ internal class ConfigFile
 
 	public void AppendFromText(string SectionName, string IniText, ConfigLineAction DefaultAction = ConfigLineAction.Set)
 	{
-		foreach (string Setting in IniText.Split(',', Utils.SplitOptions))
+		foreach (var Setting in IniText.Split(',', Utils.SplitOptions))
 		{
 			SectionKeyRemap.TryGetValue(SectionName, out var CurrentRemap);
 
