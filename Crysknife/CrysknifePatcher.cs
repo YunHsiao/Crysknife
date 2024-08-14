@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
+// SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
 // SPDX-License-Identifier: MIT
 
 using System.Collections;
@@ -81,20 +81,20 @@ internal class Patcher
 
                     foreach (var Decorator in Decorators.Split(',', Utils.SplitOptions))
                     {
-                        if (Decorator.StartsWith("ContextSkip", StringComparison.OrdinalIgnoreCase))
+                        if (Decorator.StartsWith("MatchContext", StringComparison.OrdinalIgnoreCase))
                         {
-                            if (!GetDecoratorValue("ContextSkip", Decorator, out var Target)) continue;
+                            if (!GetDecoratorValue("MatchContext", Decorator, out var Target)) continue;
                             if (Enum.TryParse<MatchContext>(Target, out var TargetContext))
                             {
-                                Patch.Context &= ~TargetContext;
+                                Patch.Context &= TargetContext;
                             }
                         }
-                        else if (Decorator.StartsWith("ContextLength", StringComparison.OrdinalIgnoreCase))
+                        else if (Decorator.StartsWith("MatchLength", StringComparison.OrdinalIgnoreCase))
                         {
-                            if (!GetDecoratorValue("ContextLength", Decorator, out var Target)) continue;
+                            if (!GetDecoratorValue("MatchLength", Decorator, out var Target)) continue;
                             if (int.TryParse(Target, out var Length))
                             {
-                                DecoratePatch(ref Patch.ContextLength, Length, -1, "ContextLength");
+                                DecoratePatch(ref Patch.ContextLength, Length, -1, "MatchLength");
                             }
                         }
                         else if (Decorator.StartsWith("EngineNewerThan", StringComparison.OrdinalIgnoreCase))
@@ -356,8 +356,8 @@ internal class Patcher
             {
                 var Patch = PackedNew.Patches[Pair.Key];
                 if (!InsertionEquals(Patch, PackedHistory.Patches, Pair.Value)) continue;
-	            DiscardedNew.Add(Pair.Key);
-	        }
+                DiscardedNew.Add(Pair.Key);
+            }
 
             var FilteredHistory = new PatchBundle(History.Patches.Where((_, Index) => Preserved.Contains(Index)).ToList());
             FilteredHistory.Patches.AddRange(New.Patches.Where((_, Index) => !DiscardedNew.Contains(Index)));
@@ -366,13 +366,13 @@ internal class Patcher
 
             List<int> GetRelevantPatches(int HistoryIndex)
             {
-	            var RelevantPatches = new List<int>();
+                var RelevantPatches = new List<int>();
 
                 foreach (var NewIndex in Enumerable.Range(0, PackedNew.Patches.Count))
-	            {
-		            var NewPatch = PackedNew.Patches[NewIndex];
-		            var ValidStart = NewPatch.Start2 + NewPatch.Diffs.First().Text.Length - DiffMatchPatch.MatchMaxBits;
-		            var ValidEnd = NewPatch.Start2 + NewPatch.Length2 - NewPatch.Diffs.Last().Text.Length + DiffMatchPatch.MatchMaxBits;
+                {
+                    var NewPatch = PackedNew.Patches[NewIndex];
+                    var ValidStart = NewPatch.Start2 + NewPatch.Diffs.First().Text.Length - DiffMatchPatch.MatchMaxBits;
+                    var ValidEnd = NewPatch.Start2 + NewPatch.Length2 - NewPatch.Diffs.Last().Text.Length + DiffMatchPatch.MatchMaxBits;
 
                     if (Enumerable.Range(0, Result.Indices.Count)
                         .Where(Index => Result.Indices[Index] == HistoryIndex)
@@ -384,16 +384,16 @@ internal class Patcher
                     {
                         RelevantPatches.Add(NewIndex);
                     }
-	            }
+                }
 
-	            return RelevantPatches;
+                return RelevantPatches;
             }
 
             bool InsertionEquals(Patch Patch, IReadOnlyList<Patch> AllPatches, IReadOnlyList<int> RelevantIndices)
             {
                 var Record = new HashSet<int>();
-	            return Patch.Diffs
-		            .Where(Diff => Diff.Operation == Operation.Insert)
+                return Patch.Diffs
+                    .Where(Diff => Diff.Operation == Operation.Insert)
                     .All(Target => RelevantIndices.Any(PatchIndex =>
                     {
                         var Diffs = AllPatches[PatchIndex].Diffs;
@@ -459,11 +459,10 @@ internal class Patcher
     public bool Save(IPatchBundle Patches, bool ShouldSave = true)
     {
         var PatchPath = CurrentPatch + DefaultExtension;
-        Debug.Assert(File.Exists(PatchPath));
 
         var Content = Context.Serialize((DmpContext.PatchBundle)Patches, DefaultExtension == Extensions[(int)PatchFileType.Main]);
 
-        var Differs = File.ReadAllText(PatchPath) != Content;
+        var Differs = !File.Exists(PatchPath) || File.ReadAllText(PatchPath) != Content;
         if (Differs && ShouldSave) File.WriteAllText(PatchPath, Content);
         return Differs;
     }

@@ -120,11 +120,11 @@ To improve the robustness of the fuzzy-match process, etc. on a per-code-block b
 
 ### Supported Decorator Directives
 
-`ContextSkip=[UPPER|LOWER|ALL]`
-* Specified context direction will be skipped when fuzzy-matching, by default all contexts are matched
+`MatchContext=[UPPER|LOWER|BOTH]`
+* Limit the fuzzy-matching context to the specified direction, by default all contexts are matched
 
-`ContextLength=[LENGTH]`
-* For each matching direction, only match up to the specified length of the context, default is 64 (maximum)
+`MatchLength=[LENGTH]`
+* For each matching context, only match up to the specified length of the context, default is 64 (maximum)
 
 `EngineNewerThan=[VERSION]`<br>
 `EngineOlderThan=[VERSION]`

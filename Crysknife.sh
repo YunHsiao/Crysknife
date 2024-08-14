@@ -34,5 +34,5 @@ if [ ! -z "$Loc" ]; then
     exit
 fi
 
-[ -z "$Skip" ] && dotnet build -c Release > /dev/null
+[ -z "$Skip" ] && dotnet build -nologo -consoleLoggerParameters:NoSummary -verbosity:quiet -c Release
 ./bin/Release/net6.0/Crysknife -E $DIR/../../.. "$@"

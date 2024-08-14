@@ -119,10 +119,10 @@ Injector 本身相对简单直接，并不会神奇地自动改变任何代码�
 
 ### 装饰器指令
 
-`ContextSkip=[UPPER|LOWER|ALL]`
-* 指定的上下文方向将会被忽略，不参与匹配过程，默认所有方向都会匹配
+`MatchContext=[UPPER|LOWER|ALL]`
+* 指定匹配的上下文方向，默认所有方向都会匹配
 
-`ContextLength=[LENGTH]`
+`MatchLength=[LENGTH]`
 * 对每个上下文方向，最多只匹配到指定长度，默认为 64（最大值）
 
 `EngineNewerThan=[VERSION]`<br>

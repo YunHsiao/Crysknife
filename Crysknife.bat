@@ -10,5 +10,5 @@ for %%x in (%*) do (
     )
 )
 
-if "%Skip%" == "" dotnet build -c Release > NUL
+if "%Skip%" == "" dotnet build -nologo -consoleLoggerParameters:NoSummary -verbosity:quiet -c Release
 "./bin/Release/net6.0/Crysknife" %*
