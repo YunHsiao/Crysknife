@@ -50,9 +50,11 @@ internal class ConfigPredicate
         LogicalAnd = true;
     }
 
-    public void AddRange(IEnumerable<string> Input)
+    public void AddRange(string[] Input)
     {
-        Conditions.AddRange(Input);
+        var ConjunctionIndex = Array.FindIndex(Input, Name => Name.Equals("Conjunction", StringComparison.OrdinalIgnoreCase));
+        if (ConjunctionIndex >= 0) RequireConjunction();
+        Conditions.AddRange(Input.Where((_, Index) => Index != ConjunctionIndex));
     }
 
     public override string ToString()
@@ -121,6 +123,10 @@ internal class ConfigPredicates
             {
                 CompileTimeCondition = Eval(CompileTimeCondition, false);
             }
+            else if (Rule.StartsWith("Conjunction", StringComparison.OrdinalIgnoreCase))
+            {
+                CompileTimeCondition = LogicalAnd = true;
+            }
             else if (Utils.GetContentIfStartsWith(Rule, "Conjunctions:", out var Content))
             {
                 var Scopes = Content.Split('|', Utils.SplitOptions).ToList();
@@ -150,8 +156,7 @@ internal class ConfigPredicates
                     continue;
                 }
 
-                Predicate.AddRange(Rule[(Predicate.Keyword.Length + 1)..]
-                    .Split('|', Utils.SplitOptions));
+                Predicate.AddRange(Rule[(Predicate.Keyword.Length + 1)..].Split('|', Utils.SplitOptions));
             }
         }
 
@@ -300,8 +305,7 @@ internal class ConfigSection
 
         if (ShouldRemap)
         {
-            Result = ShouldFlatten ? Path.Combine(RemapTarget, Path.GetFileName(Target)) :
-                ControllingDomain == string.Empty ? Path.Combine(RemapTarget, Target) : Target.Replace(ControllingDomain, RemapTarget);
+            Result = Path.Combine(RemapTarget, ShouldFlatten ? Path.GetFileName(Target) : Target);
             // Convert back into relative path to engine source directory to be consistent
             if (Path.IsPathFullyQualified(Result)) Result = Path.GetRelativePath(Utils.GetSourceDirectory(), Result);
             return RemapResult.Remapped;

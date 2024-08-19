@@ -120,7 +120,7 @@ To improve the robustness of the fuzzy-match process, etc. on a per-code-block b
 
 ### Supported Decorator Directives
 
-`MatchContext=[UPPER|LOWER|BOTH]`
+`MatchContext=[UPPER|LOWER]`
 * Limit the fuzzy-matching context to the specified direction, by default all contexts are matched
 
 `MatchLength=[LENGTH]`

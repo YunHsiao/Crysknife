@@ -119,7 +119,7 @@ Injector 本身相对简单直接，并不会神奇地自动改变任何代码�
 
 ### 装饰器指令
 
-`MatchContext=[UPPER|LOWER|ALL]`
+`MatchContext=[UPPER|LOWER]`
 * 指定匹配的上下文方向，默认所有方向都会匹配
 
 `MatchLength=[LENGTH]`

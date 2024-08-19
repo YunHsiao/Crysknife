@@ -293,7 +293,8 @@ internal class Patcher
             // patch_apply still need this to be within MatchMaxBits
             var OldValue = Context.PatchMargin;
             Context.PatchMargin = PatchContextLength;
-            var Patches = Context.patch_make(Before, Diffs);
+            // Force split patches on every insertion so the decorators could apply accordingly
+            var Patches = Context.patch_make(Before, Diffs, true);
             Context.PatchMargin = OldValue;
 
             var Result = HandleDecorators(new PatchBundle(Patches));
@@ -307,7 +308,7 @@ internal class Patcher
                 New.Patches.AddRange(History.Patches.Where(Patch => Patch.Skip == BooleanOverride.True));
                 // Techniquely we shouldn't sort at all because of DMP's rolling context
                 // But for our purposes this should be fine
-                New.Patches.Sort((A, B) => A.Start1 - B.Start1); 
+                New.Patches.Sort((A, B) => A.Start1 - B.Start1);
                 return New;
             }
 

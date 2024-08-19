@@ -371,8 +371,11 @@ public class Injector
                 Utils.EnsureParentDirectoryExists(SourcePath);
                 if (!File.Exists(SourcePath) || Options.HasFlag(JobOptions.DryRun))
                 {
-                    File.Delete(SourcePath);
-                    Utils.FileAccessGuard(() => File.Copy(OriginalSourcePath, SourcePath), SourcePath);
+                    Utils.FileAccessGuard(() =>
+                    {
+                        if (File.Exists(SourcePath)) File.Delete(SourcePath);
+                        File.Copy(OriginalSourcePath, SourcePath);
+                    }, SourcePath);
                 }
             }
 

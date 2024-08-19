@@ -2077,7 +2077,7 @@ internal class DiffMatchPatch
      * @param diffs Array of Diff objects for text1 to text2.
      * @return List of Patch objects.
      */
-    public List<Patch> patch_make(string Text1, List<Diff> Diffs)
+    public List<Patch> patch_make(string Text1, List<Diff> Diffs, bool SplitOnInsertion = false)
     {
         // Check for null inputs not needed since null can't be passed in C#.
         var Patches = new List<Patch>();
@@ -2094,8 +2094,10 @@ internal class DiffMatchPatch
         // context info.
         var PrepatchText = Text1;
         var PostpatchText = Text1;
-        foreach (var ADiff in Diffs)
+        var ForceSplit = false;
+        foreach (var Index in Enumerable.Range(0, Diffs.Count))
         {
+            var ADiff = Diffs[Index];
             if (Patch.Diffs.Count == 0 && ADiff.Operation != Operation.Equal)
             {
                 // A new patch starts here.
@@ -2109,6 +2111,7 @@ internal class DiffMatchPatch
                     Patch.Diffs.Add(ADiff);
                     Patch.Length2 += ADiff.Text.Length;
                     PostpatchText = PostpatchText.Insert(CharCount2, ADiff.Text);
+                    ForceSplit = SplitOnInsertion;
                     break;
                 case Operation.Delete:
                     Patch.Length1 += ADiff.Text.Length;
@@ -2116,8 +2119,7 @@ internal class DiffMatchPatch
                     PostpatchText = PostpatchText.Remove(CharCount2, ADiff.Text.Length);
                     break;
                 case Operation.Equal:
-                    // ReSharper disable once PossibleUnintendedReferenceComparison
-                    if (ADiff.Text.Length <= 2 * PatchMargin && Patch.Diffs.Count != 0 && ADiff != Diffs.Last())
+                    if (ADiff.Text.Length <= 2 * PatchMargin && Patch.Diffs.Count != 0 && (Index != Diffs.Count - 1) && !ForceSplit)
                     {
                         // Small equality inside a patch.
                         Patch.Diffs.Add(ADiff);
@@ -2125,7 +2127,7 @@ internal class DiffMatchPatch
                         Patch.Length2 += ADiff.Text.Length;
                     }
 
-                    if (ADiff.Text.Length >= 2 * PatchMargin)
+                    if (ADiff.Text.Length >= 2 * PatchMargin || ForceSplit)
                     {
                         // Time for a new patch.
                         if (Patch.Diffs.Count != 0)
@@ -2139,6 +2141,7 @@ internal class DiffMatchPatch
                             // just completed patch.
                             PrepatchText = PostpatchText;
                             CharCount1 = CharCount2;
+                            ForceSplit = false;
                         }
                     }
 
