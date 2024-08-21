@@ -27,25 +27,25 @@ internal class InjectionRegexForm
         return Pattern.Replace(Content, Matched => Replace(Matched.Groups["Tag"].Value, Matched.Groups["Content"].Value, CommentTag));
     }
 
-    public string Pack(string Content, bool SkipCaptures)
+    public string Pack(string Content, bool SkipCaptures, string[] Sentinels)
     {
         return Pattern.Replace(Content, Matched =>
         {
-            Group CurrentTag;
-            string Result;
+            Group CurrentTag = Matched.Groups["FullTag"];
+            string Result = Matched.Value[..(CurrentTag.Index - Matched.Index)];
+            Result += Matched.Groups.TryGetValue("EndTag", out var EndTag) ? "@CrysknifeCTBegin" : "@CrysknifeCT";
 
-            if (Matched.Groups.TryGetValue("EndTag", out var EndTag))
+            string MatchedContent = Matched.Groups["Tag"].Value[CommentTag.Length..];
+            // We may encounter partial insertions where only begin or end is in the context
+            int SentinelIndex = Array.FindIndex(Sentinels, Sentinel =>
+                Sentinel.Equals(MatchedContent, StringComparison.OrdinalIgnoreCase));
+            // Skip if we are inside the multi-line form
+            // Most likely we are inside the next-line form here
+            if (SentinelIndex >= 0 && EndTag == null)
             {
-                CurrentTag = Matched.Groups["FullTag"];
-                Result = Matched.Value[..CurrentTag.Index];
-                Result += $"@CrysknifeCTBegin({Matched.Groups["Tag"].Value[CommentTag.Length..]})\n";
+                Result += SentinelIndex % 2 == 0 ? "Begin()\n" : "End()\n";
             }
-            else
-            {
-                CurrentTag = Matched.Groups["FullTag"];
-                Result = Matched.Value[..CurrentTag.Index];
-                Result += $"@CrysknifeCT({Matched.Groups["Tag"].Value[CommentTag.Length..]})\n";
-            }
+            else Result += $"({MatchedContent})\n";
 
             if (!SkipCaptures)
             {
@@ -58,12 +58,12 @@ internal class InjectionRegexForm
 
             if (EndTag != null)
             {
-                Result += Matched.Value[(CurrentTag.Index + CurrentTag.Length)..EndTag.Index];
+                Result += Matched.Value[(CurrentTag.Index - Matched.Index + CurrentTag.Length)..(EndTag.Index - Matched.Index)];
                 Result += "@CrysknifeCTEnd()\n";
                 CurrentTag = EndTag;
             }
 
-            Result += Matched.Value[(CurrentTag.Index + CurrentTag.Length)..];
+            Result += Matched.Value[(CurrentTag.Index - Matched.Index + CurrentTag.Length)..];
             return Result;
         });
     }
@@ -128,6 +128,7 @@ internal class InjectionRegex
 {
     private readonly InjectionRegexForm[] Forms;
     private readonly InjectionReconstructor Reconstructors;
+    private readonly string[] Sentinels;
 
     public InjectionRegex(string Tag, string Prefix, string Suffix, string Begin, string End,
         string PrefixCtor, string SuffixCtor, string BeginCtor, string EndCtor)
@@ -144,6 +145,7 @@ internal class InjectionRegex
                 RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.Compiled), // Next-line form
         };
         Reconstructors = new InjectionReconstructor(Tag, PrefixCtor, SuffixCtor, BeginCtor, EndCtor);
+        Sentinels = new[] { Begin, End };
     }
 
     public List<Match> Match(string Content)
@@ -163,7 +165,7 @@ internal class InjectionRegex
 
     public string Pack(string Content, ref int Increment, bool SkipCaptures)
     {
-        var Result = Forms.Aggregate(Content, (Acc, Form) => Form.Pack(Acc, SkipCaptures));
+        var Result = Forms.Aggregate(Content, (Acc, Form) => Form.Pack(Acc, SkipCaptures, Sentinels));
         Increment += Result.Length - Content.Length;
         return Result;
     }
@@ -281,11 +283,9 @@ internal static class Utils
         {
             foreach (var Name in Matched.Groups[1].Value.Split('|'))
             {
-                if (Variables.TryGetValue(Name, out var Value))
-                {
-                    if (Recurse) MapVariables(Variables, Value, Recurse, WarnIfFailed, out Value);
-                    return Value;
-                }
+                if (!Variables.TryGetValue(Name, out var Value)) continue;
+                if (Recurse) MapVariables(Variables, Value, Recurse, WarnIfFailed, out Value);
+                return Value;
             }
 
             AllSuccess = false;

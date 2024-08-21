@@ -195,7 +195,7 @@ internal class Patcher
             {
                 var Increment = 0;
 
-                foreach (var Diff in Patch.Diffs.Where(Diff => Diff.Operation == Operation.Insert))
+                foreach (var Diff in Patch.Diffs)
                 {
                     Diff.Text = Injection.Pack(Diff.Text, ref Increment, SkipCaptures);
                 }
@@ -216,7 +216,7 @@ internal class Patcher
             {
                 var Increment = 0;
 
-                foreach (var Diff in Patch.Diffs.Where(Diff => Diff.Operation == Operation.Insert))
+                foreach (var Diff in Patch.Diffs)
                 {
                     Diff.Text = Injection.Unpack(Diff.Text, ref Increment, Variables);
                 }
