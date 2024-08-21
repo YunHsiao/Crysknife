@@ -27,13 +27,13 @@ internal class InjectionRegexForm
         return Pattern.Replace(Content, Matched => Replace(Matched.Groups["Tag"].Value, Matched.Groups["Content"].Value, CommentTag));
     }
 
-    public string Pack(string Content, bool SkipCaptures, string[] Sentinels)
+    public string Pack(string Content, bool SkipCaptures, string ModuleName, string[] Sentinels)
     {
         return Pattern.Replace(Content, Matched =>
         {
             Group CurrentTag = Matched.Groups["FullTag"];
             string Result = Matched.Value[..(CurrentTag.Index - Matched.Index)];
-            Result += Matched.Groups.TryGetValue("EndTag", out var EndTag) ? "@CrysknifeCTBegin" : "@CrysknifeCT";
+            Result += Matched.Groups.TryGetValue("EndTag", out var EndTag) ? $"@{ModuleName}CTBegin" : $"@{ModuleName}CT";
 
             string MatchedContent = Matched.Groups["Tag"].Value[CommentTag.Length..];
             // We may encounter partial insertions where only begin or end is in the context
@@ -52,14 +52,14 @@ internal class InjectionRegexForm
                 foreach (var Index in Enumerable.Range(0, 10))
                 {
                     if (!Matched.Groups.TryGetValue($"Capture{Index}", out var Capture)) break;
-                    Result += $"@CrysknifeCTCapture{Index}({Capture.Value})\n";
+                    Result += $"@{ModuleName}CTCapture{Index}({Capture.Value})\n";
                 }
             }
 
             if (EndTag != null)
             {
                 Result += Matched.Value[(CurrentTag.Index - Matched.Index + CurrentTag.Length)..(EndTag.Index - Matched.Index)];
-                Result += "@CrysknifeCTEnd()\n";
+                Result += $"@{ModuleName}CTEnd()\n";
                 CurrentTag = EndTag;
             }
 
@@ -80,20 +80,21 @@ internal class InjectionRegexForm
 
 internal class InjectionReconstructor
 {
-    private static readonly Regex ReconstructorRegex = new (@"@CrysknifeCT(\w*)\(([^\n]*)\)\n", RegexOptions.Compiled);
+    private readonly Regex ReconstructorRegex;
     private readonly string Tag;
     private readonly string Prefix;
     private readonly string Suffix;
     private readonly string Begin;
     private readonly string End;
 
-    public InjectionReconstructor(string Tag, string Prefix, string Suffix, string Begin, string End)
+    public InjectionReconstructor(string ModuleName, string Tag, string Prefix, string Suffix, string Begin, string End)
     {
         this.Tag = Tag;
         this.Prefix = Prefix;
         this.Suffix = Suffix;
         this.Begin = Begin;
         this.End = End;
+        ReconstructorRegex = new Regex(@$"@{ModuleName}CT(\w*)\(([^\n]*)\)\n", RegexOptions.Compiled);
     }
 
     public string Unpack(string Content, IReadOnlyDictionary<string, string> Variables)
@@ -126,13 +127,17 @@ internal class InjectionReconstructor
 
 internal class InjectionRegex
 {
+    private readonly string ModuleName;
     private readonly InjectionRegexForm[] Forms;
     private readonly InjectionReconstructor Reconstructors;
     private readonly string[] Sentinels;
 
-    public InjectionRegex(string Tag, string Prefix, string Suffix, string Begin, string End,
+    public InjectionRegex(string ModuleName, string Tag, string Prefix, string Suffix, string Begin, string End,
         string PrefixCtor, string SuffixCtor, string BeginCtor, string EndCtor)
     {
+        this.ModuleName = ModuleName;
+        Sentinels = new[] { Begin, End };
+
         var CommentTag = Tag + @"[^\n]*?"; // Allow some comments in between
         Forms = new []
         {
@@ -144,8 +149,7 @@ internal class InjectionRegex
             new InjectionRegexForm(Tag, $@"^[^\S\n]*// (?<FullTag>{Prefix}(?<Tag>{CommentTag}){Suffix})\n(?<Content>.*)\n",
                 RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture | RegexOptions.Compiled), // Next-line form
         };
-        Reconstructors = new InjectionReconstructor(Tag, PrefixCtor, SuffixCtor, BeginCtor, EndCtor);
-        Sentinels = new[] { Begin, End };
+        Reconstructors = new InjectionReconstructor(ModuleName, Tag, PrefixCtor, SuffixCtor, BeginCtor, EndCtor);
     }
 
     public List<Match> Match(string Content)
@@ -165,7 +169,7 @@ internal class InjectionRegex
 
     public string Pack(string Content, ref int Increment, bool SkipCaptures)
     {
-        var Result = Forms.Aggregate(Content, (Acc, Form) => Form.Pack(Acc, SkipCaptures, Sentinels));
+        var Result = Forms.Aggregate(Content, (Acc, Form) => Form.Pack(Acc, SkipCaptures, ModuleName, Sentinels));
         Increment += Result.Length - Content.Length;
         return Result;
     }
@@ -175,6 +179,37 @@ internal class InjectionRegex
         var Result = Reconstructors.Unpack(Content, Variables);
         Increment += Result.Length - Content.Length;
         return Result;
+    }
+}
+
+internal class InjectionRegexGroup
+{
+    public readonly InjectionRegex Injection;
+    private readonly List<InjectionRegex> Residuals = new();
+
+    public InjectionRegexGroup(InjectionRegex Injection)
+    {
+        this.Injection = Injection;
+    }
+
+    public void AddResiduals(IEnumerable<InjectionRegex> NewResiduals)
+    {
+        Residuals.AddRange(NewResiduals);
+    }
+
+    private static string Unpatch(string Content, IEnumerable<InjectionRegex> Regexes)
+    {
+        return Regexes.Aggregate(Content, (Current, Regex) => Regex.Unpatch(Current));
+    }
+
+    public string ClearResiduals(string Content)
+    {
+        return Unpatch(Content, Residuals);
+    }
+
+    public string Unpatch(string Content)
+    {
+        return Injection.Unpatch(Content);
     }
 }
 

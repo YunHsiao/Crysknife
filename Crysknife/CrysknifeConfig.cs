@@ -447,12 +447,13 @@ internal class ConfigSectionHierarchy
 
 internal class ConfigSystem
 {
-    private readonly Dictionary<string, string> Variables = new();
+    private readonly Dictionary<string, string> InnerVariables = new();
     private readonly List<ConfigSection> Sections = new();
     private readonly ConfigSectionHierarchy Hierarchy;
     private readonly Dictionary<string, string> DependencyVariables = new();
     private readonly Dictionary<string, ConfigSystem> Dependencies = new();
     private readonly Dictionary<string, string> Children = new();
+    public readonly InjectionRegexGroup PatchRegex;
     public readonly string PluginName;
 
     private static ConfigFile BaseConfig = new();
@@ -520,7 +521,7 @@ internal class ConfigSystem
         var VariableSecIndex = SectionNames.FindIndex(Name => Name.Equals("Variables", StringComparison.OrdinalIgnoreCase));
         if (VariableSecIndex >= 0 && Config.TryGetSection(SectionNames[VariableSecIndex], out var Section))
         {
-            Section.ParseLines(Variables, '|');
+            Section.ParseLines(InnerVariables, '|');
             SectionNames.RemoveAt(VariableSecIndex);
         }
 
@@ -549,6 +550,8 @@ internal class ConfigSystem
             Sections.Add(new ConfigSection(RulesRegistry, Pair.Value));
         }
         ConfigSectionHierarchy.Link(Hierarchy, Sections);
+
+        PatchRegex = new InjectionRegexGroup(CreateInjectionRegex(new KeyValuePair<string, string>(PluginName, CommentTag)));
     }
 
     // Always create parent dependencies first
@@ -574,7 +577,7 @@ internal class ConfigSystem
             }
             if (!Parent.Children.ContainsKey(PluginName))
             {
-                Parent.RegisterChildren(PluginName, Config.GetCommentTag());
+                Parent.RegisterChildren(PluginName, Config.CommentTag);
             }
 
             Config.Dependencies.TryAdd(Pair.Key, Parent);
@@ -605,12 +608,7 @@ internal class ConfigSystem
         return Result ?? Default;
     }
 
-    public static ConfigSystem Create(string PluginName, string VariableOverrides)
-    {
-        return Create(PluginName, VariableOverrides, "");
-    }
-
-    public InjectionRegex CreateInjectionRegex(string Tag)
+    private InjectionRegex CreateInjectionRegex(KeyValuePair<string, string> Pair)
     {
         var PrefixRegex = GetVariable("CRYSKNIFE_COMMENT_TAG_PREFIX_RE");
         var SuffixRegex = GetVariable("CRYSKNIFE_COMMENT_TAG_SUFFIX_RE");
@@ -636,19 +634,19 @@ internal class ConfigSystem
             EndCtor = GetVariable("CUSTOM_COMMENT_TAG_END_CTOR", EndRegex, false);
         }
 
-        return new InjectionRegex(Tag, PrefixRegex, SuffixRegex, BeginRegex, EndRegex,
+        return new InjectionRegex(Pair.Key, Pair.Value, PrefixRegex, SuffixRegex, BeginRegex, EndRegex,
             PrefixCtor, SuffixCtor, BeginCtor, EndCtor);
     }
 
-    public IEnumerable<string> GetChildrenTags()
+    public static ConfigSystem Create(string PluginName, string VariableOverrides)
     {
-        return Children.Values;
+        var Result = Create(PluginName, VariableOverrides, "");
+        Result.Dispatch(Config => Config.PatchRegex.AddResiduals(Config.Children.Select(Config.CreateInjectionRegex)), true);
+        return Result;
     }
 
-    public IReadOnlyDictionary<string, string> GetVariables()
-    {
-        return Variables;
-    }
+    public IReadOnlyDictionary<string, string> Variables => InnerVariables;
+    public string CommentTag => GetVariable("CRYSKNIFE_COMMENT_TAG", PluginName);
 
     public void Dispatch(Action<ConfigSystem> Action, bool ParentFirst)
     {
@@ -690,8 +688,6 @@ internal class ConfigSystem
                 throw new ArgumentOutOfRangeException();
         }
     }
-
-    public string GetCommentTag() { return GetVariable("CRYSKNIFE_COMMENT_TAG", PluginName); }
 
     public override string ToString()
     {

@@ -39,6 +39,8 @@ internal class Patcher
             MatchDistance = int.MaxValue
         };
         public short PatchContextLength = 250; // ~5 loc
+        public readonly List<InjectionRegex> AllInjections = new();
+
         public InjectionRegex Injection = null!;
         public IReadOnlyDictionary<string, string> Variables = null!;
         public string CommentTag = string.Empty;
@@ -197,7 +199,7 @@ internal class Patcher
 
                 foreach (var Diff in Patch.Diffs)
                 {
-                    Diff.Text = Injection.Pack(Diff.Text, ref Increment, SkipCaptures);
+                    Diff.Text = AllInjections.Aggregate(Diff.Text, (Current, Regex) => Regex.Pack(Current, ref Increment, SkipCaptures));
                 }
 
                 Patch.Start2 += TotalIncrement;
@@ -218,7 +220,7 @@ internal class Patcher
 
                 foreach (var Diff in Patch.Diffs)
                 {
-                    Diff.Text = Injection.Unpack(Diff.Text, ref Increment, Variables);
+                    Diff.Text = AllInjections.Aggregate(Diff.Text, (Current, Regex) => Regex.Unpack(Current, ref Increment, Variables));
                 }
 
                 Patch.Start2 += TotalIncrement;
@@ -505,6 +507,9 @@ internal class Patcher
         get => Context.Injection;
         set => Context.Injection = value;
     }
+
+    public List<InjectionRegex> AllInjections => Context.AllInjections;
+
     public IReadOnlyDictionary<string, string> Variables
     {
         get => Context.Variables;

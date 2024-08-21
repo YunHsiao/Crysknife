@@ -30,52 +30,21 @@ public enum JobOptions
 
 public class Injector
 {
-    private readonly struct InjectionRegexGroup
-    {
-        public readonly InjectionRegex Injection;
-        private readonly List<InjectionRegex> Residuals = new();
-
-        public InjectionRegexGroup(ConfigSystem Config)
-        {
-            Injection = Config.CreateInjectionRegex(Config.GetCommentTag());
-
-            foreach (var Residual in Config.GetChildrenTags())
-            {
-                Residuals.Add(Config.CreateInjectionRegex(Residual));
-            }
-        }
-
-        private static string Unpatch(string Content, IEnumerable<InjectionRegex> Regexes)
-        {
-            return Regexes.Aggregate(Content, (Current, Regex) => Regex.Unpatch(Current));
-        }
-
-        public string ClearResiduals(string Content)
-        {
-            return Unpatch(Content, Residuals);
-        }
-
-        public string Unpatch(string Content)
-        {
-            return Injection.Unpatch(Content);
-        }
-    }
-
     private readonly struct SourcePatchInfo
     {
+        public readonly string Directory;
         public readonly string PluginName;
         public readonly string CommentTag;
-        public readonly string Directory;
         public readonly InjectionRegexGroup PatchRegex;
         public readonly IReadOnlyDictionary<string, string> Variables;
 
         public SourcePatchInfo(ConfigSystem Config)
         {
-            PluginName = Config.PluginName;
             Directory = Utils.GetPatchDirectory(Config.PluginName);
-            CommentTag = Config.GetCommentTag();
-            Variables = Config.GetVariables();
-            PatchRegex = new InjectionRegexGroup(Config);
+            PluginName = Config.PluginName;
+            CommentTag = Config.CommentTag;
+            PatchRegex = Config.PatchRegex;
+            Variables = Config.Variables;
         }
     }
 
@@ -83,8 +52,8 @@ public class Injector
     {
         var TargetContent = SourcePatch.PatchRegex.ClearResiduals(File.ReadAllText(TargetPath));
         var ClearedTarget = SourcePatch.PatchRegex.Unpatch(TargetContent);
-        PatcherInstance.CommentTag = SourcePatch.CommentTag;
         PatcherInstance.Injection = SourcePatch.PatchRegex.Injection;
+        PatcherInstance.CommentTag = SourcePatch.CommentTag;
         PatcherInstance.Variables = SourcePatch.Variables;
         PatcherInstance.CurrentPatch = PatchPath;
         IPatchBundle? Patches = null;
@@ -414,6 +383,8 @@ public class Injector
         DefaultConfig = ConfigSystem.Create(Utils.UnifySeparators(PluginName), VariableOverrides);
 
         PatcherInstance = new Patcher(Options.HasFlag(JobOptions.Protected));
+        // Should always match all dependent plugins on serialization
+        DefaultConfig.Dispatch(Config => PatcherInstance.AllInjections.Add(Config.PatchRegex.Injection), false);
 
         OverrideConfirm = Options.HasFlag(JobOptions.Force) ? Utils.ConfirmResult.Yes | Utils.ConfirmResult.ForAll : Utils.ConfirmResult.NotDecided;
     }
