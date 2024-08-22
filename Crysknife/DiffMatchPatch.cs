@@ -178,6 +178,11 @@ internal class Patch
      */
     public override string ToString()
     {
+        return ToString(false);
+    }
+
+    public string ToString(bool ReserveNewlines)
+    {
         var Coords1 = Length1 switch
         {
             0 => Start1 + ",0",
@@ -194,25 +199,21 @@ internal class Patch
 
         var Text = new StringBuilder();
         Text.Append("@@ -").Append(Coords1).Append(" +").Append(Coords2).Append(" @@\n");
-        // Escape the body of the patch with %xx notation.
+
         foreach (var ADiff in Diffs)
         {
-            switch (ADiff.Operation)
+            char Start = ADiff.Operation switch
             {
-                case Operation.Insert:
-                    Text.Append('+');
-                    break;
-                case Operation.Delete:
-                    Text.Append('-');
-                    break;
-                case Operation.Equal:
-                    Text.Append(' ');
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
+                Operation.Insert => '+',
+                Operation.Delete => '-',
+                Operation.Equal => ' ',
+                _ => throw new ArgumentOutOfRangeException()
+            };
 
-            Text.Append(DiffMatchPatch.EncodeUri(ADiff.Text)).Append("\n");
+            var Content = ReserveNewlines
+                ? ADiff.Text.Replace("\n", $"\n{Start}")
+                : DiffMatchPatch.EncodeUri(ADiff.Text); // Escape the body of the patch with %xx notation.
+            Text.Append(Start).Append(Content).Append('\n');
         }
 
         return Text.ToString();
@@ -2579,12 +2580,12 @@ internal class DiffMatchPatch
      * @param patches List of Patch objects.
      * @return Text representation of patches.
      */
-    public static string patch_toText(List<Patch> Patches)
+    public static string patch_toText(List<Patch> Patches, bool ReserveNewlines = false)
     {
         var Text = new StringBuilder();
         foreach (var APatch in Patches)
         {
-            Text.Append(APatch);
+            Text.Append(APatch.ToString(ReserveNewlines));
         }
 
         return Text.ToString();
