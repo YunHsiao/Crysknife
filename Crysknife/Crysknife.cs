@@ -82,6 +82,12 @@ internal static class Launcher
         var InjectorInstance = new Injector(PluginName, VariableOverrides, Options);
         var Job = JobType.None;
 
+        if ((Arguments.TryGetValue("n", out Parameters) || Arguments.TryGetValue("incremental", out Parameters)) &&
+            int.TryParse(Parameters.Length > 0 ? Parameters : "1", out var Incremental))
+        {
+            InjectorInstance.IncrementalMode = (IncrementalMode)Incremental;
+        }
+
         if (Arguments.TryGetValue("i", out Parameters)) InjectorInstance.InclusiveFilter = Parameters;
         if (Arguments.TryGetValue("e", out Parameters)) InjectorInstance.ExclusiveFilter = Parameters;
         if (Arguments.TryGetValue("patch-context", out Parameters)) InjectorInstance.PatchContextLength = short.Parse(Parameters);

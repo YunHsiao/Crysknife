@@ -12,7 +12,6 @@ public enum JobType
     Apply = 0x4,
 }
 
-// ReSharper disable InconsistentNaming
 [Flags]
 public enum JobOptions
 {
@@ -22,11 +21,21 @@ public enum JobOptions
     DryRun = 0x4,
     Verbose = 0x8,
     Protected = 0x10,
-    nIncremental = 0x20,
-    TreatPatchAsFile = 0x40,
-    BypassCustomCommentTag = 0x80,
+    TreatPatchAsFile = 0x20,
 }
-// ReSharper restore InconsistentNaming
+
+public enum IncrementalMode
+{
+    // All version-relevant patches will be updated
+    // Default, Recommended for latest engine version
+    Disabled,
+    // Only changed or version-specific patches will be updated
+    // Recommended for any other engine versions
+    Enabled,
+    // Only chanegd patches will be updated
+    // Recommended for in-house engine repos
+    Aggressive
+}
 
 public class Injector
 {
@@ -60,7 +69,7 @@ public class Injector
 
         if (Job.HasFlag(JobType.Generate))
         {
-            Patches = PatcherInstance.Generate(ClearedTarget, TargetContent, Options.HasFlag(JobOptions.nIncremental));
+            Patches = PatcherInstance.Generate(ClearedTarget, TargetContent);
 
             if (!Patches.IsValid())
             {
@@ -379,16 +388,19 @@ public class Injector
         this.Options = Options;
 
         if (Options.HasFlag(JobOptions.DryRun)) VariableOverrides = string.Join(',', "CRYSKNIFE_DRY_RUN=1", VariableOverrides);
-        if (Options.HasFlag(JobOptions.BypassCustomCommentTag)) VariableOverrides = string.Join(',', "CRYSKNIFE_BYPASS_CUSTOM_COMMENT_TAG=1", VariableOverrides);
         DefaultConfig = ConfigSystem.Create(Utils.UnifySeparators(PluginName), VariableOverrides);
 
         PatcherInstance = new Patcher(Options.HasFlag(JobOptions.Protected));
-        // Should always match all dependent plugins on serialization
-        DefaultConfig.Dispatch(Config => PatcherInstance.AllInjections.Add(Config.PatchRegex.Injection), false);
+        DefaultConfig.Dispatch(Config => PatcherInstance.Packers.Add(Config.TagPacker), false); // Always pack all dependent plugins
 
         OverrideConfirm = Options.HasFlag(JobOptions.Force) ? Utils.ConfirmResult.Yes | Utils.ConfirmResult.ForAll : Utils.ConfirmResult.NotDecided;
     }
 
+    public IncrementalMode IncrementalMode
+    {
+        get => PatcherInstance.Incremental;
+        set => PatcherInstance.Incremental = value;
+    }
     public short PatchContextLength
     {
         get => PatcherInstance.PatchContextLength;

@@ -119,27 +119,27 @@ Injector 本身相对简单直接，并不会神奇地自动改变任何代码�
 
 ### 装饰器指令
 
-`MatchContext=[UPPER|LOWER]`
+`MatchContext=<UPPER|LOWER>`
 * 指定匹配的上下文方向，默认所有方向都会匹配
 
-`MatchLength=[LENGTH]`
+`MatchLength=<LENGTH>`
 * 对每个上下文方向，最多只匹配到指定长度，默认为 64（最大值）
 
-`EngineNewerThan=[VERSION]`<br>
-`EngineOlderThan=[VERSION]`
+`EngineNewerThan=<VERSION>`<br>
+`EngineOlderThan=<VERSION>`
 * 将当前代码块标记为引擎版本相关，应用时只会影响匹配的引擎版本
 
 ## 命令行参数
 
-* `-P [PLUGIN]` 输入扩展的文件夹名，默认也是注释桩中要匹配的关键词，必须指定
-* `-E [ENGINE_ROOT]` 指定引擎根目录，默认为本仓库所在引擎
-* `-D [VAR=VALUE,]...` 定义 Config 中的变量值
+* `-P <PLUGIN>` 输入扩展的文件夹名，默认也是注释桩中要匹配的关键词，必须指定
+* `-E <ENGINE_ROOT>` 指定引擎根目录，默认为本仓库所在引擎
+* `-D <VAR=VALUE,>...` 定义 Config 中的变量值
 
 ### 行为类
 
 * `-S` 为指定扩展生成必要的配置和脚本，只需运行一次
-* `-R [FILES|DIRECTORIES]...` 从指定的文件或目录搜索，注册任何发现的有效 Patch 并执行 “生成” 行为
-* `-U [FILES|DIRECTORIES]...` 从指定的文件或目录搜索，删除任何发现的有效 Patch 并执行 “生成” 行为
+* `-R <FILES|DIRECTORIES>...` 从指定的文件或目录搜索，注册任何发现的有效 Patch 并执行 “生成” 行为
+* `-U <FILES|DIRECTORIES>...` 从指定的文件或目录搜索，删除任何发现的有效 Patch 并执行 “生成” 行为
 * `-G` 生成 / 更新 Patch
 * `-C` 从引擎源码目录清除任何已应用的 Patch
 * `-A` 拷贝所有新文件，应用所有 Patch 到引擎源码目录（默认行为）
@@ -149,22 +149,21 @@ Injector 本身相对简单直接，并不会神奇地自动改变任何代码�
 
 ### 定制类
 
-* `-i [FILTER]...` 或 `--inclusive-filter [FILTER]...` 所有行为只对指定路径生效
-* `-e [FILTER]...` 或 `--exclusive-filter [FILTER]...` 所有行为只对指定路径不生效
+* `-i <FILTER>...` 或 `--inclusive-filter <FILTER>...` 所有行为只对指定路径生效
+* `-e <FILTER>...` 或 `--exclusive-filter <FILTER>...` 所有行为只对指定路径不生效
+* `-n [LEVEL]` 或 `--incremental [LEVEL]` 智能匹配历史 Patch，只做增量更新
 * `-l` 或 `--link` 链接而非拷贝新文件
 * `-f` 或 `--force` 强制覆盖任何已存在的文件
 * `-d` 或 `--dry-run` 测试执行，所有输出会被安全映射到扩展目录的 `Intermediates/Crysknife/Playground` 下
 * `-v` 或 `--verbose` 详细 Log 模式
 * `-p` 或 `--protected` 私域模式，所有 Patch 将从受保护的本地文件中存/取
-* `-n` 或 `--incremental` 智能匹配历史 Patch，只做增量更新
 * `-t` 或 `--treat-patch-as-file` 将 Patch 视为普通文件，直接执行拷贝/链接
-* `-b` 或 `--bypass-custom-comment-tag` 临时禁用已配置的注释桩自定义格式
 
 ### 参数类
 
-* `--patch-context [LENGTH]` 生成 Patch 时的上下文长度，默认 250
-* `--content-tolerance [TOLERANCE]` 应用 Patch 时的内容匹配阈值，范围 [0, 1]， 默认 0.3
-* `--line-tolerance [TOLERANCE]` 应用 Patch 时的行号匹配阈值，默认无限大（不同版本引擎的行号可能差异巨大）
+* `--patch-context <LENGTH>` 生成 Patch 时的上下文长度，默认 250
+* `--content-tolerance <TOLERANCE>` 应用 Patch 时的内容匹配阈值，范围 [0, 1]， 默认 0.3
+* `--line-tolerance <TOLERANCE>` 应用 Patch 时的行号匹配阈值，默认无限大（不同版本引擎的行号可能差异巨大）
 
 ## 命令行用法示例
 
@@ -269,35 +268,35 @@ ScopedRule2=Predicate5
 
 ### 规则
 
-`SkipIf=[PREDICATE]...`
+`SkipIf=<PREDICATE>...`
 * 如果条件满足，跳过执行行为
 
-`RemapIf=[PREDICATE]...`
+`RemapIf=<PREDICATE>...`
 * 如果条件满足，重映射行为目标到新路径
 
-`RemapTarget=[PATH]`
+`RemapTarget=<PATH>`
 * 重映射的新路径目标，会直接全文替换目标目录中当前 Section 名字的部分
 * 如果指定了 `RemapIf`，此条必须指定
 
-`FlattenIf=[PREDICATE]...`
+`FlattenIf=<PREDICATE>...`
 * 如果条件满足，不保留目录结构，展平所有输出到同一层级
 
-`^Base[RULE]=...`
+`^Base<RULE>=...`
 * 任意规则名称加 `Base` 前缀，表明当前行的条件在基作用域生效，也只能被基作用域的指令覆盖
 * 当且仅当希望覆盖任何 [BaseCrysknife.ini](BaseCrysknife.ini) 中定义的规则时再使用
 
 ### 条件
 
-`TargetExists:[FILE|DIRECTORY]...`
+`TargetExists:<FILE|DIRECTORY>...`
 * 任何指定的文件/目录存在时满足
 
-`IsTruthy:[SWITCH]...`
+`IsTruthy:<SWITCH>...`
 * 任何指定的值为真时满足
 
-`NameMatches:[NAME]...`
+`NameMatches:<NAME>...`
 * 当前输入文件名匹配时满足
 
-`NewerThan:[VERSION]...`
+`NewerThan:<VERSION>...`
 * 当前引擎版本大于等于指定值（如 `5.0`）时满足
 
 `Conjunctions:All|Predicates|Root|TargetExists|IsTruthy|NameMatches...`
@@ -316,6 +315,7 @@ ScopedRule2=Predicate5
 * `CRYSKNIFE_PLUGIN_DIRECTORY`: 目标扩展根目录的完整路径，只读
 * `CRYSKNIFE_SOURCE_DIRECTORY`: 引擎源码根目录的完整路径，只读
 * `CRYSKNIFE_COMMENT_TAG`: 默认值为当前扩展的文件夹名，可自定义为其他更具区分度的标识符
+* `CRYSKNIFE_CUSTOM_COMMENT_TAG_PREDICATE`: 只有当指定条件满足时才会启用自定义注释桩格式
 * `(CRYSKNIFE|CUSTOM)_COMMENT_TAG_(PREFIX|SUFFIX|BEGIN|END)_(RE|CTOR)`: 注释桩的匹配正则和重建构造
 
 ## Config 用法示例

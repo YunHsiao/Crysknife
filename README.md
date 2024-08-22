@@ -120,27 +120,27 @@ To improve the robustness of the fuzzy-match process, etc. on a per-code-block b
 
 ### Supported Decorator Directives
 
-`MatchContext=[UPPER|LOWER]`
+`MatchContext=<UPPER|LOWER>`
 * Limit the fuzzy-matching context to the specified direction, by default all contexts are matched
 
-`MatchLength=[LENGTH]`
+`MatchLength=<LENGTH>`
 * For each matching context, only match up to the specified length of the context, default is 64 (maximum)
 
-`EngineNewerThan=[VERSION]`<br>
-`EngineOlderThan=[VERSION]`
+`EngineNewerThan=<VERSION>`<br>
+`EngineOlderThan=<VERSION>`
 * Mark the Enclosing code block as engine-version-relevant, so it would only apply to matching engine versions
 
 ## Command Line Interface
 
-* `-P [PLUGIN]` The input plugin folder name (by default also as the comment guard tag). Always required.
-* `-E [ENGINE_ROOT]` The engine root directory, default to the engine in which this repo is located 
-* `-D [VAR=VALUE,]...` Define custom config variables
+* `-P <PLUGIN>` The input plugin folder name (by default also as the comment guard tag). Always required.
+* `-E <ENGINE_ROOT>` The engine root directory, default to the engine in which this repo is located 
+* `-D <VAR=VALUE,>...` Define custom config variables
 
 ### Actions
 
 * `-S` Setup the specified plugin with proper configs & scripts, run once per plugin
-* `-R [FILES|DIRECTORIES]...` Search specified file or directory, register any patched file and generate
-* `-U [FILES|DIRECTORIES]...` Search specified file or directory, unregister any patched file and update
+* `-R <FILES|DIRECTORIES>...` Search specified file or directory, register any patched file and generate
+* `-U <FILES|DIRECTORIES>...` Search specified file or directory, unregister any patched file and update
 * `-G` Generate/update patches
 * `-C` Clear patches from target files
 * `-A` Apply existing patches and copy all new sources (default action)
@@ -150,22 +150,21 @@ To improve the robustness of the fuzzy-match process, etc. on a per-code-block b
 
 ### Modifiers
 
-* `-i [FILTER]` or `--inclusive-filter [FILTER]` Inclusive target path filter for all actions
-* `-e [FILTER]` or `-exclusive-filter [FILTER]` Exclusive target path filter for all actions
+* `-i <FILTER>` or `--inclusive-filter <FILTER>` Inclusive target path filter for all actions
+* `-e <FILTER>` or `-exclusive-filter <FILTER>` Exclusive target path filter for all actions
+* `-n [LEVEL]` or `--incremental [LEVEL]` Update patches incrementally based on existing patch status
 * `-l` or `--link` Make symbolic links instead of copying all the new files
 * `-f` or `--force` Force override existing files
 * `-d` or `--dry-run` Test run, safely executes the action with all engine output remapped to the plugin's `Intermediate/Crysknife/Playground` directory
 * `-v` or `--verbose` Log more verbosely about everything
 * `-p` or `--protected` Patches will be saved to / loaded from protected sources which will not be committed
-* `-n` or `--incremental` Update patches incrementally based on existing patch status
 * `-t` or `--treat-patch-as-file` Treat patches as regular files, copy/link them directly
-* `-b` or `--bypass-custom-comment-tag` Bypass custom comment tag formats
 
 ### Parameters
 
-* `--patch-context [LENGTH]` Global patch context length when generating patches, defaults to 250
-* `--content-tolerance [TOLERANCE]` Content tolerance in [0, 1] when matching sources, default to 0.3
-* `--line-tolerance [TOLERANCE]` Line tolerance when matching sources, defaults to infinity (line numbers may vary significantly between engine versions)
+* `--patch-context <LENGTH>` Global patch context length when generating patches, defaults to 250
+* `--content-tolerance <TOLERANCE>` Content tolerance in [0, 1] when matching sources, default to 0.3
+* `--line-tolerance <TOLERANCE>` Line tolerance when matching sources, defaults to infinity (line numbers may vary significantly between engine versions)
 
 ## CLI Examples
 
@@ -271,35 +270,35 @@ ScopedRule2=Predicate5
 
 ### Supported Rules
 
-`SkipIf=[PREDICATE]...`
+`SkipIf=<PREDICATE>...`
 * Skip action if specified predicates are satisfied
 
-`RemapIf=[PREDICATE]...`
+`RemapIf=<PREDICATE>...`
 * Remap action to a different destination directory if specified predicates are satisfied
 
-`RemapTarget=[PATH]`
+`RemapTarget=<PATH>`
 * The remap destination, which would be replacing the section name part of the input file path
 * Must be specified if `RemapIf` is present
 
-`FlattenIf=[PREDICATE]...`
+`FlattenIf=<PREDICATE>...`
 * Flatten the folder hierarchy if specified predicates are satisfied
 
-`^Base[RULE]=...`
+`^Base<RULE>=...`
 * Add a `Base` prefix to rule name to indicate the current rule line is in the base domain and, therefore can only be overruled by the same domain directives
 * Use this iff you want to override base rules defined in [BaseCrysknife.ini](BaseCrysknife.ini)
 
 ### Supported Predicates
 
-`TargetExists:[FILE|DIRECTORY]...`
+`TargetExists:<FILE|DIRECTORY>...`
 * Satisfies if any of the specified files/directories exists
 
-`IsTruthy:[SWITCH]...`
+`IsTruthy:<SWITCH>...`
 * Satisfies if any of the specified values is true
 
-`NameMatches:[NAME]...`
+`NameMatches:<NAME>...`
 * Satisfies if the input file name matches
 
-`NewerThan:[VERSION]...`
+`NewerThan:<VERSION>...`
 * Satisfies if current engine version is newer than or equal to specified value (e.g. `5.0`)
 
 `Conjunctions:All|Predicates|Root|TargetExists|IsTruthy|NameMatches...`
@@ -318,6 +317,7 @@ ScopedRule2=Predicate5
 * `CRYSKNIFE_PLUGIN_DIRECTORY`: Full path to the target plugin directory, readonly
 * `CRYSKNIFE_SOURCE_DIRECTORY`: Full path to the engine source directory, readonly
 * `CRYSKNIFE_COMMENT_TAG`: Default to the plugin folder name, you can assign a more distinctive name if needed
+* `CRYSKNIFE_CUSTOM_COMMENT_TAG_PREDICATE`: Enable custom comment tag format iff this predicate evaluates to true
 * `(CRYSKNIFE|CUSTOM)_COMMENT_TAG_(PREFIX|SUFFIX|BEGIN|END)_(RE|CTOR)`: Regex matchers & re-constructors of the comment tag
 
 ## Config Examples

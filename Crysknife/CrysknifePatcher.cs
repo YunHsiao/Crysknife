@@ -39,7 +39,7 @@ internal class Patcher
             MatchDistance = int.MaxValue
         };
         public short PatchContextLength = 250; // ~5 loc
-        public readonly List<InjectionRegex> AllInjections = new();
+        public readonly List<CommentTagPacker> Packers = new();
 
         public InjectionRegex Injection = null!;
         public IReadOnlyDictionary<string, string> Variables = null!;
@@ -199,7 +199,7 @@ internal class Patcher
 
                 foreach (var Diff in Patch.Diffs)
                 {
-                    Diff.Text = AllInjections.Aggregate(Diff.Text, (Current, Regex) => Regex.Pack(Current, ref Increment, SkipCaptures));
+                    Diff.Text = Packers.Aggregate(Diff.Text, (Current, Packer) => Packer.Pack(Current, ref Increment, SkipCaptures));
                 }
 
                 Patch.Start2 += TotalIncrement;
@@ -220,7 +220,7 @@ internal class Patcher
 
                 foreach (var Diff in Patch.Diffs)
                 {
-                    Diff.Text = AllInjections.Aggregate(Diff.Text, (Current, Regex) => Regex.Unpack(Current, ref Increment, Variables));
+                    Diff.Text = Packers.Aggregate(Diff.Text, (Current, Packer) => Packer.Unpack(Current, ref Increment, Variables));
                 }
 
                 Patch.Start2 += TotalIncrement;
@@ -303,9 +303,9 @@ internal class Patcher
             return Result;
         }
 
-        public PatchBundle Merge(PatchBundle History, PatchBundle New, string Text, bool Incremental)
+        public PatchBundle Merge(PatchBundle History, PatchBundle New, string Text, IncrementalMode Incremental)
         {
-            if (!Incremental)
+            if (Incremental == IncrementalMode.Disabled)
             {
                 New.Patches.AddRange(History.Patches.Where(Patch => Patch.Skip == BooleanOverride.True));
                 // Techniquely we shouldn't sort at all because of DMP's rolling context
@@ -331,8 +331,13 @@ internal class Patcher
                 if (HistoryPatch.Skip != BooleanOverride.Unspecified)
                 {
                     // Always preserve for different engine versions
-                    if (HistoryPatch.Skip == BooleanOverride.True) Preserved.Add(HistoryIndex);
-                    continue; // Always discard for this engine version 
+                    if (HistoryPatch.Skip == BooleanOverride.True)
+                    {
+                        Preserved.Add(HistoryIndex);
+                        continue;
+                    }
+                    // Discard for this engine version if needed
+                    if (Incremental == IncrementalMode.Enabled) continue;
                 }
 
                 // Always discard if invalid
@@ -382,7 +387,7 @@ internal class Patcher
                         .All(ResultIndex =>
                         {
                             var Location = Result.Locations[ResultIndex];
-                            return Location >= ValidStart || Location < ValidEnd;
+                            return Location >= ValidStart && Location < ValidEnd;
                         }))
                     {
                         RelevantPatches.Add(NewIndex);
@@ -407,7 +412,7 @@ internal class Patcher
                                 int Hash = (PatchIndex << 16) | DiffIndex;
                                 if (Record.Contains(Hash)) return false;
 
-                                var LocalDiffs = Context.diff_main(Target.Text, Diffs[DiffIndex].Text);
+                                var LocalDiffs = Context.diff_main(Target.Text.Trim(), Diffs[DiffIndex].Text.Trim());
                                 var Distance = DiffMatchPatch.diff_levenshtein(LocalDiffs);
                                 if (Distance >= 3) return false;
 
@@ -432,6 +437,7 @@ internal class Patcher
 
     private readonly DmpContext Context = new();
     public readonly string DefaultExtension;
+    public IncrementalMode Incremental = IncrementalMode.Disabled;
 
     private enum PatchFileType
     {
@@ -454,7 +460,7 @@ internal class Patcher
         return Context.Apply((DmpContext.PatchBundle)Patches, Before, DumpPath, ForceDump, out Patched);
     }
 
-    public IPatchBundle Generate(string Before, string After, bool Incremental)
+    public IPatchBundle Generate(string Before, string After)
     {
         return Context.Merge((DmpContext.PatchBundle)Load(), Context.Diff(Before, After), Before, Incremental);
     }
@@ -508,7 +514,7 @@ internal class Patcher
         set => Context.Injection = value;
     }
 
-    public List<InjectionRegex> AllInjections => Context.AllInjections;
+    public List<CommentTagPacker> Packers => Context.Packers;
 
     public IReadOnlyDictionary<string, string> Variables
     {

@@ -82,6 +82,11 @@ internal class ConfigPredicates
         return Eval(Result, Predicate.IsValid() ? Predicate.Eval(Pred) : LogicalAnd);
     }
 
+    public static bool Eval(string Desc, string Target)
+    {
+        return new ConfigPredicates().Compile(Desc).Eval(Target);
+    }
+
     public bool Eval(string Target)
     {
         return Predicates.Where(Predicate => !Predicate.CompileTime).Aggregate(CompileTimeCondition, (Current, Predicate) =>
@@ -93,8 +98,10 @@ internal class ConfigPredicates
         Descriptions = Desc.Split(',', Utils.SplitOptions);
     }
 
-    public void Compile()
+    public ConfigPredicates Compile(string? Desc = null)
     {
+        if (Desc != null) SetValue(Desc);
+
         Predicates = new[]
         {
             new ConfigPredicate("NameMatches", Target => Cond =>
@@ -167,6 +174,8 @@ internal class ConfigPredicates
                 CompileTimeCondition = Eval(CompileTimeCondition, Predicate, Predicate.EvalFunc);
             }
         }
+
+        return this;
     }
 
     public override string ToString()
@@ -453,7 +462,10 @@ internal class ConfigSystem
     private readonly Dictionary<string, string> DependencyVariables = new();
     private readonly Dictionary<string, ConfigSystem> Dependencies = new();
     private readonly Dictionary<string, string> Children = new();
+    private readonly CommentTagFormat Format;
+
     public readonly InjectionRegexGroup PatchRegex;
+    public readonly CommentTagPacker TagPacker;
     public readonly string PluginName;
 
     private static ConfigFile BaseConfig = new();
@@ -551,7 +563,35 @@ internal class ConfigSystem
         }
         ConfigSectionHierarchy.Link(Hierarchy, Sections);
 
-        PatchRegex = new InjectionRegexGroup(CreateInjectionRegex(new KeyValuePair<string, string>(PluginName, CommentTag)));
+        Format = new CommentTagFormat
+        {
+            PrefixRegex = GetVariable("CRYSKNIFE_COMMENT_TAG_PREFIX_RE"),
+            SuffixRegex = GetVariable("CRYSKNIFE_COMMENT_TAG_SUFFIX_RE"),
+            BeginRegex = GetVariable("CRYSKNIFE_COMMENT_TAG_BEGIN_RE"),
+            EndRegex = GetVariable("CRYSKNIFE_COMMENT_TAG_END_RE")
+        };
+
+        // Reconstructors can contain custom variables which we should not eval right away here
+        Format.PrefixCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_PREFIX_CTOR", Format.PrefixRegex, false);
+        Format.SuffixCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_SUFFIX_CTOR", Format.SuffixRegex, false);
+        Format.BeginCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_BEGIN_CTOR", Format.BeginRegex, false);
+        Format.EndCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_END_CTOR", Format.EndRegex, false);
+
+        if (ConfigPredicates.Eval(GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_PREDICATE"), Utils.GetEngineRoot()))
+        {
+            Format.PrefixRegex = GetVariable("CUSTOM_COMMENT_TAG_PREFIX_RE", Format.PrefixRegex);
+            Format.SuffixRegex = GetVariable("CUSTOM_COMMENT_TAG_SUFFIX_RE", Format.SuffixRegex);
+            Format.BeginRegex = GetVariable("CUSTOM_COMMENT_TAG_BEGIN_RE", Format.BeginRegex);
+            Format.EndRegex = GetVariable("CUSTOM_COMMENT_TAG_END_RE", Format.EndRegex);
+
+            Format.PrefixCtor = GetVariable("CUSTOM_COMMENT_TAG_PREFIX_CTOR", Format.PrefixRegex, false);
+            Format.SuffixCtor = GetVariable("CUSTOM_COMMENT_TAG_SUFFIX_CTOR", Format.SuffixRegex, false);
+            Format.BeginCtor = GetVariable("CUSTOM_COMMENT_TAG_BEGIN_CTOR", Format.BeginRegex, false);
+            Format.EndCtor = GetVariable("CUSTOM_COMMENT_TAG_END_CTOR", Format.EndRegex, false);
+        }
+
+        PatchRegex = new InjectionRegexGroup(new InjectionRegex(CommentTag, Format));
+        TagPacker = new CommentTagPacker(PluginName, CommentTag, Format);
     }
 
     // Always create parent dependencies first
@@ -608,40 +648,10 @@ internal class ConfigSystem
         return Result ?? Default;
     }
 
-    private InjectionRegex CreateInjectionRegex(KeyValuePair<string, string> Pair)
-    {
-        var PrefixRegex = GetVariable("CRYSKNIFE_COMMENT_TAG_PREFIX_RE");
-        var SuffixRegex = GetVariable("CRYSKNIFE_COMMENT_TAG_SUFFIX_RE");
-        var BeginRegex = GetVariable("CRYSKNIFE_COMMENT_TAG_BEGIN_RE");
-        var EndRegex = GetVariable("CRYSKNIFE_COMMENT_TAG_END_RE");
-
-        // Reconstructors can contain custom variables which we should not eval right away here
-        var PrefixCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_PREFIX_CTOR", PrefixRegex, false);
-        var SuffixCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_SUFFIX_CTOR", SuffixRegex, false);
-        var BeginCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_BEGIN_CTOR", BeginRegex, false);
-        var EndCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_END_CTOR", EndRegex, false);
-
-        if (!Utils.IsTruthyValue(GetVariable("CRYSKNIFE_BYPASS_CUSTOM_COMMENT_TAG")))
-        {
-            PrefixRegex = GetVariable("CUSTOM_COMMENT_TAG_PREFIX_RE", PrefixRegex);
-            SuffixRegex = GetVariable("CUSTOM_COMMENT_TAG_SUFFIX_RE", SuffixRegex);
-            BeginRegex = GetVariable("CUSTOM_COMMENT_TAG_BEGIN_RE", BeginRegex);
-            EndRegex = GetVariable("CUSTOM_COMMENT_TAG_END_RE", EndRegex);
-
-            PrefixCtor = GetVariable("CUSTOM_COMMENT_TAG_PREFIX_CTOR", PrefixRegex, false);
-            SuffixCtor = GetVariable("CUSTOM_COMMENT_TAG_SUFFIX_CTOR", SuffixRegex, false);
-            BeginCtor = GetVariable("CUSTOM_COMMENT_TAG_BEGIN_CTOR", BeginRegex, false);
-            EndCtor = GetVariable("CUSTOM_COMMENT_TAG_END_CTOR", EndRegex, false);
-        }
-
-        return new InjectionRegex(Pair.Key, Pair.Value, PrefixRegex, SuffixRegex, BeginRegex, EndRegex,
-            PrefixCtor, SuffixCtor, BeginCtor, EndCtor);
-    }
-
     public static ConfigSystem Create(string PluginName, string VariableOverrides)
     {
         var Result = Create(PluginName, VariableOverrides, "");
-        Result.Dispatch(Config => Config.PatchRegex.AddResiduals(Config.Children.Select(Config.CreateInjectionRegex)), true);
+        Result.Dispatch(Config => Config.PatchRegex.AddResiduals(Config.Children.Select(Pair => new InjectionRegex(Pair.Value, Config.Format))), true);
         return Result;
     }
 
