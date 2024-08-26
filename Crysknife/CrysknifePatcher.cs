@@ -321,7 +321,7 @@ internal class Patcher
             // Should always compare the packed distance, without captures
             var PackedNew = Pack(New, true);
             var PackedHistory = Pack(History, true);
-            var Result = Context.patch_apply(PackedHistory.Patches, Text, true);
+            var Result = Context.patch_apply(History.Patches, Text, true);
             var HistoryRecord = new Dictionary<int, List<int>>();
             var NewRecord = new Dictionary<int, List<int>>();
             foreach (var HistoryIndex in Enumerable.Range(0, PackedHistory.Patches.Count))
@@ -376,9 +376,9 @@ internal class Patcher
             {
                 var RelevantPatches = new List<int>();
 
-                foreach (var NewIndex in Enumerable.Range(0, PackedNew.Patches.Count))
+                foreach (var NewIndex in Enumerable.Range(0, New.Patches.Count))
                 {
-                    var NewPatch = PackedNew.Patches[NewIndex];
+                    var NewPatch = New.Patches[NewIndex];
                     var ValidStart = NewPatch.Start2 + NewPatch.Diffs.First().Text.Length - DiffMatchPatch.MatchMaxBits;
                     var ValidEnd = NewPatch.Start2 + NewPatch.Length2 - NewPatch.Diffs.Last().Text.Length + DiffMatchPatch.MatchMaxBits;
 
