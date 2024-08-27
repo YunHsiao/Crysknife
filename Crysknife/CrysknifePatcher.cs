@@ -10,6 +10,7 @@ using DiffMatchPatch;
 internal interface IPatchBundle
 {
     bool IsValid();
+    bool HasAnyActivePatch();
 }
 
 internal class Patcher
@@ -27,6 +28,11 @@ internal class Patcher
             public bool IsValid()
             {
                 return Patches.Count > 0;
+            }
+
+            public bool HasAnyActivePatch()
+            {
+                return Patches.Any(P => P.Skip != BooleanOverride.True);
             }
         }
 

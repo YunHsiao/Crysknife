@@ -59,12 +59,26 @@ public class Injector
 
     private void ProcessPatch(JobType Job, string PatchPath, string TargetPath, SourcePatchInfo SourcePatch)
     {
-        var TargetContent = SourcePatch.PatchRegex.ClearResiduals(File.ReadAllText(TargetPath));
-        var ClearedTarget = SourcePatch.PatchRegex.Unpatch(TargetContent);
         PatcherInstance.Injection = SourcePatch.PatchRegex.Injection;
         PatcherInstance.CommentTag = SourcePatch.CommentTag;
         PatcherInstance.Variables = SourcePatch.Variables;
         PatcherInstance.CurrentPatch = PatchPath;
+
+        // The target file have to exist
+        if (!File.Exists(TargetPath))
+        {
+            // We may encounter files that only exists in specific engine versions
+            // If so it is perfectly okay
+            if (PatcherInstance.Load().HasAnyActivePatch())
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("Skipped patch: {0} does not exist!", TargetPath);
+            }
+            return;
+        }
+
+        var TargetContent = SourcePatch.PatchRegex.ClearResiduals(File.ReadAllText(TargetPath));
+        var ClearedTarget = SourcePatch.PatchRegex.Unpatch(TargetContent);
         IPatchBundle? Patches = null;
 
         if (Job.HasFlag(JobType.Generate))
@@ -284,13 +298,6 @@ public class Injector
         }
     }
 
-    private static bool RemapPatch(ConfigSystem Config, string Input, out string Output, bool VerboseLogging)
-    {
-        var Proceed = Config.Remap(Input + ".patch", out var Temp, VerboseLogging);
-        Output = Temp[..^6];
-        return Proceed;
-    }
-
     private void Process(ConfigSystem Config, JobType Job)
     {
         var SourcePatch = new SourcePatchInfo(Config);
@@ -327,7 +334,7 @@ public class Injector
 
         foreach (var RelativePath in Patches)
         {
-            if (!RemapPatch(Config, RelativePath, out var NewRelativePath, VerboseLogging)) continue;
+            if (!Config.Remap(RelativePath, out var NewRelativePath, VerboseLogging, PatcherInstance.DefaultExtension)) continue;
 
             var PatchPath = Path.Combine(SourcePatch.Directory, RelativePath);
             var SourcePath = Path.GetFullPath(Path.Combine(Utils.GetSourceDirectory(), NewRelativePath));
@@ -355,14 +362,6 @@ public class Injector
                         File.Copy(OriginalSourcePath, SourcePath);
                     }, SourcePath);
                 }
-            }
-
-            // The original source file have to exist
-            if (!File.Exists(SourcePath))
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("Skipped patch: {0} does not exist!", OriginalSourcePath);
-                continue;
             }
 
             ProcessPatch(Job, PatchPath, SourcePath, SourcePatch);

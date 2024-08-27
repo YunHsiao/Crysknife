@@ -678,22 +678,21 @@ internal class ConfigSystem
         }
     }
 
-    public bool Remap(string Target, out string Result, bool VerboseLogging = false)
+    public bool Remap(string Target, out string Result, bool VerboseLogging, string SuffixForRemapping = "")
     {
         Result = Target;
         var NearestSectionIndex = ConfigSectionHierarchy.GetNearestSection(Hierarchy, Target);
         if (NearestSectionIndex == null) return true; // As-is if no rule is found
 
-        switch (Sections[NearestSectionIndex.Value].Remap(Target, out var Temp, VerboseLogging))
+        switch (Sections[NearestSectionIndex.Value].Remap(Target + SuffixForRemapping, out var Temp, VerboseLogging))
         {
             case RemapResult.AsIs:
                 return true;
             case RemapResult.Skipped:
                 return false;
             case RemapResult.Remapped:
-                Result = Temp;
+                Result = Temp[..^SuffixForRemapping.Length];
                 return true;
-            case RemapResult.DoNotAffect:
             default:
                 throw new ArgumentOutOfRangeException();
         }
