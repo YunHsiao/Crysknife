@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
+# SPDX-License-Identifier: MIT
+
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "Crysknife"
+authors = [{name = "YunHsiao", email = "yunhsiaow@gmail.com"}]
+dynamic = ["version", "description"]

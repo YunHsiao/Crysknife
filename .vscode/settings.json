@@ -1,0 +1,7 @@
+// SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
+// SPDX-License-Identifier: MIT
+{
+    "restructuredtext.linter.doc8.extraArgs": [
+        "--max-line-length 120"
+    ],
+}
