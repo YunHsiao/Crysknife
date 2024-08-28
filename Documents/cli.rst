@@ -43,7 +43,7 @@ Modifiers
    Force override existing files
 -d, --dry-run
    Test run, safely executes the action with all engine output remapped
-   to the plugin's Intermediate/Crysknife/Playground directory
+   to the plugin's ``Intermediate/Crysknife/Playground`` directory
 -v, --verbose
    Log more verbosely about everything
 -p, --protected

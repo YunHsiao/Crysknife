@@ -6,8 +6,8 @@
 # -- Project information
 
 project = 'Crysknife'
-copyright = '2024, Yun Hsiao Wu. MIT'
 author = 'Yun Hsiao Wu'
+copyright = '2024, Yun Hsiao Wu'
 
 # -- General configuration
 
@@ -33,3 +33,6 @@ html_theme = 'furo'
 
 # -- Options for EPUB output
 epub_show_urls = 'footnote'
+
+gettext_uuid = True
+gettext_compact = False

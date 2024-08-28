@@ -77,6 +77,7 @@ Modifying Existing Code
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 Additionally, to modify the stock engine code, follow these steps:
+
 - Comment out the original code block (only line comments are supported atm.)
 - Guard the comment block using any of the above forms, with one special tweak*
 - Add a new guarded block normally for your code

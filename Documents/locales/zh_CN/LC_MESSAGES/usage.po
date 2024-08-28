@@ -1,0 +1,244 @@
+# SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
+# SPDX-License-Identifier: MIT
+
+msgid ""
+msgstr ""
+"Project-Id-Version: Crysknife \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-08-28 13:21+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.16.0\n"
+
+#: ../../usage.rst:6 f7e5c3954fb1404a97b53054db1152b0
+msgid "Usage"
+msgstr "使用文档"
+
+#: ../../usage.rst:9 4cce16d0c3354c889c1c49d13433a8c1
+msgid "Installation"
+msgstr "环境搭建"
+
+#: ../../usage.rst:11 60eb839264754356953cbdca745eae66
+msgid "You should clone this repo as an engine plugin::"
+msgstr "将仓库 Clone 到引擎扩展目录："
+
+#: ../../usage.rst:15 367bb6fd57f14b9aa2643653a186a55b
+msgid ""
+"For first-time setup, you should use the script file matching your "
+"operating system and run::"
+msgstr "首次集成时，选择和系统匹配的脚本执行生成部署脚本命令::"
+
+#: ../../usage.rst:19 166030d1adbd4ba999178627210b54b6
+msgid ""
+"This will generate a few ``Setup`` scripts to your plugin directory as "
+"the main entry for any operations."
+msgstr "这会在指定的扩展目录下生成几个 ``Setup`` 脚本，作为所有操作的入口。"
+
+#: ../../usage.rst:21 be49679fc1a84483ab33ec1c459a49fb
+msgid ""
+"And code patches will be read from the following directory to "
+"``Engine/Source``::"
+msgstr "程序会尝试从指定扩展的以下目录搜索 Patch 并应用到 ``Engine/Source``::"
+
+#: ../../usage.rst:25 199949c8d8454d2090c7a51d22e5e1ca
+msgid ""
+"All relative structures from the ``SourcePatch`` directory will be "
+"preserved."
+msgstr "从 ``SourcePatch`` 文件夹起的所有相对目录结构默认都会完整保留。"
+
+#: ../../usage.rst:27 6502cd9d478b4f0faaf89b45b8f5b95a
+msgid ""
+"The injector itself doesn't magically change the way your code is "
+"organized. Here are the recommended general principles:"
+msgstr "注入器本身相对简单直接，并不会神奇地自动改变任何代码结构，更多的是开发者自己对架构设计的权衡，以下是一些推荐的通用原则："
+
+#: ../../usage.rst:30 61ca93916ee54232820a850a4007ab75
+msgid ""
+"Only inject sources when there is no way around it, you can still go very"
+" far with only the builtin plugin system"
+msgstr "实现功能时尽量优先依赖引擎内置的扩展和回调系统，即使不依赖任何注入也可以做到很多事"
+
+#: ../../usage.rst:32 3c91d085b7f84edab6d499bd24864119
+msgid ""
+"Try to move as much code as possible to separate new files instead of "
+"embedding them inline into the existing engine base"
+msgstr "尽量把需要注入的代码都拆分到独立的新文件，在引擎源码中的注入点越少越好"
+
+#: ../../usage.rst:35 6b7f7f04bb4240438734699b6ec500c7
+#, python-format
+msgid ""
+"Empirically more than 90% of the code can be written inside the plugin "
+"itself, and more than half of the rest injections can be organized into "
+"new engine source files"
+msgstr "根据经验，超过 90% 的代码可以直接正常写在扩展内，其余注入代码里超过一半可以组织到新的引擎文件中"
+
+#: ../../usage.rst:39 f112f77b6e6a4ccd8a82223f281d143c
+msgid "Patch Syntax"
+msgstr "Patch 语法"
+
+#: ../../usage.rst:41 2d5a15e8c04f4c2891fb9ec53b9d9dd7
+msgid ""
+"For changes in existing engine files we detect & inject in the following "
+"forms (with comment guards):"
+msgstr "在引擎源码中新增代码，需要遵守固定的语法规则才可以被注入器识别，所有修改都要加注释桩："
+
+#: ../../usage.rst:44 fee9dd80ad4849d89e09a15eda2de56a
+msgid "Multi-line"
+msgstr "多行形式"
+
+#: ../../usage.rst:53 d99f4e8a251e4846b34f07284eb2f12d
+msgid "Single-line"
+msgstr "单行形式"
+
+#: ../../usage.rst:60 90fb5395599a4e91a79d2f90c2fd42a5
+msgid "Next-line"
+msgstr "下行形式"
+
+#: ../../usage.rst:62 50e7800343cf419b970dbb0dd85a0e82
+msgid "Note that there can be no code at the same line with the comment guard:"
+msgstr "注意此形式下注释桩独占一行，行内不可以有任何有效代码："
+
+#: ../../usage.rst:69 0df24038c01a4c6bb3cd964daa387865
+msgid ""
+"The comment tag is defaulted to plugin folder name but can be modified if"
+" needed, through configs."
+msgstr "注释桩的 Tag 默认为扩展文件夹名，如果需要可以通过 Config 系统修改。"
+
+#: ../../usage.rst:73 160e495f268942a48cd261dfda12c5fc
+msgid ""
+"For non-performance-critical code, try to find the most representative "
+"context to insert your code (beginning of class, after long-standing "
+"public interfaces, etc.), which can greatly increase the chances of "
+"finding matches in different engine bases."
+msgstr "如果不影响性能的话，尽量选择最有代表性的注入点，如类的开始，长期存在的公开接口后等，可以大大提高在不同版本的引擎间自动匹配 Patch 的成功率。"
+
+#: ../../usage.rst:77 c817d33041d449eebe17cc37f45d8f74
+msgid "Modifying Existing Code"
+msgstr "删改引擎源码"
+
+#: ../../usage.rst:79 da5ee89b05bb4a88978c147d017375b5
+msgid "Additionally, to modify the stock engine code, follow these steps:"
+msgstr "对于要直接修改的官方引擎源码，遵循如下流程："
+
+#: ../../usage.rst:81 0cc68a1f7571427caf35876ff81d0fc7
+msgid ""
+"Comment out the original code block (only line comments are supported "
+"atm.)"
+msgstr "将要修改的引擎代码全部注释掉（暂只支持行注释 ``//``）"
+
+#: ../../usage.rst:82 b6732ecee12c4df6be7bc53ffad4d6f9
+msgid ""
+"Guard the comment block using any of the above forms, with one special "
+"tweak*"
+msgstr "将注释掉的代码加任何一种上述形式的注释桩，外加一个小变化*"
+
+#: ../../usage.rst:83 a81a59c0874646f8b99ed5bf93df4f2d
+msgid "Add a new guarded block normally for your code"
+msgstr "在此之上再按标准流程，继续正常新增你自己的代码"
+
+#: ../../usage.rst:85 20fd7ca8c5454aad8e1389452d1717a5
+msgid "Where the special tweak is:"
+msgstr "这个小变化是："
+
+#: ../../usage.rst:91 7ed4a94128d74045a6110f71c3ba1e4b
+msgid ""
+"**The minus sign** after the comment tag is enough to tell the injector "
+"that the surrounding code segment is directly from the stock engine "
+"source, essentially making it a deletion block."
+msgstr "注释中扩展名字后面的 **减号** 至关重要，它会告诉注入器接下来这个代码块是直接来自原版引擎源码的，在应用 Patch 时应该直接通过注释的形式删除。"
+
+#: ../../usage.rst:95 e8c6698fd55b4ade8388175b3d562bbd
+msgid "The minus sign can be omitted in the ending comment for multi-line guards."
+msgstr "在多行形式的注释桩中，结尾注释可以省略减号。"
+
+#: ../../usage.rst:97 b91ffc338658410598bd100675016d47
+msgid ""
+"If having to modify large blocks of engine code, remember there's always "
+"the macro guard approach which does not need to touch every line of the "
+"code:"
+msgstr "如果的确要删改大段引擎源码，也可以用宏包围，这样不需要逐行修改："
+
+#: ../../usage.rst:107 e797da21d72d48ed9c749e6ae156ae05
+msgid "Decorators"
+msgstr "装饰器"
+
+#: ../../usage.rst:109 d0d87830129c4063bb7e1ff048b1dbf7
+msgid ""
+"To improve the robustness of the fuzzy-match process, etc. on a per-code-"
+"block basis, inline decorators can be specified inside the guarded block "
+"in the following format:"
+msgstr "在注释桩修饰的代码内，可以通过装饰器的形式配置一些逐代码块的参数，来提高比如模糊匹配过程的稳定性："
+
+#: ../../usage.rst:118 10e47829ac684f619006eb114a32aeb4
+msgid "Supported Directives"
+msgstr "装饰器指令"
+
+#: ../../usage.rst:122 36000ef82d4b484dbbda2b80a3d51777
+msgid "``MatchContext=<UPPER|LOWER>``"
+msgstr ""
+
+#: ../../usage.rst:121 d271290d61fc49cf914763885dc0eedb
+msgid ""
+"Limit the fuzzy-matching context to the specified direction, by default "
+"all contexts are matched"
+msgstr "指定匹配的上下文方向，默认所有方向都会匹配"
+
+#: ../../usage.rst:126 136026861c0a4423be16c3515cffc15d
+msgid "``MatchLength=<LENGTH>``"
+msgstr ""
+
+#: ../../usage.rst:125 bd9d17d4a57f468b9528707cd9fcc785
+msgid ""
+"For each matching context, only match up to the specified length of the "
+"context, default is 64 (maximum)"
+msgstr "对每个上下文方向，最多只匹配到指定长度，默认为 64（最大值）"
+
+#: ../../usage.rst:130 d80461184fa4421e9f43f904772770cb
+msgid "``EngineNewerThan=<VERSION>``, ``EngineOlderThan=<VERSION>``"
+msgstr ""
+
+#: ../../usage.rst:129 aae9aa99b8c446139aba64cffd789000
+msgid ""
+"Mark the Enclosing code block as engine-version-relevant, so it would "
+"only apply to matching engine versions"
+msgstr "将当前代码块标记为引擎版本相关，应用时只会影响匹配的引擎版本"
+
+#: ../../usage.rst:133 2869ecbba4de48189ab3d80eb952d512
+msgid "Builtin Source Patches"
+msgstr "内置 Patch"
+
+#: ../../usage.rst:135 b0d4d0e072b04c8d84c06f6c47272d85
+msgid ""
+"We included some useful utilities in the built-in ``SourcePatch`` folder,"
+" which can provide some interesting trade-offs."
+msgstr "我们在 `SourcePatch` 文件夹内置了一些可能有用的工具，可以提供一些有趣的权衡。"
+
+#: ../../usage.rst:139 206dbfae44cf4fd5a57ee833b59424a0
+msgid "Include Path"
+msgstr "头文件路径"
+
+#: ../../usage.rst:139 16d642783a9f4243b229364158e7f2de
+msgid "Module"
+msgstr "模块"
+
+#: ../../usage.rst:139 6cc848193a0b4484af048b2d4c64d4fd
+msgid "Comment"
+msgstr "备注"
+
+#: ../../usage.rst:141 8e319198926d412eba5581bb73bd04e0
+msgid "Misc/PrivateAccessor.h"
+msgstr ""
+
+#: ../../usage.rst:141 db7c6717bfa04c1485cba31611514f71
+msgid "Core"
+msgstr ""
+
+#: ../../usage.rst:141 501f80162a514ec2b1647cecc01d151e
+msgid "A tiny library for accessing private members from non-friend contexts"
+msgstr "允许在非友元环境下访问私有变量或函数的小工具"

@@ -24,7 +24,7 @@ Crysknife
 以下为相比手动打包的简单方案，项目的主要贡献方向：
 
 明确的语法规则
-    所有引擎改动都需要遵循明确的语法要求，保证可逆，也无需做任何手动版本管理，即可自动处理 Patch, 是后续所有功能的基础。
+    所有引擎改动都需要遵循明确的语法要求，保证可逆，也无需做任何手动版本管理即可自动处理 Patch, 是后续所有功能的基础。
 
 高效的冲突处理
     Patch 应用过程为可定制阈值的模糊匹配，可以透明地处理大多数细节差异。当冲突实际发生，作为兜底，会导出一份关于冲突的 HTML 详细报告以辅助人工处理。
@@ -42,4 +42,4 @@ Crysknife
 
 从这里开始阅读文档：
 
-https://crysknife.readthedocs.io/zh/latest/usage.html
+https://crysknife.readthedocs.io/zh-cn/latest/usage.html

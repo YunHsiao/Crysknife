@@ -61,7 +61,7 @@ to specify more complex patching behaviors such as conditional remapping, etc. i
 
    By design it is ignored in your plugin's git repo, but should be committed into the main engine (e.g. perforce) code base.
 
-   This is useful to specify engine-specific configs like comment/engine tags, etc.
+   This is useful to specify engine-specific configs like comment tag format, etc.
 
 Supported Rules
 ---------------
@@ -84,7 +84,8 @@ Supported Rules
    therefore can only be overruled by the same domain directives
    Use this iff you want to override base rules defined in ``BaseCrysknife.ini``
 
-### Supported Predicates
+Supported Predicates
+--------------------
 
 ``TargetExists:<FILE|DIRECTORY>...``
    Satisfies if any of the specified files/directories exists

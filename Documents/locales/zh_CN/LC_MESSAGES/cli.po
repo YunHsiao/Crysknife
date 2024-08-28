@@ -1,0 +1,140 @@
+# SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
+# SPDX-License-Identifier: MIT
+
+msgid ""
+msgstr ""
+"Project-Id-Version: Crysknife \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-08-28 12:50+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.16.0\n"
+
+#: ../../cli.rst:6
+msgid "Command Line Interface"
+msgstr "命令行接口"
+
+#: ../../cli.rst:9
+msgid ""
+"The input plugin folder name (by default also as the comment guard tag). "
+"Always required."
+msgstr "输入扩展的文件夹名，默认也是注释桩中要匹配的关键词，必须指定"
+
+#: ../../cli.rst:11
+msgid ""
+"The engine root directory, default to the engine in which this repo is "
+"located."
+msgstr "指定引擎根目录，默认为本仓库所在引擎"
+
+#: ../../cli.rst:13
+msgid "Define custom config variables."
+msgstr "定义 Config 中的变量值"
+
+#: ../../cli.rst:16
+msgid "Actions"
+msgstr "行为类"
+
+#: ../../cli.rst:19
+msgid ""
+"Setup the specified plugin with proper configs & scripts, run once per "
+"plugin"
+msgstr "为指定扩展生成必要的配置和脚本，只需运行一次"
+
+#: ../../cli.rst:21
+msgid "Search specified file or directory, register any patched file and generate"
+msgstr "从指定的文件或目录搜索，注册任何发现的有效 Patch 并执行 “生成” 行为"
+
+#: ../../cli.rst:23
+msgid "Search specified file or directory, unregister any patched file and update"
+msgstr "从指定的文件或目录搜索，删除任何发现的有效 Patch 并执行 “生成” 行为"
+
+#: ../../cli.rst:25
+msgid "Generate/update patches"
+msgstr "生成 / 更新 Patch"
+
+#: ../../cli.rst:27
+msgid "Clear patches from target files"
+msgstr "从引擎源码目录清除任何已应用的 Patch"
+
+#: ../../cli.rst:29
+msgid "Apply existing patches and copy all new sources (default action)"
+msgstr "拷贝所有新文件，应用所有 Patch 到引擎源码目录（默认行为）"
+
+#: ../../cli.rst:32
+msgid "Modifiers"
+msgstr "定制类"
+
+#: ../../cli.rst:35
+msgid "Inclusive target path filter for all actions"
+msgstr "所有行为只对指定路径生效"
+
+#: ../../cli.rst:37
+msgid "Exclusive target path filter for all actions"
+msgstr "所有行为只对指定路径不生效"
+
+#: ../../cli.rst:39
+msgid "Update patches incrementally based on existing patch status"
+msgstr "智能匹配历史 Patch，只做增量更新"
+
+#: ../../cli.rst:41
+msgid "Make symbolic links instead of copying all the new files"
+msgstr "链接而非拷贝新文件"
+
+#: ../../cli.rst:43
+msgid "Force override existing files"
+msgstr "强制覆盖任何已存在的文件"
+
+#: ../../cli.rst:45
+msgid ""
+"Test run, safely executes the action with all engine output remapped to "
+"the plugin's ``Intermediate/Crysknife/Playground`` directory"
+msgstr "测试执行，所有输出会被安全映射到扩展目录的 ``Intermediates/Crysknife/Playground`` 下"
+
+#: ../../cli.rst:48
+msgid "Log more verbosely about everything"
+msgstr "详细 Log 模式"
+
+#: ../../cli.rst:50
+msgid ""
+"Patches will be saved to / loaded from protected sources which will not "
+"be committed"
+msgstr "私域模式，所有 Patch 将从受保护的本地文件中存/取"
+
+#: ../../cli.rst:52
+msgid "Treat patches as regular files, copy/link them directly"
+msgstr "将 Patch 视为普通文件，直接执行拷贝/链接"
+
+#: ../../cli.rst:55
+msgid "Parameters"
+msgstr "参数类"
+
+#: ../../cli.rst:58
+msgid "Global patch context length when generating patches, defaults to 250"
+msgstr "生成 Patch 时的上下文长度，默认 250"
+
+#: ../../cli.rst:60
+msgid "Content tolerance in [0, 1] when matching sources, default to 0.3"
+msgstr "应用 Patch 时的内容匹配阈值，范围 [0, 1]， 默认 0.3"
+
+#: ../../cli.rst:62
+msgid ""
+"Line tolerance when matching sources, defaults to infinity (line numbers "
+"may vary significantly between engine versions)"
+msgstr "应用 Patch 时的行号匹配阈值，默认无限大（不同版本引擎的行号可能差异巨大）"
+
+#: ../../cli.rst:66
+msgid "Actions are combinatorial:"
+msgstr "所有行为可以相互组合："
+
+#: ../../cli.rst:68
+msgid ""
+"e.g. ``-GA`` for generate & apply (round trip), ``-GC`` for generate & "
+"clear (retraction)"
+msgstr "如指定 ``-GA`` 执行生成 + 应用, 指定 ``-GC`` 执行生成 + 清除等。"
+
