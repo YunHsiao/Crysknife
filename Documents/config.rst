@@ -43,18 +43,20 @@ to specify more complex patching behaviors such as conditional remapping, etc. i
    ; Multiple directories are allowed
    [Path1|Path2]
 
--
-   The global section applies the rule to all subdirectories inside the ``SourcePatch`` folder,
-   while custom sections with relative file/directory paths can be used to limit the effective scope of the rules.
--
-   Multiple subdirectories can be specified within one section title,
-   separated with ``|``. Scoped rules will apply to all subdirectories.
-- If multiple sections affect the same file, the inner (path) section will automatically extend from the outer section.
-- The variables section declares custom variables that can be referenced with ``${VariableName}`` in any value.
-- Any value can be preceded by `!` to indicate a reverse predicate (satisfies if the condition is not met).
--
-   The dependencies section declares relevant source patches inside other plugins,
-   which can provide seamless support when source patches are separated into multiple plugins
+The global section applies the rule to all subdirectories inside the ``SourcePatch`` folder,
+while custom sections with relative file/directory paths can be used to limit the effective scope of the rules.
+
+Multiple subdirectories can be specified within one section title,
+separated with ``|``. Scoped rules will apply to all subdirectories.
+
+If multiple sections affect the same file, the inner (path) section will automatically extend from the outer section.
+
+The variables section declares custom variables that can be referenced with ``${VariableName}`` in any value.
+
+Any value can be preceded by `!` to indicate a reverse predicate (satisfies if the condition is not met).
+
+The dependencies section declares relevant source patches inside other plugins,
+which can provide seamless support when source patches are separated into multiple plugins.
 
 .. note::
    You can also create a 'local' config file (``CrysknifeLocal.ini``) that overrides the main one.
@@ -82,7 +84,9 @@ Supported Rules
 ``^Base<RULE>=...``
    Add a ``Base`` prefix to rule name to indicate the current rule line is in the base domain and,
    therefore can only be overruled by the same domain directives
-   Use this iff you want to override base rules defined in ``BaseCrysknife.ini``
+   Use this iff you want to override base rules defined in `BaseCrysknife.ini`_
+
+.. _BaseCrysknife.ini: https://github.com/YunHsiao/Crysknife/blob/main/BaseCrysknife.ini
 
 Supported Predicates
 --------------------
@@ -108,6 +112,8 @@ Supported Predicates
 
 ``Always``, ``Never``
    Always / never satisfies
+
+.. _Builtin:
 
 Built-in Variables
 ------------------

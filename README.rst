@@ -5,7 +5,9 @@
 Crysknife
 =========
 
-.. image:: https://readthedocs.org/projects/crysknife/badge/?version=latest
+|Doc| `中文 <README.zh.rst>`__
+
+.. |Doc| image:: https://readthedocs.org/projects/crysknife/badge/?version=latest
    :target: https://crysknife.readthedocs.io/en/latest/?badge=latest
    :alt: Documentation Status
 
@@ -46,10 +48,10 @@ Powerful Config System
  required feature switches, or transparently format the comment tag to conforming in-house coding standards.
 
 Seamless Multilateral Iteration
- The project provide seamless support for multi-plugin architecture,
+ Crysknife provides seamless support for multi-plugin architecture,
  across multiple engine repositories. Everything above just works under this kind of multilateral environment.
  Patches will be categorized & processed based on the comment tag from/to each plugin folder automatically.
- Plugin authors can start iterating comfortably from any repository of interest.
+ Plugin authors can start iterating comfortably from any repository they need.
 
 To get started, follow the documents here:
 

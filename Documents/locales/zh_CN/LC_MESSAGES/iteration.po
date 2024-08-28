@@ -1,0 +1,84 @@
+# SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
+# SPDX-License-Identifier: MIT
+msgid ""
+msgstr ""
+"Project-Id-Version: Crysknife \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-08-29 16:35+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.16.0\n"
+
+#: ../../iteration.rst:6 55d8e27ac9a04246bb28c08c36b2a333
+msgid "Multilateral Iteration"
+msgstr "多边迭代"
+
+#: ../../iteration.rst:8 b9a7068c8e3e430998de61453768d729
+msgid ""
+"Here is the recommended setup & workflow for iterating between multiple "
+"engines:"
+msgstr "以下是推荐的多引擎仓库环境下迭代的配置和工作流："
+
+#: ../../iteration.rst:12 a7390e9babb24656bcbfe3830a4ad83d
+msgid ""
+"We recommend test your plugins in at least two engine versions: the "
+"latest release version, and the minimum version you want to support "
+"(typically ``4.27``), or more if you have existing internal engine "
+"repositories."
+msgstr "我们建议在至少两个引擎仓库调试扩展：官方最新的发布版，和需要支持的最早版本（一般如 ``4.27``），或更多如果算上项目内部引擎仓库"
+
+#: ../../iteration.rst:16 0d2cb4f9de6248c3b1702841358f63d9
+msgid ""
+"**Link** all the relevant plugin folders into every engine you want to "
+"iterate on, this way only one set of plugin repositories is maintained, "
+"which greatly simplified the workflow."
+msgstr "将所有相关扩展 **链接** 到每个需要调试的引擎仓库，这样可以只维护一套扩展代码，大幅简化工作流"
+
+#: ../../iteration.rst:19 08a605e28a1f445bad0c7685430c8ca3
+msgid ""
+"A multi-root workspace as follows could really help: (VS Code as an "
+"example)"
+msgstr "类似如下的多文件夹工作区可以帮上不少忙"
+
+#: ../../iteration.rst:89 f4cb7aa6f5844d6bb9c1820b3529b6ce
+msgid ""
+"The setup script is written carefully with this kind of environment in "
+"mind, you can just run the same script from different linked directory "
+"and it will update the parent repository accordingly."
+msgstr "Setup 脚本流程考虑了此类环境，直接在不同的链接路径运行同一个脚本就能更新对应的仓库"
+
+#: ../../iteration.rst:92 64bc0fc8173d4e499259f824a8a07ff5
+msgid ""
+"For example, we just finished development for ``Release``, now want to "
+"port to ``4.27``:"
+msgstr "举个例子，我们现在刚刚完成对 ``Release`` 仓库的适配，要移植到 ``4.27``："
+
+#: ../../iteration.rst:101 51017830bd8c4f14bc93c920355d92df
+msgid ""
+"Then switch to ``4.27`` and start resolving conflicts & do the actual "
+"porting. After finished:"
+msgstr "然后切到 ``4.27`` 仓库就可以开始处理冲突和实际移植了。工作完成后执行："
+
+#: ../../iteration.rst:112 0d3700ff1773405aa2c44f7e80647536
+msgid ""
+"To update the patches back to the ``Release`` repo. This may take some "
+"back-and-forth efforts, but in the end can guarantee both engine are "
+"completely conformant."
+msgstr "以更新 Patch 回 ``Release`` 仓库。这个过程可能会需要几次反复，但最后可以保证两仓库完全适配。"
+
+#: ../../iteration.rst:115 19c0bed848d249849be2192a1e0d5590
+msgid "Then the same process can be applied to any other repository:"
+msgstr "相同的流程可以继续在任何其他仓库执行："
+
+#: ../../iteration.rst:133 452e52c4004d406eb43caad03e9a296a
+msgid ""
+"It is recommended to use the ``Release`` repo as the base patch source, "
+"all other repositories modifies the patches incrementally."
+msgstr "我们推荐所有 Patch 基于 ``Release`` 仓库，其他仓库在此基础上只做增量更新。"
+

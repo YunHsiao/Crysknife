@@ -18,16 +18,16 @@ For first-time setup, you should use the script file matching your operating sys
 
 This will generate a few ``Setup`` scripts to your plugin directory as the main entry for any operations.
 
-And code patches will be read from the following directory to ``Engine/Source``::
+And code patches will be read from / write to the following directory::
 
    Engine/Plugins/${PluginName}/SourcePatch/
 
-All relative structures from the ``SourcePatch`` directory will be preserved.
+All relative structures from the ``Engine/Source`` directory will be preserved.
 
 The injector itself doesn't magically change the way your code is organized.
 Here are the recommended general principles:
 
-- Only inject sources when there is no way around it, you can still go very far with only the builtin plugin system
+- Only make source patches when there is no way around it, you can still go very far with only the builtin plugin system
 -
    Try to move as much code as possible to separate new files instead of embedding them
    inline into the existing engine base
@@ -67,7 +67,7 @@ Note that there can be no code at the same line with the comment guard:
    ** YOUR ONE-LINER HERE **
 
 The comment tag is defaulted to plugin folder name but can be modified if needed,
-through configs.
+through :ref:`Builtin`.
 
 .. note::
    For non-performance-critical code, try to find the most representative context to insert your code (beginning of class,
@@ -135,8 +135,10 @@ Builtin Source Patches
 We included some useful utilities in the built-in ``SourcePatch`` folder,
 which can provide some interesting trade-offs.
 
-====================== ======== =======
-Include Path           Module   Comment
-====================== ======== =======
-Misc/PrivateAccessor.h Core     A tiny library for accessing private members from non-friend contexts
-====================== ======== =======
+========================= ======== =======
+Include Path              Module   Comment
+========================= ======== =======
+`Misc/PrivateAccessor.h`_ Core     A tiny library for accessing private members from non-friend contexts
+========================= ======== =======
+
+.. _Misc/PrivateAccessor.h: https://github.com/YunHsiao/Crysknife/blob/main/SourcePatch/Runtime/Core/Public/Misc/PrivateAccessor.h
