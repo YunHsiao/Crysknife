@@ -122,5 +122,5 @@ Built-in Variables
    Default to the plugin folder name, you can assign a more distinctive name if needed
 ``CRYSKNIFE_CUSTOM_COMMENT_TAG_PREDICATE``
    Enable custom comment tag format iff this predicate evaluates to true
-``(CRYSKNIFE|CUSTOM)_COMMENT_TAG_(PREFIX|SUFFIX|BEGIN|END)_(RE|CTOR)``
+``CRYSKNIFE(_CUSTOM)_COMMENT_TAG_(PREFIX|SUFFIX|BEGIN|END)_(RE|CTOR)``
    Regex matchers & re-constructors of the comment tag

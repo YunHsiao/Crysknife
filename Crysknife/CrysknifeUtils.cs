@@ -255,6 +255,14 @@ internal static class Utils
         return Result;
     }
 
+    private static readonly Regex PredicateRegex = new (@"@Predicate\((.+)\)", RegexOptions.Compiled);
+    public static bool GetVariablePredicate(string Value, out string Predicate)
+    {
+        var Matched = PredicateRegex.Match(Value);
+        Predicate = Matched.Groups[1].Value;
+        return Matched.Success;
+    }
+
     private static readonly Regex SeparatorRegex = new (@"[\\/]", RegexOptions.Compiled);
     public static string UnifySeparators(string Value, string Target)
     {

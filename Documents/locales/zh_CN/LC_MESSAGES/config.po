@@ -1,11 +1,10 @@
 # SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
 # SPDX-License-Identifier: MIT
-
 msgid ""
 msgstr ""
 "Project-Id-Version: Crysknife \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-28 13:07+0800\n"
+"POT-Creation-Date: 2024-08-28 16:24+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -261,7 +260,7 @@ msgid "Enable custom comment tag format iff this predicate evaluates to true"
 msgstr "只有当指定条件满足时才会启用自定义注释桩格式"
 
 #: ../../config.rst:125 7656e7ce9802414a8b3712e23a200b9c
-msgid "``(CRYSKNIFE|CUSTOM)_COMMENT_TAG_(PREFIX|SUFFIX|BEGIN|END)_(RE|CTOR)``"
+msgid "``CRYSKNIFE(_CUSTOM)_COMMENT_TAG_(PREFIX|SUFFIX|BEGIN|END)_(RE|CTOR)``"
 msgstr ""
 
 #: ../../config.rst:126 373d66cf5a4245f1a22908927b9eb316

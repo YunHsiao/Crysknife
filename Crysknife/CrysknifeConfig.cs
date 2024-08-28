@@ -536,6 +536,22 @@ internal class ConfigSystem
             Section.ParseLines(InnerVariables, '|');
             SectionNames.RemoveAt(VariableSecIndex);
         }
+        // First evalulate predicates
+        foreach (var Pair in InnerVariables)
+        {
+            if (Utils.GetVariablePredicate(Pair.Value, out var Predicate))
+            {
+                InnerVariables[Pair.Key] = ConfigPredicates.Eval(Predicate, Utils.GetEngineRoot()) ? "1" : "0";
+            }
+        }
+        // Then do path compression on user-domain references
+        foreach (var Pair in InnerVariables)
+        {
+            if (!Pair.Key.StartsWith("CRYSKNIFE_", StringComparison.OrdinalIgnoreCase))
+            {
+                InnerVariables[Pair.Key] = Utils.MapVariables(Variables, Pair.Value);
+            }
+        }
 
         // Gather dependencies
         var DependencySecIndex = SectionNames.FindIndex(Name => Name.Equals("Dependencies", StringComparison.OrdinalIgnoreCase));
@@ -577,17 +593,17 @@ internal class ConfigSystem
         Format.BeginCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_BEGIN_CTOR", Format.BeginRegex, false);
         Format.EndCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_END_CTOR", Format.EndRegex, false);
 
-        if (ConfigPredicates.Eval(GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_PREDICATE"), Utils.GetEngineRoot()))
+        if (Utils.IsTruthyValue(GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG")))
         {
-            Format.PrefixRegex = GetVariable("CUSTOM_COMMENT_TAG_PREFIX_RE", Format.PrefixRegex);
-            Format.SuffixRegex = GetVariable("CUSTOM_COMMENT_TAG_SUFFIX_RE", Format.SuffixRegex);
-            Format.BeginRegex = GetVariable("CUSTOM_COMMENT_TAG_BEGIN_RE", Format.BeginRegex);
-            Format.EndRegex = GetVariable("CUSTOM_COMMENT_TAG_END_RE", Format.EndRegex);
+            Format.PrefixRegex = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_PREFIX_RE", Format.PrefixRegex);
+            Format.SuffixRegex = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_SUFFIX_RE", Format.SuffixRegex);
+            Format.BeginRegex = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_BEGIN_RE", Format.BeginRegex);
+            Format.EndRegex = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_END_RE", Format.EndRegex);
 
-            Format.PrefixCtor = GetVariable("CUSTOM_COMMENT_TAG_PREFIX_CTOR", Format.PrefixRegex, false);
-            Format.SuffixCtor = GetVariable("CUSTOM_COMMENT_TAG_SUFFIX_CTOR", Format.SuffixRegex, false);
-            Format.BeginCtor = GetVariable("CUSTOM_COMMENT_TAG_BEGIN_CTOR", Format.BeginRegex, false);
-            Format.EndCtor = GetVariable("CUSTOM_COMMENT_TAG_END_CTOR", Format.EndRegex, false);
+            Format.PrefixCtor = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_PREFIX_CTOR", Format.PrefixRegex, false);
+            Format.SuffixCtor = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_SUFFIX_CTOR", Format.SuffixRegex, false);
+            Format.BeginCtor = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_BEGIN_CTOR", Format.BeginRegex, false);
+            Format.EndCtor = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_END_CTOR", Format.EndRegex, false);
         }
 
         PatchRegex = new InjectionRegexGroup(new InjectionRegex(CommentTag, Format));
