@@ -5,9 +5,15 @@
 Crysknife
 =========
 
-.. image:: https://readthedocs.org/projects/crysknife/badge/?version=latest
-    :target: https://crysknife.readthedocs.io/en/latest/?badge=latest
-    :alt: Documentation Status
+|Doc| |Dotnet|
+
+.. |Doc| image:: https://readthedocs.org/projects/crysknife/badge/?version=latest
+   :target: https://crysknife.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation Status
+
+.. |Dotnet| image:: https://github.com/YunHsiao/Crysknife/actions/workflows/dotnet.yml/badge.svg
+   :target: https://github.com/YunHsiao/Crysknife/actions/workflows/dotnet.yml
+   :alt: Build Status
 
 当在 Unreal® 引擎中实现具有一定复杂度的引擎层特性时，如果不多加考虑架构问题的话，
 最后的实现往往是完全分散在引擎的各个模块，只能适用于项目内部自己维护的固定版本的引擎仓库，

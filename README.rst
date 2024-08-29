@@ -5,11 +5,15 @@
 Crysknife
 =========
 
-|Doc| `中文 <README.zh.rst>`__
+|Doc| |Dotnet| `中文 <README.zh.rst>`__
 
 .. |Doc| image:: https://readthedocs.org/projects/crysknife/badge/?version=latest
    :target: https://crysknife.readthedocs.io/en/latest/?badge=latest
    :alt: Documentation Status
+
+.. |Dotnet| image:: https://github.com/YunHsiao/Crysknife/actions/workflows/dotnet.yml/badge.svg
+   :target: https://github.com/YunHsiao/Crysknife/actions/workflows/dotnet.yml
+   :alt: Build Status
 
 When implementing complex engine-level customizations for Unreal® Engine,
 oftentimes the changes are completely scattered across engine modules,
