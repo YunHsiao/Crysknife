@@ -56,9 +56,9 @@ using TStaticFunctionType = ReturnType(*)(Args...);
 #define DEFINE_PRIVATE_ACCESSOR_STATIC_FUNCTION(Name, Class, ReturnType, FunctionName, ...) \
 	DEFINE_PRIVATE_ACCESSOR(Name, Class::FunctionName, TStaticFunctionType, ReturnType, __VA_ARGS__)
 
-#define PRIVATE_ACCESS_OBJ(Obj, Name) (Obj.*Name)
-#define PRIVATE_ACCESS_PTR(Ptr, Name) (Ptr->*Name)
-#define PRIVATE_ACCESS_STATIC(Name) (*Name)
+template<typename Class, typename Type> auto& PrivateAccess(Class& Obj, const Type& Target) { return Obj.*Target; }
+template<typename Class, typename Type> auto& PrivateAccess(Class* Ptr, const Type& Target) { return Ptr->*Target; }
+template<typename Type> auto& PrivateAccess(const Type& Target) { return *Target; }
 
 /****************************** Use Cases ******************************/
 
@@ -107,20 +107,20 @@ inline void PrivateAccessorTest()
 	const FTestClass* Ptr = &Obj;
 
 	// Get member variable
-	const int32_t* Value = &PRIVATE_ACCESS_PTR(Ptr, TestClassValue);
+	const int32_t* Value = &PrivateAccess(Ptr, TestClassValue);
 
 	// Invoke member function
-	PRIVATE_ACCESS_OBJ(Obj, TestClassIncrement)();
+	PrivateAccess(Obj, TestClassIncrement)();
 
 	// Invoke static function
-	bool bSuccess = PRIVATE_ACCESS_STATIC(TestClassRegister)(Ptr);
+	bool bSuccess = PrivateAccess(TestClassRegister)(Ptr);
 
 	// Set static variable
-	PRIVATE_ACCESS_STATIC(TestClassInstance) = reinterpret_cast<const FTestClass*>(static_cast<intptr_t>(0xdeadbeef));
+	PrivateAccess(TestClassInstance) = reinterpret_cast<const FTestClass*>(static_cast<intptr_t>(0xdeadbeef));
 
 	// Invoke overloaded function
 	FTestClassIndexMap TestClassIndexMap;
-	PRIVATE_ACCESS_PTR(Ptr, TestClassRegister2)(TestClassIndexMap);
+	PrivateAccess(Ptr, TestClassRegister2)(TestClassIndexMap);
 
 	Obj.Print();
 	printf("LocalValue %d Success %d MapValue %d\n", *Value, bSuccess, TestClassIndexMap[Ptr]);
