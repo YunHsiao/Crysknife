@@ -5,27 +5,20 @@ digraph G {
     layout=dot splines=true compound=true overlap=false bgcolor="#262626" rankdir=TB
     node [fontname="Noto Serif CJK SC" shape=box style=rounded color="#CDD3DE" fontcolor="#CDD3DE"]
     edge [fontname="Source Code Pro" color="#CDD3DE", fontcolor="#CDD3DE"]
-    graph [center=true pad=0.5 nodesep=0.3]
-    labelloc="t" fontname="Source Code Pro" fontcolor="#CDD3DE"
-    label="The Iteration Triangle\n\n"
+    graph [center=true pad=0.5 nodesep=0.9]
 
-    A [label="In-house\nRepository" color="#7777FF" fontcolor="#7777FF"]
-    B [label="Minimum Version\nRepository" color="#77FF77" fontcolor="#77FF77"]
-    C [label="Latest Version\nRepository" color="#FF7777" fontcolor="#FF7777"]
+    A [label="Internal\nRepository" color="#7777FF" fontcolor="#7777FF"]
+    B [label="Stock\nRepositories" color="#77FF77" fontcolor="#77FF77"]
+    C [label="Release\nRepository" color="#FF7777" fontcolor="#FF7777"]
+    D [label="Source\nPatches"]
     { rank = same; B; C; }
 
-    edge [color="#FF7777", fontcolor="#FF7777"]
-    C -> A [minlen=2 label="-G"]
-    C -> B [label="-G"]
-    C -> C [tailport=ne headport=se label="-G"]
+    A -> D [dir=back]
+    D -> A [dir=back label=" -Gn 2" color="#7777FF", fontcolor="#7777FF"]
 
-    edge [color="#77FF77", fontcolor="#77FF77"]
-    B -> A [label="-Gn"]
-    B -> B [tailport=nw headport=sw label="-Gn"]
-    B -> C [minlen=2 label="-Gn"]
+    B -> D [label="-Gn" color="#77FF77", fontcolor="#77FF77"]
+    D -> B
 
-    edge [color="#7777FF", fontcolor="#7777FF"]
-    A -> A [tailport=ne headport=nw label="-Gn 2"]
-    A -> B [minlen=2 label="-Gn 2"]
-    A -> C [label="-Gn 2"]
+    C -> D [label="-G" color="#FF7777", fontcolor="#FF7777"]
+    D -> C
 }

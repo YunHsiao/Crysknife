@@ -9,14 +9,14 @@ Here is the recommended setup & workflow for iterating between multiple engines:
 
 .. image:: iteration.png
 
-We recommend test your plugins in at least two engine versions: the latest release version,
-and the minimum version you want to support (typically ``4.27``),
-or more if you have existing internal engine repositories.
+We recommend maintain your plugins in at least two engine versions: the latest release version,
+and the minimum stock engine you want to support (typically ``4.27``),
+and of course your in-house engine, if there is one.
 
-**Link** all the relevant plugin folders into every engine you want to iterate on,
+**Link** all the relevant plugin folders into every engine repositories you want to port to,
 this way only one set of plugin repositories is maintained, which greatly simplified the workflow.
 
-A multi-root workspace as follows could really help: (VS Code as an example)
+First, setup a multi-root workspace as follows could really help: (Using VS Code as an example)
 
 .. code-block:: json
 
@@ -70,7 +70,7 @@ A multi-root workspace as follows could really help: (VS Code as an example)
                "args": [
                   "-P", "YourPlugin", "-E",
 
-                  "${workspaceFolder:Latest}/../..",
+                  "${workspaceFolder:Release}/../..",
                   "-G",
 
                   // "${workspaceFolder:4_27}/../..",
@@ -89,7 +89,7 @@ A multi-root workspace as follows could really help: (VS Code as an example)
 The setup script is written carefully with this kind of environment in mind,
 you can just run the same script from different linked directory and it will update the parent repository accordingly.
 
-For example, we just finished development for ``Release``, now want to port to ``4.27``:
+Say we just finished developing for ``Release``, now want to port to ``4.27``:
 
 .. code-block:: bash
 
@@ -109,10 +109,12 @@ Then switch to ``4.27`` and start resolving conflicts & do the actual porting. A
    ${workspaceFolder:4_27}/../Plugins/YourPlugin/Setup.sh -Gn
    ${workspaceFolder:Release}/../Plugins/YourPlugin/Setup.sh
 
-To update the patches back to the ``Release`` repo. This may take some back-and-forth efforts,
-but in the end can guarantee both engine are completely conformant.
+This way the patches are updated incrementally, making it much easier and focused to sync back to the ``Release`` repo.
+It may take some back-and-forth efforts, but do make sure the same set of patches are up-to-date for both engines,
+which is critical for a smooth deployment experience.
 
-Then the same process can be applied to any other repository:
+Finally, when the porting is done, the same process still applies **anywhere anytime** changes are made.
+Say we just fixed a rare corner case found in internal repo, to properly commit the source patch changes:
 
 .. code-block:: bash
 
@@ -124,11 +126,14 @@ Then the same process can be applied to any other repository:
    # Apply to release & sync patches
    ${workspaceFolder:Release}/../Plugins/YourPlugin/Setup.sh
    ${workspaceFolder:Release}/../Plugins/YourPlugin/Setup.sh -G
+
    # Apply to 4.27 & sync patches
    ${workspaceFolder:4_27}/../Plugins/YourPlugin/Setup.sh
    ${workspaceFolder:4_27}/../Plugins/YourPlugin/Setup.sh -Gn
-   # Sync back to internal
+
+   # Sync back to internal, to make sure everything is up-to-date
    ${workspaceFolder:Internal}/../Plugins/YourPlugin/Setup.sh
 
 It is recommended to use the ``Release`` repo as the base patch source,
-all other repositories modifies the patches incrementally.
+incrementally update the patches from other stock versions,
+and never **commit** patches from internal repo (temporary updates like above are fine).
