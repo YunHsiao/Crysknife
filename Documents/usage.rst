@@ -67,7 +67,7 @@ Note that there can be no code at the same line with the comment guard:
    ** YOUR ONE-LINER HERE **
 
 The comment tag is defaulted to plugin folder name but can be modified if needed,
-through :ref:`Builtin`.
+see :ref:`Formatting`.
 
 .. note::
    For non-performance-critical code, try to find the most representative context to insert your code (beginning of class,

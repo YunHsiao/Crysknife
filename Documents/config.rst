@@ -2,6 +2,8 @@
    SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
    SPDX-License-Identifier: MIT
 
+.. _Config:
+
 Config System
 =============
 
@@ -112,6 +114,15 @@ Supported Predicates
 
 ``Always``, ``Never``
    Always / never satisfies
+
+Special Values
+--------------
+
+``${<VAR_NAME>|<FALLBACK_VAR_NAME>}``
+   Substitutes with the value of the specified variable, or the fallback variable if not found
+
+``@Predicate(<PREDICATE>...)``
+   Evaluates to the result of the specified predicate
 
 .. _Builtin:
 

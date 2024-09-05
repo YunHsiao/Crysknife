@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Crysknife \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-29 16:35+0800\n"
+"POT-Creation-Date: 2024-09-05 22:05+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -104,8 +104,8 @@ msgstr "注意此形式下注释桩独占一行，行内不可以有任何有效
 #: ../../usage.rst:69 0df24038c01a4c6bb3cd964daa387865
 msgid ""
 "The comment tag is defaulted to plugin folder name but can be modified if"
-" needed, through :ref:`Builtin`."
-msgstr "注释桩的 Tag 默认为扩展文件夹名，如果需要可以通过 :ref:`Builtin` 修改。"
+" needed, see :ref:`Formatting`."
+msgstr "注释桩默认为扩展文件夹名，如需修改相关格式可以参考 :ref:`Formatting` 章节。"
 
 #: ../../usage.rst:73 160e495f268942a48cd261dfda12c5fc
 msgid ""
@@ -241,3 +241,4 @@ msgstr ""
 #: ../../usage.rst:141 501f80162a514ec2b1647cecc01d151e
 msgid "A tiny library for accessing private members from non-friend contexts"
 msgstr "允许在非友元环境下访问私有变量或函数的小工具"
+

@@ -1,0 +1,57 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2024, Yun Hsiao Wu
+# This file is distributed under the same license as the Crysknife package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Crysknife \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-09-06 10:45+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.16.0\n"
+
+#: ../../comment-tag.rst:8 ec241269a9074f4f9dd906d72e28d201
+msgid "Comment Tag Formatting"
+msgstr "注释桩格式"
+
+#: ../../comment-tag.rst:10 ba784bfc2a084e1281ec7b8ea2d8e50d
+msgid ""
+"It is not uncommon for projects to have in-house coding standards, "
+"especially wrt. modifications inside the engine source folder, there are "
+"usually some special marks, i.e. Comment tags."
+msgstr "项目代码库通常都有自己的内部代码规范，特别是引擎源码文件夹的修改常有特殊标记，既“注释桩”。"
+
+#: ../../comment-tag.rst:14 093a05da9b0640a7943c4e4a89fa38e9
+msgid "Crysknife handles this in :ref:`Config`, through :ref:`Builtin`:"
+msgstr "本项目通过 :ref:`Config` 中的 :ref:`Builtin` 支持此类需求："
+
+#: ../../comment-tag.rst:16 9716ab0f8b38449cab5ac105589332ae
+msgid "Here's an example of comment tag format customization:"
+msgstr "以下是一个注释桩格式的定制样例："
+
+#: ../../comment-tag.rst:43 be985368578943fc90f90064ca67dfbe
+msgid ""
+"A good place to put these is inside ``Crysknife/BaseCrysknifeLocal.ini``,"
+" which is effective across all plugins inside the same repo."
+msgstr ""
+"一个适合保存这些配置的地方是 ``Crysknife/BaseCrysknifeLocal.ini`` "
+"文件内，这里的配置会对相同仓库内的所有扩展生效。"
+
+#: ../../comment-tag.rst:46 37de5eb610234a7da1af354e74664fc6
+msgid ""
+"Besides, note the ``CRYSKNIFE_CUSTOM_COMMENT_TAG`` variable, which will "
+"only enable the customization inside internal repo, i.e. any other linked"
+" stock repos can keep the default comment tag format."
+msgstr ""
+"另外注意 ``CRYSKNIFE_CUSTOM_COMMENT_TAG`` "
+"变量，这里它约束整套自定义注释桩格式只在内部引擎仓库生效，也就是说在其他同时链接的官版仓库依然可以保持默认格式。"
+

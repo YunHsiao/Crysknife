@@ -18,3 +18,4 @@ Contents
    cli
    config
    iteration
+   comment-tag
