@@ -84,7 +84,7 @@ internal static class ProjectSetup
 
         [Runtime|Developer]
         ; All predicates should be satisfied to skip
-        SkipIf=Conjunctions:Root
+        SkipIf=Conjunction
         ; If the switch is off...
         +SkipIf=IsTruthy:!${{{0}_RUNTIME}}
         ; And the input is a patch...
@@ -93,7 +93,7 @@ internal static class ProjectSetup
 
         [Editor|Programs]
         ; All predicates should be satisfied to skip
-        SkipIf=Conjunctions:Root
+        SkipIf=Conjunction
         ; If the switch is off...
         +SkipIf=IsTruthy:!${{{0}_EDITOR}}
         ; And the input is a patch...

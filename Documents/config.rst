@@ -27,11 +27,12 @@ to specify more complex patching behaviors such as conditional remapping, etc. i
 
    ; Applies to all files
    [Global]
-   ; Multiple conditions are allowed
+   ; Multiple conditions are allowed, separated by vertical bar
    Rule1=Predicate1:Value1|Value2
    ; Or add them in separate lines
    +Rule1=Predicate1:Value3
    ; Variable references & reverse dependencies
+   ; Multiple predicates are separated with comma
    +Rule1=Predicate3:${Var1},Predicate4:!Value5
 
    [Path/To/Dir1]
@@ -105,12 +106,10 @@ Supported Predicates
 ``NewerThan:<VERSION>...``
    Satisfies if current engine version is newer than or equal to specified value (e.g. ``5.0``)
 
-``Conjunctions:All|Predicates|Root|TargetExists|IsTruthy|NameMatches...``
-   | Changes the logical behavior of specified predicate to conjunction (logical AND)
-   | ``Root`` means the logical operations between different predicates
-   | ``Predicates`` means all logical operations inside every defined predicate
-   | ``All`` means ``Predicates|Root``
-   | (By default all conditions are disjunction, i.e. the results are logically OR-ed together)
+``Conjunction``
+   By default all conditions are disjunction, i.e. the results are logically OR-ed together.
+   ``Conjunction`` can be specified at rule-level, or inside predicates
+   to change the corresponding logical behavior to conjunction.
 
 ``Always``, ``Never``
    Always / never satisfies

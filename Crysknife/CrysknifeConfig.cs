@@ -134,25 +134,6 @@ internal class ConfigPredicates
             {
                 CompileTimeCondition = LogicalAnd = true;
             }
-            else if (Utils.GetContentIfStartsWith(Rule, "Conjunctions:", out var Content))
-            {
-                var Scopes = Content.Split('|', Utils.SplitOptions).ToList();
-                var AllTrue = Utils.FindAndRemoveString(Scopes, "All");
-                var PredicatesTrue = Utils.FindAndRemoveString(Scopes, "Predicates");
-                if (AllTrue || Utils.FindAndRemoveString(Scopes, "Root")) CompileTimeCondition = LogicalAnd = true;
-
-                foreach (var Predicate in Predicates)
-                {
-                    if (AllTrue || PredicatesTrue || Utils.FindAndRemoveString(Scopes, Predicate.Keyword))
-                    {
-                        Predicate.RequireConjunction();
-                    }
-                }
-
-                if (Scopes.Count <= 0) continue;
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("Config: Invalid conjunction scope: {0}", string.Join(' ', Scopes));
-            }
             else
             {
                 var Predicate = Array.Find(Predicates,Predicate => Rule.StartsWith(Predicate.Keyword + ":", StringComparison.OrdinalIgnoreCase));

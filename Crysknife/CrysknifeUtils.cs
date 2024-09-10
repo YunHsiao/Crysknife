@@ -357,18 +357,6 @@ internal static class Utils
         return Values.RemoveAll(Value => Value.Equals(Target, StringComparison.OrdinalIgnoreCase)) > 0;
     }
 
-    public static bool GetContentIfStartsWith(string Str, string Prefix, out string Content)
-    {
-        if (Str.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase))
-        {
-            Content = Str[Prefix.Length..];
-            return true;
-        }
-
-        Content = Str;
-        return false;
-    }
-
     public static bool FileAccessGuard(Action Action, string Dest)
     {
         try
