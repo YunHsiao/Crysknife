@@ -115,14 +115,18 @@ Supported Predicates
 ``Always``, ``Never``
    Always / never satisfies
 
-Special Values
+Variable Perks
 --------------
 
-``${<VAR_NAME>|<FALLBACK_VAR_NAME>}``
-   Substitutes with the value of the specified variable, or the fallback variable if not found
+``${<VAR_NAME>|<?FALLBACK_VAR_NAME>}``
+   Substitutes with the value of the specified variable, or the optional fallback variable if not found.
 
 ``@Predicate(<PREDICATE>...)``
    Evaluates to the result of the specified predicate
+
+``@<VARIABLE_NAME>``
+   Prefix variable name with ``@`` to make it 'local', i.e. environment-specific,
+   thus will not be included in config cache files. The prefix should be omitted when referencing.
 
 .. _Builtin:
 

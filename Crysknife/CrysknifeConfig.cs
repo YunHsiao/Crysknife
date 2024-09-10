@@ -243,7 +243,7 @@ internal class ConfigSection
 {
     private readonly string[] TargetNames;
 
-    private readonly string RemapTarget = string.Empty;
+    private string RemapTarget = string.Empty;
     private readonly ConfigRule[] Rules;
 
     public ConfigSection(IDictionary<string, string> Section, string SectionName)
@@ -281,6 +281,12 @@ internal class ConfigSection
         {
             Rule.Compile();
         }
+    }
+
+    public void MapLocalVariables(IReadOnlyDictionary<string, string> Variables)
+    {
+        // Only remap targets can have local variable refenreces for now
+        RemapTarget = Utils.MapVariables(Variables, RemapTarget, Utils.MapFlag.AllowLocal);
     }
 
     public RemapResult Remap(string Target, out string Result, bool VerboseLogging)
@@ -337,7 +343,7 @@ internal class ConfigSection
     {
         var Predicates = string.Join('\n', Rules.Select(Predicate => Predicate.ToString())
             .Where(Predicate => Predicate.Length > 0));
-        return $"[{GetSectionName()}]\n{Predicates}\nRemapTarget={RemapTarget.Replace(Utils.GetEngineRoot(), "${CRYSKNIFE_ENGINE_ROOT}")}";
+        return $"[{GetSectionName()}]\n{Predicates}\nRemapTarget={RemapTarget}";
     }
 
     public IEnumerable<string> GetTargetNames()
@@ -487,7 +493,7 @@ internal class ConfigSystem
         if (File.Exists(LocalConfigPath)) Config.Merge(new ConfigFile(LocalConfigPath));
 
         var FinalOverrides = string.Join(',',
-            $"CRYSKNIFE_ENGINE_ROOT={Utils.GetEngineRoot()}",
+            $"@CRYSKNIFE_ENGINE_ROOT={Utils.GetEngineRoot()}",
             $"CRYSKNIFE_SOURCE_DIRECTORY={Path.Combine("${CRYSKNIFE_ENGINE_ROOT}", Utils.GetEngineRelativePath(Utils.GetSourceDirectory()))}",
             $"CRYSKNIFE_PLUGIN_DIRECTORY={Path.Combine("${CRYSKNIFE_ENGINE_ROOT}", Utils.GetEngineRelativePath(Utils.GetPluginDirectory(PluginName)))}",
             VariableOverrides.Replace("\"", string.Empty) // Need to strip quotes if specified from CLI
@@ -536,7 +542,7 @@ internal class ConfigSystem
             Section.ParseLines(InnerVariables, '|');
             SectionNames.RemoveAt(VariableSecIndex);
         }
-        // First evalulate predicates
+        // Predicate evaluation
         foreach (var Pair in InnerVariables)
         {
             if (Utils.GetVariablePredicate(Pair.Value, out var Predicate))
@@ -544,13 +550,10 @@ internal class ConfigSystem
                 InnerVariables[Pair.Key] = ConfigPredicates.Eval(Predicate, Utils.GetEngineRoot()) ? "1" : "0";
             }
         }
-        // Then do path compression on user-domain references
+        // Path compression
         foreach (var Pair in InnerVariables)
         {
-            if (!Pair.Key.StartsWith("CRYSKNIFE_", StringComparison.OrdinalIgnoreCase))
-            {
-                InnerVariables[Pair.Key] = Utils.MapVariables(Variables, Pair.Value);
-            }
+            InnerVariables[Pair.Key] = Utils.MapVariables(Variables, Pair.Value, Utils.MapFlag.IgnoreFallbacks);
         }
 
         // Gather dependencies
@@ -587,11 +590,10 @@ internal class ConfigSystem
             EndRegex = GetVariable("CRYSKNIFE_COMMENT_TAG_END_RE")
         };
 
-        // Reconstructors can contain custom variables which we should not eval right away here
-        Format.PrefixCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_PREFIX_CTOR", Format.PrefixRegex, false);
-        Format.SuffixCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_SUFFIX_CTOR", Format.SuffixRegex, false);
-        Format.BeginCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_BEGIN_CTOR", Format.BeginRegex, false);
-        Format.EndCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_END_CTOR", Format.EndRegex, false);
+        Format.PrefixCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_PREFIX_CTOR", Format.PrefixRegex);
+        Format.SuffixCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_SUFFIX_CTOR", Format.SuffixRegex);
+        Format.BeginCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_BEGIN_CTOR", Format.BeginRegex);
+        Format.EndCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_END_CTOR", Format.EndRegex);
 
         if (Utils.IsTruthyValue(GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG")))
         {
@@ -600,10 +602,10 @@ internal class ConfigSystem
             Format.BeginRegex = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_BEGIN_RE", Format.BeginRegex);
             Format.EndRegex = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_END_RE", Format.EndRegex);
 
-            Format.PrefixCtor = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_PREFIX_CTOR", Format.PrefixRegex, false);
-            Format.SuffixCtor = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_SUFFIX_CTOR", Format.SuffixRegex, false);
-            Format.BeginCtor = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_BEGIN_CTOR", Format.BeginRegex, false);
-            Format.EndCtor = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_END_CTOR", Format.EndRegex, false);
+            Format.PrefixCtor = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_PREFIX_CTOR", Format.PrefixRegex);
+            Format.SuffixCtor = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_SUFFIX_CTOR", Format.SuffixRegex);
+            Format.BeginCtor = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_BEGIN_CTOR", Format.BeginRegex);
+            Format.EndCtor = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_END_CTOR", Format.EndRegex);
         }
 
         PatchRegex = new InjectionRegexGroup(new InjectionRegex(CommentTag, Format));
@@ -647,7 +649,7 @@ internal class ConfigSystem
 
         if (Variables.Count != 0) BuiltinSections.Add("[Variables]\n" + Variables.Aggregate("", (Current, Pair) =>
         {
-            if (Pair.Key.Equals("CRYSKNIFE_ENGINE_ROOT", StringComparison.OrdinalIgnoreCase)) return Current;
+            if (Pair.Key.StartsWith('@')) return Current;
             var Expr = $"{Pair.Key}={Pair.Value}\n";
             return Pair.Key.StartsWith("Crysknife", StringComparison.OrdinalIgnoreCase) ? Expr + Current : Current + Expr;
         }));
@@ -657,17 +659,24 @@ internal class ConfigSystem
         return string.Join('\n', BuiltinSections);
     }
 
-    private string GetVariable(string Name, string Default = "", bool Eval = true)
+    private string GetVariable(string Name, string Default = "")
     {
         Variables.TryGetValue(Name, out var Result);
-        if (Result != null && Eval) Result = Utils.MapVariables(Variables, Result);
         return Result ?? Default;
     }
 
     public static ConfigSystem Create(string PluginName, string VariableOverrides)
     {
         var Result = Create(PluginName, VariableOverrides, "");
-        Result.Dispatch(Config => Config.PatchRegex.AddResiduals(Config.Children.Select(Pair => new InjectionRegex(Pair.Value, Config.Format))), true);
+        Result.Dispatch(Config =>
+        {
+            // Fill in children plugins
+            Config.PatchRegex.AddResiduals(Config.Children.Select(Pair => new InjectionRegex(Pair.Value, Config.Format)));
+            // Save config cache
+            File.WriteAllText(GetConfigPath(Config.PluginName, ConfigType.Cache), Config.ToString());
+            // Map local variables
+            Config.Sections.ForEach(Section => Section.MapLocalVariables(Config.Variables));
+        }, true);
         return Result;
     }
 

@@ -40,6 +40,10 @@ Here's an example of comment tag format customization:
    CRYSKNIFE_CUSTOM_COMMENT_TAG_BEGIN_CTOR=:[BEGIN]
    CRYSKNIFE_CUSTOM_COMMENT_TAG_END_CTOR=:[END]
 
+The ``RE`` configs are regular expression patterns when matching existing code bases.
+The ``CTOR`` configs are values used to re-construct the comment tag from patches.
+You can specify custom captures with explicit group name ``Capture${Index}``, and reference them accordingly in reconstructors.
+
 A good place to put these is inside ``Crysknife/BaseCrysknifeLocal.ini``,
 which is effective across all plugins inside the same repo.
 

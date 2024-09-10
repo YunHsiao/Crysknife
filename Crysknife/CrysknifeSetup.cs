@@ -15,6 +15,7 @@ internal static class ProjectSetup
     ".Replace("    ", string.Empty);
 
     private static readonly string LinuxTemplate = @"
+        #!/usr/bin/env bash
         DIR=`cd ""$(dirname ""$0"")""; pwd`
         ""$DIR/../Crysknife/Crysknife.sh"" -P {0} ""$@""
     ".Replace("    ", string.Empty).Replace("\r\n", "\n");

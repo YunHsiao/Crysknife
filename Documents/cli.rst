@@ -35,7 +35,7 @@ Modifiers
    Inclusive target path filter for all actions
 -e <FILTER>, --exclusive-filter <FILTER>
    Exclusive target path filter for all actions
--n <LEVEL?>, --incremental <LEVEL?>
+-n <?LEVEL>, --incremental <?LEVEL>
    Update patches incrementally based on existing patch status
 -l, --link
    Make symbolic links instead of copying all the new files
@@ -65,4 +65,4 @@ Parameters
 .. note::
    Actions are combinatorial:
 
-   e.g. ``-GA`` for generate & apply (round trip), ``-GC`` for generate & clear (retraction)
+   e.g. ``-AG`` for apply & generate (round trip), ``-GC`` for generate & clear (retraction)

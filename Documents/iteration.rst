@@ -114,7 +114,7 @@ It may take some back-and-forth efforts, but do make sure the same set of patche
 which is critical for a smooth deployment experience.
 
 Finally, when the porting is done, the same process still applies **anywhere anytime** changes are made.
-Say we just fixed a rare corner case found in internal repo, to properly commit the source patch changes:
+Say we just fixed a rare corner case found in internal repo, to properly commit the changes, follow these steps:
 
 .. code-block:: bash
 
@@ -124,15 +124,15 @@ Say we just fixed a rare corner case found in internal repo, to properly commit 
    ${workspaceFolder:Internal}/../Plugins/YourPlugin/Setup.sh -Gn 2
 
    # Apply to release & sync patches
-   ${workspaceFolder:Release}/../Plugins/YourPlugin/Setup.sh
-   ${workspaceFolder:Release}/../Plugins/YourPlugin/Setup.sh -G
+   ${workspaceFolder:Release}/../Plugins/YourPlugin/Setup.sh -AG
 
    # Apply to 4.27 & sync patches
-   ${workspaceFolder:4_27}/../Plugins/YourPlugin/Setup.sh
-   ${workspaceFolder:4_27}/../Plugins/YourPlugin/Setup.sh -Gn
+   ${workspaceFolder:4_27}/../Plugins/YourPlugin/Setup.sh -AGn
 
    # Sync back to internal, to make sure everything is up-to-date
    ${workspaceFolder:Internal}/../Plugins/YourPlugin/Setup.sh
+
+   # Now you are ready submit new changes for all relevant plugins
 
 It is recommended to use the ``Release`` repo as the base patch source,
 incrementally update the patches from other stock versions,

@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
 # SPDX-License-Identifier: MIT
 
@@ -5,14 +6,14 @@ DIR=`cd "$(dirname "$0")"; pwd`
 cd $DIR/Crysknife
 
 for (( i=1; i<=$#; i++)); do
-  case ${!i} in
-    --skip-build) Skip=true;;
-    --loc) Loc=true;;
-    -P)
-      j=$((i+1))
-      Project=${!j}
-      ;;
-  esac
+    case ${!i} in
+        --skip-build) Skip=true;;
+        --loc) Loc=true;;
+        -P)
+            j=$((i+1))
+            Project=${!j}
+            ;;
+    esac
 done
 
 if [ ! -z "$Loc" ]; then

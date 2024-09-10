@@ -55,7 +55,7 @@ Seamless Multilateral Iteration
  Crysknife provides seamless support for multi-plugin architecture,
  across multiple engine repositories. Everything above just works under this kind of multilateral environment.
  Patches will be categorized & processed based on the comment tag from/to each plugin folder automatically.
- Plugin authors can start iterating comfortably from any repository they need.
+ Plugin authors can start iterating comfortably anywhere, anytime.
 
 To get started, follow the documents here:
 

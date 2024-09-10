@@ -181,8 +181,8 @@ internal class CommentTagPacker
             };
         });
 
-        if (Utils.MapVariables(CaptureRecord, Result, true, false, out var Temp)) return Temp;
-        return Utils.MapVariables(Variables, Result, true, false); // Fallback to config variables
+        if (Utils.MapVariables(CaptureRecord, Result, out var Temp)) return Temp;
+        return Utils.MapVariables(Variables, Result); // Fallback to config variables
     }
 
     public string Pack(string Content, ref int Increment, bool SkipCaptures)
@@ -299,27 +299,42 @@ internal static class Utils
 
     private static readonly Regex VariableRegex = new (@"\${([\w|]+)}", RegexOptions.Compiled);
 
-    public static string MapVariables(IReadOnlyDictionary<string, string> Variables, string Input, bool Recurse = true, bool WarnIfFailed = true)
+    [Flags]
+    public enum MapFlag
     {
-        MapVariables(Variables, Input, Recurse, WarnIfFailed, out var Result);
+        None = 0x0,
+        Shallow = 0x1,
+        AllowLocal = 0x2,
+        IgnoreFallbacks = 0x4,
+    }
+    public static string MapVariables(IReadOnlyDictionary<string, string> Variables, string Input, MapFlag Flags = MapFlag.None)
+    {
+        MapVariables(Variables, Input, out var Result, Flags);
         return Result;
     }
 
-    public static bool MapVariables(IReadOnlyDictionary<string, string> Variables, string Input, bool Recurse, bool WarnIfFailed, out string Result)
+    public static bool MapVariables(IReadOnlyDictionary<string, string> Variables, string Input, out string Result, MapFlag Flags = MapFlag.None)
     {
         var AllSuccess = true;
 
         Result = VariableRegex.Replace(Input, Matched =>
         {
-            foreach (var Name in Matched.Groups[1].Value.Split('|'))
+            var Names = Matched.Groups[1].Value.Split('|');
+            foreach (var Index in Enumerable.Range(0, Names.Length))
             {
-                if (!Variables.TryGetValue(Name, out var Value)) continue;
-                if (Recurse) MapVariables(Variables, Value, Recurse, WarnIfFailed, out Value);
+                // Skip if ignored
+                if (Index > 0 && Flags.HasFlag(MapFlag.IgnoreFallbacks)) return Matched.Value;
+
+                var LocalName = '@' + Names[Index];
+                var IsLocal = Variables.ContainsKey(LocalName);
+                if (!Flags.HasFlag(MapFlag.AllowLocal) && IsLocal) return Matched.Value;
+                if (!Variables.TryGetValue(IsLocal ? LocalName : Names[Index], out var Value)) continue; // Not found
+
+                if (!Flags.HasFlag(MapFlag.Shallow)) MapVariables(Variables, Value, out Value, Flags);
                 return Value;
             }
 
             AllSuccess = false;
-            if (!WarnIfFailed) return Matched.Value;
 
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine($"Invalid variable reference: '{Matched.Groups[1].Value}' not found");

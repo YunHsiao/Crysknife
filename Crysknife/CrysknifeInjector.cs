@@ -7,9 +7,9 @@ namespace Crysknife;
 public enum JobType
 {
     None = 0x0,
-    Generate = 0x1,
-    Clear = 0x2,
-    Apply = 0x4,
+    Clear = 0x1,
+    Apply = 0x2,
+    Generate = 0x4,
 }
 
 [Flags]
@@ -79,11 +79,15 @@ public class Injector
 
         var TargetContent = SourcePatch.PatchRegex.ClearResiduals(File.ReadAllText(TargetPath));
         var ClearedTarget = SourcePatch.PatchRegex.Unpatch(TargetContent);
-        IPatchBundle? Patches = null;
 
-        if (Job.HasFlag(JobType.Generate))
+        if (Job.HasFlag(JobType.Generate) && Job.HasFlag(JobType.Clear)) Generate();
+        if (Job.HasFlag(JobType.Clear)) Clear();
+        if (Job.HasFlag(JobType.Apply)) Apply();
+        if (Job.HasFlag(JobType.Generate) && !Job.HasFlag(JobType.Clear)) Generate();
+
+        void Generate()
         {
-            Patches = PatcherInstance.Generate(ClearedTarget, TargetContent);
+            var Patches = PatcherInstance.Generate(ClearedTarget, TargetContent);
 
             if (!Patches.IsValid())
             {
@@ -105,17 +109,18 @@ public class Injector
             }
         }
 
-        if (Job.HasFlag(JobType.Clear) && ClearedTarget.Length != TargetContent.Length)
+        void Clear()
         {
+            if (ClearedTarget.Length == TargetContent.Length) return;
             File.WriteAllText(TargetPath, ClearedTarget);
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("Patch removed from: " + TargetPath);
             TargetContent = ClearedTarget;
         }
 
-        if (Job.HasFlag(JobType.Apply))
+        void Apply()
         {
-            Patches ??= PatcherInstance.Load();
+            var Patches = PatcherInstance.Load();
 
             if (Patches.IsValid())
             {
@@ -139,6 +144,8 @@ public class Injector
                     Utils.FileAccessGuard(() => File.WriteAllText(TargetPath, Patched), TargetPath);
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.WriteLine("Patched: " + TargetPath);
+                    TargetContent = Patched;
+                    ClearedTarget = SourcePatch.PatchRegex.Unpatch(TargetContent);
                 }
             }
         }
@@ -301,11 +308,9 @@ public class Injector
     private void Process(ConfigSystem Config, JobType Job)
     {
         var SourcePatch = new SourcePatchInfo(Config);
-        File.WriteAllText(Path.Combine(SourcePatch.Directory, "CrysknifeCache.ini"), Config.ToString());
-
         var VerboseLogging = Options.HasFlag(JobOptions.Verbose);
-
         var Patches = new HashSet<string>();
+
         foreach (var SrcPath in Directory.GetFiles(SourcePatch.Directory, "*", new EnumerationOptions { RecurseSubdirectories = true }))
         {
             if (!SrcPath.Contains(InclusiveFilter) || SrcPath.Contains(ExclusiveFilter)) continue;

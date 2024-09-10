@@ -1,11 +1,10 @@
 # SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
 # SPDX-License-Identifier: MIT
-
 msgid ""
 msgstr ""
 "Project-Id-Version: Crysknife \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-28 12:50+0800\n"
+"POT-Creation-Date: 2024-09-09 17:33+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -134,7 +133,7 @@ msgstr "所有行为可以相互组合："
 
 #: ../../cli.rst:68
 msgid ""
-"e.g. ``-GA`` for generate & apply (round trip), ``-GC`` for generate & "
+"e.g. ``-AG`` for apply & generate (round trip), ``-GC`` for generate & "
 "clear (retraction)"
-msgstr "如指定 ``-GA`` 执行生成 + 应用, 指定 ``-GC`` 执行生成 + 清除等。"
+msgstr "如指定 ``-AG`` 执行应用 + 生成, 指定 ``-GC`` 执行生成 + 清除等。"
 

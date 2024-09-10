@@ -34,5 +34,5 @@ html_theme = 'furo'
 # -- Options for EPUB output
 epub_show_urls = 'footnote'
 
-gettext_uuid = True
-gettext_compact = False
+# gettext_uuid = True
+# gettext_compact = False

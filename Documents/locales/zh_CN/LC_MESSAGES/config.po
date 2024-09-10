@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Crysknife \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-09-05 22:05+0800\n"
+"POT-Creation-Date: 2024-09-10 15:07+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -15,11 +15,11 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.16.0\n"
 
-#: ../../config.rst:8 2dc523bc352c47938479ad36e07f7679
+#: ../../config.rst:8
 msgid "Config System"
 msgstr "配置系统"
 
-#: ../../config.rst:10 9d2799beab4a47e58da890c71ca65be6
+#: ../../config.rst:10
 msgid ""
 "Every ``SourcePatch`` directory can have one config file "
 "``Crysknife.ini`` at the root, to specify more complex patching behaviors"
@@ -28,7 +28,7 @@ msgstr ""
 "``SourcePatch`` 根目录下可以新建一个 ``Crysknife.ini`` 配置文件，来指定如条件重映射等更复杂的 Patch "
 "行为。配置框架如下："
 
-#: ../../config.rst:48 9c9950cd63654bf0b3bf20fce81867ae
+#: ../../config.rst:48
 msgid ""
 "The global section applies the rule to all subdirectories inside the "
 "``SourcePatch`` folder, while custom sections with relative "
@@ -36,100 +36,100 @@ msgid ""
 "rules."
 msgstr "Global 作用域 (Section) 下的规则 (Rule) 会应用到所有子目录，其他作用域的规则只会应用到指定子目录下"
 
-#: ../../config.rst:51 db63444b1815413abb71acdac629d19f
+#: ../../config.rst:51
 msgid ""
 "Multiple subdirectories can be specified within one section title, "
 "separated with ``|``. Scoped rules will apply to all subdirectories."
 msgstr "可同时声明以 ``|`` 分割的多个子目录，作用域内规则会对所有子目录生效"
 
-#: ../../config.rst:54 9f651f38d6994408b49d88bcee121fdf
+#: ../../config.rst:54
 msgid ""
 "If multiple sections affect the same file, the inner (path) section will "
 "automatically extend from the outer section."
 msgstr "如果存在多个作用域都对同一个文件生效，根据指定的路径层级，内层配置自动继承外层配置"
 
-#: ../../config.rst:56 b6c469c639ed4927b0efc9683e5cd8ac
+#: ../../config.rst:56
 msgid ""
 "The variables section declares custom variables that can be referenced "
 "with ``${VariableName}`` in any value."
 msgstr "Variables 作用域内可定义任意变量， 在任意值内都可通过 ``${VariableName}`` 引用"
 
-#: ../../config.rst:58 e3a393a9e008400aa24c167c240d65f1
+#: ../../config.rst:58
 msgid ""
 "Any value can be preceded by `!` to indicate a reverse predicate "
 "(satisfies if the condition is not met)."
 msgstr "任意值都可以添加 ``!`` 前缀，表示反向条件（条件不成立时满足）"
 
-#: ../../config.rst:60 b0cb93626d9941d4b8616c9de4755daf
+#: ../../config.rst:60
 msgid ""
 "The dependencies section declares relevant source patches inside other "
 "plugins, which can provide seamless support when source patches are "
 "separated into multiple plugins."
 msgstr "Dependencies 作用域内可用于指定对其他引擎扩展内的 Patch 的依赖，以提供对多扩展架构的无缝支持"
 
-#: ../../config.rst:64 4a59c76c66be4a3a9f4179388c2b86ce
+#: ../../config.rst:64
 msgid ""
 "You can also create a 'local' config file (``CrysknifeLocal.ini``) that "
 "overrides the main one."
 msgstr "在主配置文件之外，还可以创建一份独立的“本地”配置（`CrysknifeLocal.ini`）来覆盖主配置。"
 
-#: ../../config.rst:66 64f612e777a248e6850b991dda39ad59
+#: ../../config.rst:66
 msgid ""
 "By design it is ignored in your plugin's git repo, but should be "
 "committed into the main engine (e.g. perforce) code base."
 msgstr "此配置默认不会提交到扩展的 git 仓库，但应当提交到引擎主仓库（如 P4）。"
 
-#: ../../config.rst:68 8b863cd567b44276a11539d455298f92
+#: ../../config.rst:68
 msgid ""
 "This is useful to specify engine-specific configs like comment tag "
 "format, etc."
 msgstr "对于引擎代码库相关的参数，如注释桩格式等，使用本地配置更合适。"
 
-#: ../../config.rst:71 8680c0fa654348df95ac49f3fac2c7b0
+#: ../../config.rst:71
 msgid "Supported Rules"
 msgstr "规则"
 
-#: ../../config.rst:74 173faf514593498dabd2226e3c015e72
+#: ../../config.rst:74
 msgid "``SkipIf=<PREDICATE>...``"
 msgstr ""
 
-#: ../../config.rst:74 8e0a34123fab4e7aa721391063772f7d
+#: ../../config.rst:74
 msgid "Skip action if specified predicates are satisfied"
 msgstr "如果条件满足，跳过执行行为"
 
-#: ../../config.rst:77 e1a29763e8644730b73bc32535fac8ad
+#: ../../config.rst:77
 msgid "``RemapIf=<PREDICATE>...``"
 msgstr ""
 
-#: ../../config.rst:77 dea4c3d5e9fa42f19d8babd85f52d0b3
+#: ../../config.rst:77
 msgid ""
 "Remap action to a different destination directory if specified predicates"
 " are satisfied"
 msgstr "如果条件满足，重映射行为目标到新路径"
 
-#: ../../config.rst:81 9317ddf972a447fb88105846c6dc18a5
+#: ../../config.rst:81
 msgid "``RemapTarget=<PATH>``"
 msgstr ""
 
-#: ../../config.rst:80 7792370c3a1a4e0e99b8a099c97f83e3
+#: ../../config.rst:80
 msgid ""
 "The remap destination, which would be replacing the section name part of "
 "the input file path Must be specified if ``RemapIf`` is present"
 msgstr "重映射的新路径目标，会直接全文替换目标目录中当前 Section 名字的部分如果指定了 ``RemapIf``，此条必须指定"
 
-#: ../../config.rst:84 123ad0a5a1144e40b7e0c21a28719637
+#: ../../config.rst:84
 msgid "``FlattenIf=<PREDICATE>...``"
 msgstr ""
 
-#: ../../config.rst:84 d520abc0f3244dc0a5290d5f3c3e9368
+#: ../../config.rst:84
 msgid "Flatten the folder hierarchy if specified predicates are satisfied"
 msgstr "如果条件满足，不保留目录结构，展平所有输出到同一层级"
 
-#: ../../config.rst:89 0ffb2263c3934afba01035e63cbbc7f7
+#: ../../config.rst:89
 msgid "``^Base<RULE>=...``"
 msgstr ""
 
-#: ../../config.rst:87 db3b9f0be46b48d38936f26417bd24ef
+#: ../../config.rst:87
 msgid ""
 "Add a ``Base`` prefix to rule name to indicate the current rule line is "
 "in the base domain and, therefore can only be overruled by the same "
@@ -139,153 +139,164 @@ msgstr ""
 "任意规则名称加 ``Base`` 前缀，表明当前行的条件在基作用域生效，也只能被基作用域的指令覆盖当且仅当希望覆盖任何 "
 "`BaseCrysknife.ini`_ 中定义的规则时再使用"
 
-#: ../../config.rst:94 2fe9535128a5442a88784367becf87ea
+#: ../../config.rst:94
 msgid "Supported Predicates"
 msgstr "条件"
 
-#: ../../config.rst:97 efe0fbceda23408a881201fce3ff93ee
+#: ../../config.rst:97
 msgid "``TargetExists:<FILE|DIRECTORY>...``"
 msgstr ""
 
-#: ../../config.rst:97 9c7448709a85468d9a0d52d84e7c5d96
+#: ../../config.rst:97
 msgid "Satisfies if any of the specified files/directories exists"
 msgstr "任何指定的文件/目录存在时满足"
 
-#: ../../config.rst:100 3dfc2bc721b2437cb13749e82f101da1
+#: ../../config.rst:100
 msgid "``IsTruthy:<SWITCH>...``"
 msgstr ""
 
-#: ../../config.rst:100 e12886c4776b41569b5d110fcc14e5fe
+#: ../../config.rst:100
 msgid "Satisfies if any of the specified values is true"
 msgstr "任何指定的值为真时满足"
 
-#: ../../config.rst:103 8218e2982dce45648944aa1cc86d7ce5
+#: ../../config.rst:103
 msgid "``NameMatches:<NAME>...``"
 msgstr ""
 
-#: ../../config.rst:103 be044ac0b5164b95b3a7b667e84a1944
+#: ../../config.rst:103
 msgid "Satisfies if the input file name matches"
 msgstr "当前输入文件名匹配时满足"
 
-#: ../../config.rst:106 0bf3ebc149fc4eb6bb791ee84c3cef2b
+#: ../../config.rst:106
 msgid "``NewerThan:<VERSION>...``"
 msgstr ""
 
-#: ../../config.rst:106 7573e72cae5a47f9a3c65e8f82a3d5be
+#: ../../config.rst:106
 msgid ""
 "Satisfies if current engine version is newer than or equal to specified "
 "value (e.g. ``5.0``)"
 msgstr "当前引擎版本大于等于指定值（如 ``5.0``）时满足"
 
-#: ../../config.rst:113 8203c64201564c18bc34e51287f47f37
+#: ../../config.rst:113
 msgid "``Conjunctions:All|Predicates|Root|TargetExists|IsTruthy|NameMatches...``"
 msgstr ""
 
-#: ../../config.rst 158e069c54f54755bf02d10327014b3c
+#: ../../config.rst
 msgid ""
 "Changes the logical behavior of specified predicate to conjunction "
 "(logical AND)"
 msgstr "将指定范围的组合逻辑设为“与”"
 
-#: ../../config.rst 7f2c234af92b444080a76b6108046a7e
+#: ../../config.rst
 msgid "``Root`` means the logical operations between different predicates"
 msgstr "``Root`` 指所有不同条件间的组合逻辑"
 
-#: ../../config.rst 57b0fe15f5ca41fcbbcbf3b2f072b180
+#: ../../config.rst
 msgid "``Predicates`` means all logical operations inside every defined predicate"
 msgstr "``Predicates`` 指所有定义的条件内的组合逻辑"
 
-#: ../../config.rst 8cc389d8466440808fa50c1983e896ce
+#: ../../config.rst
 msgid "``All`` means ``Predicates|Root``"
 msgstr "``All`` 等价于 ``Predicates|Root``"
 
-#: ../../config.rst 0558f2f65aaa4c74923c0c6b8fa3ba72
+#: ../../config.rst
 msgid ""
 "(By default all conditions are disjunction, i.e. the results are "
 "logically OR-ed together)"
 msgstr "默认所有条件内和条件之间都是逻辑或关系"
 
-#: ../../config.rst:116 1885bfe97d194fa18bd15e3ac99a0001
+#: ../../config.rst:116
 msgid "``Always``, ``Never``"
 msgstr ""
 
-#: ../../config.rst:116 0b0a20ad4a124c9fa84b5827a6290ccd
+#: ../../config.rst:116
 msgid "Always / never satisfies"
 msgstr "总是满足 / 总是不满足"
 
-#: ../../config.rst:119 1532ef3623014dee996cf737257d5111
-msgid "Special Values"
-msgstr "特殊值"
+#: ../../config.rst:119
+msgid "Variable Perks"
+msgstr "特殊变量值"
 
-#: ../../config.rst:122 a57866d2a0ff490f99383b372f9b7a85
-msgid "``${<VAR_NAME>|<FALLBACK_VAR_NAME>}``"
+#: ../../config.rst:122
+msgid "``${<VAR_NAME>|<?FALLBACK_VAR_NAME>}``"
 msgstr ""
 
-#: ../../config.rst:122 4cc5978e5c4b497081392c3234550cba
+#: ../../config.rst:122
 msgid ""
-"Substitutes with the value of the specified variable, or the fallback "
-"variable if not found"
-msgstr "替换为指定变量值，如果未找到则使用指定 Fallback 变量值"
+"Substitutes with the value of the specified variable, or the optional "
+"fallback variable if not found."
+msgstr "替换为指定变量值，如果未找到则使用 Fallback 变量值（可选）。"
 
-#: ../../config.rst:125 13c6e6a4ed7a4d53b59faaa69a9d4335
+#: ../../config.rst:125
 msgid "``@Predicate(<PREDICATE>...)``"
 msgstr ""
 
-#: ../../config.rst:125 dbf74d3f864c403b847ca976ce8a153b
+#: ../../config.rst:125
 msgid "Evaluates to the result of the specified predicate"
 msgstr "替换为指定条件的执行结果"
 
-#: ../../config.rst:130 b14746cff59d49b5b0c4cb1566dee6fc
+#: ../../config.rst:129
+msgid "``@<VARIABLE_NAME>``"
+msgstr ""
+
+#: ../../config.rst:128
+msgid ""
+"Prefix variable name with ``@`` makes it 'local', i.e. environment-"
+"specific, thus will not be included in config cache files. The prefix "
+"should be omitted when referencing."
+msgstr "增加前缀 ``@`` 会将变量标记为本地，即环境相关，从而不会记录在配置缓存文件内。引用时前缀本身应该省略。"
+
+#: ../../config.rst:134
 msgid "Built-in Variables"
 msgstr "内置变量"
 
-#: ../../config.rst:132 166368b8744e4e58bdc7e940f7294ba3
+#: ../../config.rst:136
 msgid "``CRYSKNIFE_ENGINE_ROOT``"
 msgstr ""
 
-#: ../../config.rst:133 8000c51f68e44797b94d4a01616fc0e1
+#: ../../config.rst:137
 msgid "Full path to the ``Engine`` folder, readonly"
 msgstr "引擎 ``Engine`` 目录的完整路径，只读"
 
-#: ../../config.rst:134 e53c9869c63644c7b3a8b83d5585fa63
+#: ../../config.rst:138
 msgid "``CRYSKNIFE_PLUGIN_DIRECTORY``"
 msgstr ""
 
-#: ../../config.rst:135 870bef97c0924a209c0e87085ef8c98c
+#: ../../config.rst:139
 msgid "Full path to the target plugin directory, readonly"
 msgstr "目标扩展根目录的完整路径，只读"
 
-#: ../../config.rst:136 8e29088737bb4953a3954bfe80847b0f
+#: ../../config.rst:140
 msgid "``CRYSKNIFE_SOURCE_DIRECTORY``"
 msgstr ""
 
-#: ../../config.rst:137 5fd093cec4d14102a8e535b43b3693df
+#: ../../config.rst:141
 msgid "Full path to the engine source directory, readonly"
 msgstr "引擎源码根目录的完整路径，只读"
 
-#: ../../config.rst:138 f5bd6be92c5a40c597625e3bc885738c
+#: ../../config.rst:142
 msgid "``CRYSKNIFE_COMMENT_TAG``"
 msgstr ""
 
-#: ../../config.rst:139 3f79b9ad019343f8b9daaaa6b5557b29
+#: ../../config.rst:143
 msgid ""
 "Default to the plugin folder name, you can assign a more distinctive name"
 " if needed"
 msgstr "默认值为当前扩展的文件夹名，可自定义为其他更具区分度的标识符"
 
-#: ../../config.rst:140 f0c1f38cfbc8431196d3087e2708554d
+#: ../../config.rst:144
 msgid "``CRYSKNIFE_CUSTOM_COMMENT_TAG_PREDICATE``"
 msgstr ""
 
-#: ../../config.rst:141 254ca4ab30494650a0ac9c34a844d0a7
+#: ../../config.rst:145
 msgid "Enable custom comment tag format iff this predicate evaluates to true"
 msgstr "只有当指定条件满足时才会启用自定义注释桩格式"
 
-#: ../../config.rst:142 7656e7ce9802414a8b3712e23a200b9c
+#: ../../config.rst:146
 msgid "``CRYSKNIFE(_CUSTOM)_COMMENT_TAG_(PREFIX|SUFFIX|BEGIN|END)_(RE|CTOR)``"
 msgstr ""
 
-#: ../../config.rst:143 373d66cf5a4245f1a22908927b9eb316
+#: ../../config.rst:147
 msgid "Regex matchers & re-constructors of the comment tag"
 msgstr "注释桩的匹配正则和重建构造"
 
