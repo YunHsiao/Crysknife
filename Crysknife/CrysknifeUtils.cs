@@ -181,7 +181,7 @@ internal class CommentTagPacker
             };
         });
 
-        if (Utils.MapVariables(CaptureRecord, Result, out var Temp)) return Temp;
+        if (Utils.MapVariables(CaptureRecord, Result, out var Temp, Utils.MapFlag.SkipWarning)) return Temp;
         return Utils.MapVariables(Variables, Result); // Fallback to config variables
     }
 
@@ -306,6 +306,7 @@ internal static class Utils
         Shallow = 0x1,
         AllowLocal = 0x2,
         IgnoreFallbacks = 0x4,
+        SkipWarning = 0x8,
     }
     public static string MapVariables(IReadOnlyDictionary<string, string> Variables, string Input, MapFlag Flags = MapFlag.None)
     {
@@ -336,8 +337,12 @@ internal static class Utils
 
             AllSuccess = false;
 
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"Invalid variable reference: '{Matched.Groups[1].Value}' not found");
+            if (!Flags.HasFlag(MapFlag.SkipWarning))
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"Invalid variable reference: '{Matched.Groups[1].Value}' not found");
+            }
+
             return Matched.Value;
         });
 
