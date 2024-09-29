@@ -105,17 +105,17 @@ internal class Patcher
                                 DecoratePatch(ref Patch.ContextLength, Length, -1, "MatchLength");
                             }
                         }
-                        else if (Decorator.StartsWith("EngineNewerThan", StringComparison.OrdinalIgnoreCase))
+                        else if (Decorator.StartsWith("NewerThan", StringComparison.OrdinalIgnoreCase))
                         {
-                            if (!GetDecoratorValue("EngineNewerThan", Decorator, out var Target)) continue;
+                            if (!GetDecoratorValue("NewerThan", Decorator, out var Target)) continue;
                             var ShouldSkip = Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target)) ? BooleanOverride.False : BooleanOverride.True;
-                            DecoratePatch(ref Patch.Skip, ShouldSkip, BooleanOverride.Unspecified, "EngineNewerThan");
+                            DecoratePatch(ref Patch.Skip, ShouldSkip, BooleanOverride.Unspecified, "NewerThan");
                         }
-                        else if (Decorator.StartsWith("EngineOlderThan", StringComparison.OrdinalIgnoreCase))
+                        else if (Decorator.StartsWith("OlderThan", StringComparison.OrdinalIgnoreCase))
                         {
-                            if (!GetDecoratorValue("EngineOlderThan", Decorator, out var Target)) continue;
+                            if (!GetDecoratorValue("OlderThan", Decorator, out var Target)) continue;
                             var ShouldSkip = Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target)) ? BooleanOverride.True : BooleanOverride.False;
-                            DecoratePatch(ref Patch.Skip, ShouldSkip, BooleanOverride.Unspecified, "EngineOlderThan");
+                            DecoratePatch(ref Patch.Skip, ShouldSkip, BooleanOverride.Unspecified, "OlderThan");
                         }
                         else
                         {

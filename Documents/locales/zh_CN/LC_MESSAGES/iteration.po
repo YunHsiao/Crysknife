@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Crysknife \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-09-09 17:33+0800\n"
+"POT-Creation-Date: 2024-09-29 23:49+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -15,57 +15,73 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.16.0\n"
 
-#: ../../iteration.rst:6
+#: iteration.rst:6
 msgid "Multilateral Iteration"
 msgstr "多边迭代"
 
-#: ../../iteration.rst:8
+#: iteration.rst:8
+msgid ""
+"From Crysknife's perspective, engine repositories can be categorized into"
+" three types:"
+msgstr "从 Crysknife 的角度看，引擎仓库大致可以分为三类："
+
+#: iteration.rst:10
+msgid "The latest release engine repo (``Release``)"
+msgstr "最新的发布版引擎仓库 (``Release``)"
+
+#: iteration.rst:11
+msgid "Any stock version engine repo (``Stock``)"
+msgstr "任何旧版官方引擎仓库 (``Stock``)"
+
+#: iteration.rst:12
+msgid "Any in-house internal engine repo (``Internal``)"
+msgstr "任何项目定制内部引擎仓库 (``Internal``)"
+
+#: iteration.rst:14
+msgid ""
+"The main difference is the patch generation strategy, which we'll cover "
+"soon."
+msgstr "这三类仓库的主要区别是 Patch 生成策略不同，下文很快会解释。"
+
+#: iteration.rst:16
 msgid ""
 "Here is the recommended setup & workflow for iterating between multiple "
 "engines:"
 msgstr "以下是推荐的多引擎仓库环境下迭代的配置和工作流："
 
-#: ../../iteration.rst:12
+#: iteration.rst:20
 msgid ""
-"We recommend maintain your plugins in at least two engine versions: the "
-"latest release version, and the minimum stock engine you want to support "
-"(typically ``4.27``), and of course your in-house engine, if there is "
-"one."
-msgstr "我们建议在至少维护两个引擎仓库：官方最新的发布版，和需要支持的最早版本（一般如 ``4.27``），以及如果有的话，项目内部引擎仓库。"
+"You should **link** all the relevant plugin folders into every engine "
+"repositories you want to port to, this way only one set of plugin "
+"repositories is maintained, which greatly simplified the workflow."
+msgstr "所有相关扩展应被 **链接** 到每个需要适配的引擎仓库，这样可以只维护一套扩展代码，大幅简化工作流。"
 
-#: ../../iteration.rst:16
-msgid ""
-"**Link** all the relevant plugin folders into every engine repositories "
-"you want to port to, this way only one set of plugin repositories is "
-"maintained, which greatly simplified the workflow."
-msgstr "将所有相关扩展 **链接** 到每个需要适配的引擎仓库，这样可以只维护一套扩展代码，大幅简化工作流。"
-
-#: ../../iteration.rst:19
+#: iteration.rst:23
 msgid ""
 "First, setup a multi-root workspace as follows could really help: (Using "
 "VS Code as an example)"
 msgstr "首先搭建一个如下的多文件夹工作区可以帮上不少忙（以 VS Code 为例）："
 
-#: ../../iteration.rst:89
+#: iteration.rst:93
 msgid ""
 "The setup script is written carefully with this kind of environment in "
 "mind, you can just run the same script from different linked directory "
 "and it will update the parent repository accordingly."
 msgstr "Setup 脚本流程考虑了此类环境，直接在不同的链接路径运行同一个脚本就能更新对应的仓库。"
 
-#: ../../iteration.rst:92
+#: iteration.rst:96
 msgid ""
 "Say we just finished developing for ``Release``, now want to port to "
 "``4.27``:"
 msgstr "假设我们现在刚刚完成对 ``Release`` 仓库的适配，要移植到 ``4.27``："
 
-#: ../../iteration.rst:101
+#: iteration.rst:105
 msgid ""
 "Then switch to ``4.27`` and start resolving conflicts & do the actual "
 "porting. After finished:"
 msgstr "然后切到 ``4.27`` 仓库就可以开始处理冲突和实际移植了。工作完成后执行："
 
-#: ../../iteration.rst:112
+#: iteration.rst:116
 msgid ""
 "This way the patches are updated incrementally, making it much easier and"
 " focused to sync back to the ``Release`` repo. It may take some back-and-"
@@ -75,7 +91,7 @@ msgstr ""
 "这样就只会增量更新 Patch，可以大幅简化同步回 ``Release`` "
 "仓库的过程，帮助开发者专注于关键修改。适配过程可能会需要多次来回才能确保同一套 Patch 在两边可以同步，但这是最终无缝部署体验的关键前提。"
 
-#: ../../iteration.rst:116
+#: iteration.rst:120
 msgid ""
 "Finally, when the porting is done, the same process still applies "
 "**anywhere anytime** changes are made. Say we just fixed a rare corner "
@@ -85,11 +101,11 @@ msgstr ""
 "当移植工作终于完成后，对于 **无论何时何地** 的迭代需求，相同的迭代流程依然适用。假设我们刚刚在内部仓库修复了一个罕见的 "
 "Bug，可以按以下流程来准确正式地提交 Patch 相关修改："
 
-#: ../../iteration.rst:137
+#: iteration.rst:141
 msgid ""
 "It is recommended to use the ``Release`` repo as the base patch source, "
 "incrementally update the patches from other stock versions, and never "
 "**commit** patches from internal repo (temporary updates like above are "
 "fine)."
-msgstr "我们推荐全量更新 Patch 基于 ``Release`` 仓库，使用其他官版仓库做增量更新，并不要 **提交** 任何来自内部仓库的 Patch。"
+msgstr "我们推荐全量更新 Patch 基于 ``Release`` 仓库，使用其他官版仓库做增量更新，并不要 **提交** 任何来自内部仓库的 Patch（类似前文用到的临时更新是没问题的）。"
 

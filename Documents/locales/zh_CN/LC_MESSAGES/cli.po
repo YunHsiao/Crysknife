@@ -15,37 +15,37 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.16.0\n"
 
-#: ../../cli.rst:6
+#: cli.rst:6
 msgid "Command Line Interface"
 msgstr "命令行接口"
 
-#: ../../cli.rst:9
+#: cli.rst:9
 msgid ""
 "The input plugin folder name (by default also as the comment guard tag). "
 "Always required."
 msgstr "输入扩展的文件夹名，默认也是注释桩中要匹配的关键词，必须指定"
 
-#: ../../cli.rst:11
+#: cli.rst:11
 msgid ""
 "The engine root directory, default to the engine in which this repo is "
 "located."
 msgstr "指定引擎根目录，默认为本仓库所在引擎"
 
-#: ../../cli.rst:13
+#: cli.rst:13
 msgid "Define custom config variables."
 msgstr "定义 Config 中的变量值"
 
-#: ../../cli.rst:16
+#: cli.rst:16
 msgid "Actions"
 msgstr "行为类"
 
-#: ../../cli.rst:19
+#: cli.rst:19
 msgid ""
 "Setup the specified plugin with proper configs & scripts, run once per "
 "plugin"
 msgstr "为指定扩展生成必要的配置和脚本，只需运行一次"
 
-#: ../../cli.rst:21
+#: cli.rst:21
 msgid "Search specified file or directory, register any patched file and generate"
 msgstr "从指定的文件或目录搜索，注册任何发现的有效 Patch 并执行 “生成” 行为"
 
@@ -105,33 +105,33 @@ msgid ""
 "be committed"
 msgstr "私域模式，所有 Patch 将从受保护的本地文件中存/取"
 
-#: ../../cli.rst:52
+#: cli.rst:52
 msgid "Treat patches as regular files, copy/link them directly"
 msgstr "将 Patch 视为普通文件，直接执行拷贝/链接"
 
-#: ../../cli.rst:55
+#: cli.rst:55
 msgid "Parameters"
 msgstr "参数类"
 
-#: ../../cli.rst:58
+#: cli.rst:58
 msgid "Global patch context length when generating patches, defaults to 250"
 msgstr "生成 Patch 时的上下文长度，默认 250"
 
-#: ../../cli.rst:60
+#: cli.rst:60
 msgid "Content tolerance in [0, 1] when matching sources, default to 0.3"
 msgstr "应用 Patch 时的内容匹配阈值，范围 [0, 1]， 默认 0.3"
 
-#: ../../cli.rst:62
+#: cli.rst:62
 msgid ""
 "Line tolerance when matching sources, defaults to infinity (line numbers "
 "may vary significantly between engine versions)"
 msgstr "应用 Patch 时的行号匹配阈值，默认无限大（不同版本引擎的行号可能差异巨大）"
 
-#: ../../cli.rst:66
+#: cli.rst:66
 msgid "Actions are combinatorial:"
 msgstr "所有行为可以相互组合："
 
-#: ../../cli.rst:68
+#: cli.rst:68
 msgid ""
 "e.g. ``-AG`` for apply & generate (round trip), ``-GC`` for generate & "
 "clear (retraction)"

@@ -125,7 +125,7 @@ Supported Directives
    For each matching context, only match up to the specified length of the context,
    default is 64 (maximum)
 
-``EngineNewerThan=<VERSION>``, ``EngineOlderThan=<VERSION>``
+``NewerThan=<VERSION>``, ``OlderThan=<VERSION>``
    Mark the Enclosing code block as engine-version-relevant,
    so it would only apply to matching engine versions
 

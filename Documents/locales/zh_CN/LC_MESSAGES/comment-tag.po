@@ -15,26 +15,26 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.16.0\n"
 
-#: ../../comment-tag.rst:8
+#: comment-tag.rst:8
 msgid "Comment Tag Formatting"
 msgstr "注释桩格式"
 
-#: ../../comment-tag.rst:10
+#: comment-tag.rst:10
 msgid ""
 "It is not uncommon for projects to have in-house coding standards, "
 "especially wrt. modifications inside the engine source folder, there are "
 "usually some special marks, i.e. Comment tags."
 msgstr "项目代码库通常都有自己的内部代码规范，特别是引擎源码文件夹的修改常有特殊标记，既“注释桩”。"
 
-#: ../../comment-tag.rst:14
+#: comment-tag.rst:14
 msgid "Crysknife handles this in :ref:`Config`, through :ref:`Builtin`:"
 msgstr "本项目通过 :ref:`Config` 中的 :ref:`Builtin` 支持此类需求："
 
-#: ../../comment-tag.rst:16
+#: comment-tag.rst:16
 msgid "Here's an example of comment tag format customization:"
 msgstr "以下是一个注释桩格式的定制样例："
 
-#: ../../comment-tag.rst:43
+#: comment-tag.rst:43
 msgid ""
 "The ``RE`` configs are regular expression patterns when matching existing"
 " code bases. The ``CTOR`` configs are values used to re-construct the "
@@ -44,7 +44,7 @@ msgid ""
 msgstr "``RE`` 结尾的配置是匹配已有代码时使用的正则表达式，``CTOR`` 结尾的配置是从 Patch 重建注释桩时使用的值。"
 "可以使用形如 ``Capture${Index}`` 的名称显式指定捕获组，然后在重建时引用。"
 
-#: ../../comment-tag.rst:47
+#: comment-tag.rst:47
 msgid ""
 "A good place to put these is inside ``Crysknife/BaseCrysknifeLocal.ini``,"
 " which is effective across all plugins inside the same repo."
@@ -52,7 +52,7 @@ msgstr ""
 "一个适合保存这些配置的地方是 ``Crysknife/BaseCrysknifeLocal.ini`` "
 "文件内，这里的配置会对相同仓库内的所有扩展生效。"
 
-#: ../../comment-tag.rst:50
+#: comment-tag.rst:50
 msgid ""
 "Besides, note the ``CRYSKNIFE_CUSTOM_COMMENT_TAG`` variable, which will "
 "only enable the customization inside internal repo, i.e. any other linked"

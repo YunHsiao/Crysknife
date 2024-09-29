@@ -16,15 +16,15 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.16.0\n"
 
-#: ../../index.rst:6
+#: index.rst:6
 msgid "Welcome to Crysknife's documentation!"
 msgstr "欢迎查阅 Crysknife 文档！"
 
-#: ../../index.rst:10
+#: index.rst:10
 msgid "This project is under active development."
 msgstr "本项目尚在活跃开发期。"
 
-#: ../../index.rst:13
+#: index.rst:13
 msgid "Contents"
 msgstr "目录"
 

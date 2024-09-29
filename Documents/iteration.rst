@@ -5,15 +5,19 @@
 Multilateral Iteration
 ======================
 
+From Crysknife's perspective, engine repositories can be categorized into three types:
+
+- The latest release engine repo (``Release``)
+- Any stock version engine repo (``Stock``)
+- Any in-house internal engine repo (``Internal``)
+
+The main difference is the patch generation strategy, which we'll cover soon.
+
 Here is the recommended setup & workflow for iterating between multiple engines:
 
 .. image:: iteration.png
 
-We recommend maintain your plugins in at least two engine versions: the latest release version,
-and the minimum stock engine you want to support (typically ``4.27``),
-and of course your in-house engine, if there is one.
-
-**Link** all the relevant plugin folders into every engine repositories you want to port to,
+You should **link** all the relevant plugin folders into every engine repositories you want to port to,
 this way only one set of plugin repositories is maintained, which greatly simplified the workflow.
 
 First, setup a multi-root workspace as follows could really help: (Using VS Code as an example)
@@ -27,7 +31,7 @@ First, setup a multi-root workspace as follows could really help: (Using VS Code
             "path": "C:/UnrealEngine-release/Engine/Source"
          },
          {
-            "name": "4_27",
+            "name": "Stock",
             "path": "C:/UnrealEngine-4-27/Engine/Source"
          },
          {
@@ -73,7 +77,7 @@ First, setup a multi-root workspace as follows could really help: (Using VS Code
                   "${workspaceFolder:Release}/../..",
                   "-G",
 
-                  // "${workspaceFolder:4_27}/../..",
+                  // "${workspaceFolder:Stock}/../..",
                   // "-Gn",
 
                   // "${workspaceFolder:Internal}/../..",
@@ -96,7 +100,7 @@ Say we just finished developing for ``Release``, now want to port to ``4.27``:
    # Generate patches from Release, apply to 4.27
 
    ${workspaceFolder:Release}/../Plugins/YourPlugin/Setup.sh -G
-   ${workspaceFolder:4_27}/../Plugins/YourPlugin/Setup.sh
+   ${workspaceFolder:Stock}/../Plugins/YourPlugin/Setup.sh
 
 Then switch to ``4.27`` and start resolving conflicts & do the actual porting. After finished:
 
@@ -106,7 +110,7 @@ Then switch to ``4.27`` and start resolving conflicts & do the actual porting. A
 
    # Using incremental generation that preserves the history patch
    # if it deemed equal and not specific to current engine version
-   ${workspaceFolder:4_27}/../Plugins/YourPlugin/Setup.sh -Gn
+   ${workspaceFolder:Stock}/../Plugins/YourPlugin/Setup.sh -Gn
    ${workspaceFolder:Release}/../Plugins/YourPlugin/Setup.sh
 
 This way the patches are updated incrementally, making it much easier and focused to sync back to the ``Release`` repo.
@@ -127,7 +131,7 @@ Say we just fixed a rare corner case found in internal repo, to properly commit 
    ${workspaceFolder:Release}/../Plugins/YourPlugin/Setup.sh -AG
 
    # Apply to 4.27 & sync patches
-   ${workspaceFolder:4_27}/../Plugins/YourPlugin/Setup.sh -AGn
+   ${workspaceFolder:Stock}/../Plugins/YourPlugin/Setup.sh -AGn
 
    # Sync back to internal, to make sure everything is up-to-date
    ${workspaceFolder:Internal}/../Plugins/YourPlugin/Setup.sh
