@@ -245,8 +245,8 @@ public class Injector
             var RelativePath = Path.GetRelativePath(Utils.GetSourceDirectory(), PatchedPath);
             var PatchPath = Path.Combine(SourcePatch.Directory, RelativePath);
 
-            // Register any file contains the project name
-            if (Path.GetFileName(PatchedPath).Contains(SourcePatch.PluginName))
+            // Register any file starts with the plugin name
+            if (Path.GetFileName(PatchedPath).StartsWith(SourcePatch.PluginName))
             {
                 if (File.Exists(PatchPath)) continue;
                 goto Register;
@@ -254,7 +254,7 @@ public class Injector
 
             // Or new patched files
             PatchPath += PatcherInstance.DefaultExtension;
-            if (!File.Exists(PatchPath) && File.ReadAllText(PatchedPath).Contains($"// {SourcePatch.CommentTag}"))
+            if (!File.Exists(PatchPath) && SourcePatch.PatchRegex.Injection.HasAnyMatch(File.ReadAllText(PatchedPath)))
             {
                 goto Register;
             }
