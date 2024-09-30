@@ -103,6 +103,8 @@ which does not need to touch every line of the code:
    ** LARGE SOURCE BLOCK **
    #endif // ${Tag}${Comments}
 
+.. _Decorators:
+
 Decorators
 ----------
 

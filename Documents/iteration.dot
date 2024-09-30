@@ -7,7 +7,7 @@ digraph G {
     edge [fontname="Source Code Pro" color="#CDD3DE", fontcolor="#CDD3DE"]
     graph [center=true pad=0.5 nodesep=0.9]
 
-    A [label="Internal\nRepository" color="#7777FF" fontcolor="#7777FF"]
+    A [label="Internal\nRepositories" color="#7777FF" fontcolor="#7777FF"]
     B [label="Stock\nRepositories" color="#77FF77" fontcolor="#77FF77"]
     C [label="Release\nRepository" color="#FF7777" fontcolor="#FF7777"]
     D [label="Source\nPatches"]
