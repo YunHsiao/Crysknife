@@ -123,8 +123,8 @@ Variable Perks
 ``@Predicate(<PREDICATE>...)``
    Evaluates to the result of the specified predicate
 
-``@<VARIABLE_NAME>``
-   Prefix variable name with ``@`` to make it 'local', i.e. environment-specific,
+``#<VARIABLE_NAME>``
+   Prefix variable name with ``#`` to make it 'local', i.e. environment-specific,
    thus will not be included in config cache files. The prefix should be omitted when referencing.
 
 .. _Builtin:

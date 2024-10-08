@@ -474,7 +474,7 @@ internal class ConfigSystem
         if (File.Exists(LocalConfigPath)) Config.Merge(new ConfigFile(LocalConfigPath));
 
         var FinalOverrides = string.Join(',',
-            $"@CRYSKNIFE_ENGINE_ROOT={Utils.GetEngineRoot()}",
+            $"#CRYSKNIFE_ENGINE_ROOT={Utils.GetEngineRoot()}",
             $"CRYSKNIFE_SOURCE_DIRECTORY={Path.Combine("${CRYSKNIFE_ENGINE_ROOT}", Utils.GetEngineRelativePath(Utils.GetSourceDirectory()))}",
             $"CRYSKNIFE_PLUGIN_DIRECTORY={Path.Combine("${CRYSKNIFE_ENGINE_ROOT}", Utils.GetEngineRelativePath(Utils.GetPluginDirectory(PluginName)))}",
             VariableOverrides.Replace("\"", string.Empty) // Need to strip quotes if specified from CLI
@@ -630,7 +630,7 @@ internal class ConfigSystem
 
         if (Variables.Count != 0) BuiltinSections.Add("[Variables]\n" + Variables.Aggregate("", (Current, Pair) =>
         {
-            if (Pair.Key.StartsWith('@')) return Current;
+            if (Pair.Key.StartsWith('#')) return Current;
             var Expr = $"{Pair.Key}={Pair.Value}\n";
             return Pair.Key.StartsWith("Crysknife", StringComparison.OrdinalIgnoreCase) ? Expr + Current : Current + Expr;
         }));

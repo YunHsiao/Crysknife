@@ -331,7 +331,7 @@ internal static class Utils
                 // Skip if ignored
                 if (Index > 0 && Flags.HasFlag(MapFlag.IgnoreFallbacks)) return Matched.Value;
 
-                var LocalName = '@' + Names[Index];
+                var LocalName = '#' + Names[Index];
                 var IsLocal = Variables.ContainsKey(LocalName);
                 if (!Flags.HasFlag(MapFlag.AllowLocal) && IsLocal) return Matched.Value;
                 if (!Variables.TryGetValue(IsLocal ? LocalName : Names[Index], out var Value)) continue; // Not found
