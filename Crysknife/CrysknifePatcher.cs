@@ -102,7 +102,7 @@ internal class Patcher
                             if (!GetDecoratorValue("MatchLength", Decorator, out var Target)) continue;
                             if (int.TryParse(Target, out var Length))
                             {
-                                DecoratePatch(ref Patch.ContextLength, Length, -1, "MatchLength");
+                                DecoratePatch(ref Patch.ContextLength, Length, DiffMatchPatch.MatchMaxBits, "MatchLength");
                             }
                         }
                         else if (Decorator.StartsWith("NewerThan", StringComparison.OrdinalIgnoreCase))

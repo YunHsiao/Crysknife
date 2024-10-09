@@ -168,7 +168,7 @@ internal class Patch
 
     public MatchContext Context = MatchContext.All;
     public BooleanOverride Skip = BooleanOverride.Unspecified;
-    public int ContextLength = -1;
+    public int ContextLength = DiffMatchPatch.MatchMaxBits;
 
     /**
      * Emulate GNU diff's format.
@@ -2200,7 +2200,7 @@ internal class DiffMatchPatch
     }
 
     // Crysknife customization
-    protected static List<Patch> patch_constrain(IEnumerable<Patch> Patches)
+    protected List<Patch> patch_constrain(IEnumerable<Patch> Patches)
     {
         var Result = new List<Patch>();
 
@@ -2208,7 +2208,7 @@ internal class DiffMatchPatch
         {
             if (Patch.Diffs.First().Operation == Operation.Equal)
             {
-                var PreLimit = Patch.Context.HasFlag(MatchContext.Upper) ? Patch.ContextLength : 0;
+                var PreLimit = Patch.Context.HasFlag(MatchContext.Upper) ? Patch.ContextLength - PatchMargin : 0;
                 if (PreLimit >= 0 && PreLimit < Patch.Diffs.First().Text.Length)
                 {
                     var Cutout = Patch.Diffs.First().Text.Length - PreLimit;
@@ -2223,7 +2223,7 @@ internal class DiffMatchPatch
 
             if (Patch.Diffs.Last().Operation == Operation.Equal)
             {
-                var PostLimit = Patch.Context.HasFlag(MatchContext.Lower) ? Patch.ContextLength : 0;
+                var PostLimit = Patch.Context.HasFlag(MatchContext.Lower) ? Patch.ContextLength - PatchMargin : 0;
                 if (PostLimit >= 0 && PostLimit < Patch.Diffs.Last().Text.Length)
                 {
                     var Cutout = Patch.Diffs.Last().Text.Length - PostLimit;
