@@ -2608,7 +2608,7 @@ internal class DiffMatchPatch
 
         string[] Text = Textline.Split('\n', StringSplitOptions.RemoveEmptyEntries);
         var TextPointer = 0;
-        var PatchHeader = new Regex(@"^@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@$");
+        var PatchHeader = new Regex(@"^@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@\s*$");
         while (TextPointer < Text.Length)
         {
             var M = PatchHeader.Match(Text[TextPointer]);
