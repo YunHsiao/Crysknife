@@ -10,18 +10,25 @@ internal static class ProjectSetup
 {
     private static readonly string WindowsTemplate = @"
         @echo off
-        call ""%~dp0..\Crysknife\Crysknife.bat"" -P {0} %*
+        cd %~dp0
+        :start
+        cd ..
+        for %%I in (%cd%) do set DIR=%%~nxI
+        if ""%DIR%"" neq ""Plugins"" (goto start)
+        call ""Crysknife\Crysknife.bat"" -P {0} %*
         pause
     ".Replace("    ", string.Empty);
 
     private static readonly string LinuxTemplate = @"
         #!/usr/bin/env bash
         DIR=`cd ""$(dirname ""$0"")""; pwd`
-        ""$DIR/../Crysknife/Crysknife.sh"" -P {0} ""$@""
+        while [[ $(basename $DIR) != ""Plugins"" ]]; do DIR=`dirname $DIR`; done
+        ""$DIR/Crysknife/Crysknife.sh"" -P {0} ""$@""
     ".Replace("    ", string.Empty).Replace("\r\n", "\n");
 
     private static void GenerateSetupScripts(string TargetDirectory, string PluginName)
     {
+        if (PluginName.StartsWith("Marketplace")) PluginName = PluginName[12..];
         File.WriteAllText(Path.Combine(TargetDirectory, "Setup.bat"), string.Format(WindowsTemplate, Utils.UnifySeparators(PluginName, "\\")));
         var LinuxScript = string.Format(LinuxTemplate, Utils.UnifySeparators(PluginName, "/"));
         File.WriteAllText(Path.Combine(TargetDirectory, "Setup.sh"), LinuxScript);
@@ -40,7 +47,7 @@ internal static class ProjectSetup
 
     private static void PatchPluginDescription(string TargetDirectory, string PluginName)
     {
-        var PluginDescFile = Path.Combine(TargetDirectory, PluginName + ".uplugin");
+        var PluginDescFile = Path.Combine(TargetDirectory, Path.GetFileName(PluginName) + ".uplugin");
         if (!File.Exists(PluginDescFile))
         {
             Console.ForegroundColor = ConsoleColor.Red;

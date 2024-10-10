@@ -511,7 +511,7 @@ internal class ConfigSystem
 
     private ConfigSystem(string PluginName, string VariableOverrides)
     {
-        this.PluginName = PluginName; 
+        this.PluginName = PluginName;
         var Config = CreateConfigFile(PluginName, VariableOverrides);
 
         var SectionNames = Config.SectionNames.ToList();
@@ -590,12 +590,27 @@ internal class ConfigSystem
         }
 
         PatchRegex = new InjectionRegexGroup(new InjectionRegex(CommentTag, Format));
-        TagPacker = new CommentTagPacker(PluginName, CommentTag, Format);
+        TagPacker = new CommentTagPacker(Path.GetFileName(PluginName), CommentTag, Format);
     }
 
     // Always create parent dependencies first
     private static ConfigSystem Create(string PluginName, string VariableOverrides, string VariableOverridesFromChild)
     {
+        if (!Directory.Exists(Utils.GetPluginDirectory(PluginName)))
+        {
+            // Installed plugins are located inside Marketplace folder, try there first
+            string InstalledPluginPath = Path.Combine("Marketplace", PluginName);
+            if (Directory.Exists(Utils.GetPluginDirectory(InstalledPluginPath)))
+            {
+                PluginName = InstalledPluginPath;
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Specified plugin not found: {0}", PluginName);
+                Utils.Abort();
+            }
+        }
         var Config = new ConfigSystem(PluginName, string.Join(',', VariableOverrides, VariableOverridesFromChild));
 
         foreach (var Pair in Config.DependencyVariables)
@@ -662,7 +677,7 @@ internal class ConfigSystem
     }
 
     public IReadOnlyDictionary<string, string> Variables => InnerVariables;
-    public string CommentTag => GetVariable("CRYSKNIFE_COMMENT_TAG", PluginName);
+    public string CommentTag => GetVariable("CRYSKNIFE_COMMENT_TAG", Path.GetFileName(PluginName));
 
     public void Dispatch(Action<ConfigSystem> Action, bool ParentFirst)
     {
