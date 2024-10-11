@@ -5,6 +5,9 @@ using System.Collections;
 using System.Diagnostics;
 
 namespace Crysknife;
+
+using System.Numerics;
+
 using DiffMatchPatch;
 
 internal interface IPatchBundle
@@ -92,30 +95,24 @@ internal class Patcher
                         if (Decorator.StartsWith("MatchContext", StringComparison.OrdinalIgnoreCase))
                         {
                             if (!GetDecoratorValue("MatchContext", Decorator, out var Target)) continue;
-                            if (Enum.TryParse<MatchContext>(Target, out var TargetContext))
-                            {
-                                Patch.Context &= TargetContext;
-                            }
+                            if (Enum.TryParse<MatchContext>(Target, out var TargetContext)) Patch.Context &= TargetContext;
                         }
                         else if (Decorator.StartsWith("MatchLength", StringComparison.OrdinalIgnoreCase))
                         {
                             if (!GetDecoratorValue("MatchLength", Decorator, out var Target)) continue;
-                            if (int.TryParse(Target, out var Length))
-                            {
-                                DecoratePatch(ref Patch.ContextLength, Length, DiffMatchPatch.MatchMaxBits, "MatchLength");
-                            }
+                            if (int.TryParse(Target, out var Length)) DecoratePatch(ref Patch.ContextLength, Length, -1, "MatchLength");
                         }
                         else if (Decorator.StartsWith("NewerThan", StringComparison.OrdinalIgnoreCase))
                         {
                             if (!GetDecoratorValue("NewerThan", Decorator, out var Target)) continue;
-                            var ShouldSkip = Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target)) ? BooleanOverride.False : BooleanOverride.True;
-                            DecoratePatch(ref Patch.Skip, ShouldSkip, BooleanOverride.Unspecified, "NewerThan");
+                            var ShouldSkip = !Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target));
+                            Patch.Skip = ShouldSkip && (Patch.Skip != BooleanOverride.False) ? BooleanOverride.True : BooleanOverride.False;
                         }
                         else if (Decorator.StartsWith("OlderThan", StringComparison.OrdinalIgnoreCase))
                         {
                             if (!GetDecoratorValue("OlderThan", Decorator, out var Target)) continue;
-                            var ShouldSkip = Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target)) ? BooleanOverride.True : BooleanOverride.False;
-                            DecoratePatch(ref Patch.Skip, ShouldSkip, BooleanOverride.Unspecified, "OlderThan");
+                            var ShouldSkip = Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target));
+                            Patch.Skip = ShouldSkip && (Patch.Skip != BooleanOverride.False) ? BooleanOverride.True : BooleanOverride.False;
                         }
                         else
                         {

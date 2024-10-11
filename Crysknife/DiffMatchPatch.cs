@@ -168,7 +168,7 @@ internal class Patch
 
     public MatchContext Context = MatchContext.All;
     public BooleanOverride Skip = BooleanOverride.Unspecified;
-    public int ContextLength = DiffMatchPatch.MatchMaxBits;
+    public int ContextLength = -1;
 
     /**
      * Emulate GNU diff's format.
@@ -2208,7 +2208,8 @@ internal class DiffMatchPatch
         {
             if (Patch.Diffs.First().Operation == Operation.Equal)
             {
-                var PreLimit = Patch.Context.HasFlag(MatchContext.Upper) ? Patch.ContextLength - PatchMargin : 0;
+                var PreLimit = Patch.Context.HasFlag(MatchContext.Upper) ? Math.Min(Patch.ContextLength, MatchMaxBits - PatchMargin) : 0;
+                if (PreLimit < 0) PreLimit = (MatchMaxBits - PatchMargin) / (Patch.Context.HasFlag(MatchContext.Lower) ? 2 : 1);
                 if (PreLimit >= 0 && PreLimit < Patch.Diffs.First().Text.Length)
                 {
                     var Cutout = Patch.Diffs.First().Text.Length - PreLimit;
@@ -2223,7 +2224,8 @@ internal class DiffMatchPatch
 
             if (Patch.Diffs.Last().Operation == Operation.Equal)
             {
-                var PostLimit = Patch.Context.HasFlag(MatchContext.Lower) ? Patch.ContextLength - PatchMargin : 0;
+                var PostLimit = Patch.Context.HasFlag(MatchContext.Lower) ? Math.Min(Patch.ContextLength, MatchMaxBits - PatchMargin) : 0;
+                if (PostLimit < 0) PostLimit = (MatchMaxBits - PatchMargin) / (Patch.Context.HasFlag(MatchContext.Upper) ? 2 : 1);
                 if (PostLimit >= 0 && PostLimit < Patch.Diffs.Last().Text.Length)
                 {
                     var Cutout = Patch.Diffs.Last().Text.Length - PostLimit;
