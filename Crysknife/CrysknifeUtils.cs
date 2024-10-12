@@ -141,14 +141,14 @@ internal class CommentTagPacker
         var CommentTag = Utils.EscapeForRegex(Tag) + @"[^\n]*?"; // Allow some comments in between
         var PackFormat = $@"//[^\S\n]*{Format.PrefixRegex}(?<Tag>{CommentTag}){Format.SuffixRegex}(?<Begin>{Format.BeginRegex})?(?<End>{Format.EndRegex})?[^\S\n]*(?=\n)";
         PackRegex = new Regex(PackFormat, RegexOptions.IgnoreCase | RegexOptions.Compiled);
-        UnpackRegex = new Regex($@"@{ModuleName}CT(\w*)\(([^\n]*)\)\n", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        UnpackRegex = new Regex($@"@{ModuleName}Tag(\w*)\(([^\n]*)\)\n", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     }
 
     private string Pack(string Content, bool SkipCaptures)
     {
         return PackRegex.Replace(Content, Matched =>
         {
-            string Result = $"// @{ModuleName}CT";
+            string Result = $"// @{ModuleName}Tag";
             if (Matched.Groups["Begin"].Success) Result += "Begin";
             else if (Matched.Groups["End"].Success) Result += "End";
             Result += $"({Matched.Groups["Tag"].Value[Tag.Length..]})\n";
@@ -157,7 +157,7 @@ internal class CommentTagPacker
             foreach (var Index in Enumerable.Range(0, 10))
             {
                 if (!Matched.Groups.TryGetValue($"Capture{Index}", out var Capture)) break;
-                Result += $"@{ModuleName}CTCapture{Index}({Capture.Value})\n";
+                Result += $"@{ModuleName}TagCapture{Index}({Capture.Value})\n";
             }
             return Result;
         });
