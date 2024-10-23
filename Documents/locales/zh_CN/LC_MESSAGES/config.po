@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Crysknife \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-10-08 10:12+0800\n"
+"POT-Creation-Date: 2024-10-23 19:07+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -69,7 +69,7 @@ msgstr "Dependencies 作用域内可用于指定对其他引擎扩展内的 Patc
 
 #: ../../config.rst:65
 msgid ""
-"You can also create a 'local' config file (``CrysknifeLocal.ini``) that "
+"You can also create 'local' config files (``CrysknifeLocal.ini``) that "
 "overrides the main one."
 msgstr "在主配置文件之外，还可以创建一份独立的“本地”配置（`CrysknifeLocal.ini`）来覆盖主配置。"
 
@@ -279,10 +279,25 @@ msgid "Enable custom comment tag format iff this predicate evaluates to true"
 msgstr "只有当指定条件满足时才会启用自定义注释桩格式"
 
 #: ../../config.rst:145
-msgid "``CRYSKNIFE(_CUSTOM)_COMMENT_TAG_(PREFIX|SUFFIX|BEGIN|END)_(RE|CTOR)``"
+msgid "``CRYSKNIFE_COMMENT_TAG_(PREFIX|SUFFIX|BEGIN|END)_(RE|CTOR)``"
 msgstr ""
 
 #: ../../config.rst:146
 msgid "Regex matchers & re-constructors of the comment tag"
 msgstr "注释桩的匹配正则和重建构造"
 
+#: ../../config.rst:147
+msgid "``CRYSKNIFE_COMMENT_TAG_ANASTROPHE``"
+msgstr ""
+
+#: ../../config.rst:148
+msgid "Whether to put tag & suffix after begin/end clause"
+msgstr "是否要将注释桩 Tag 和后缀置于开始/结束标记后"
+
+#: ../../config.rst:149
+msgid "``CRYSKNIFE_COMMENT_TAG_CRLF``"
+msgstr ""
+
+#: ../../config.rst:150
+msgid "Whether to use CRLF line endings for all outputs"
+msgstr "是否对所有输出统一使用 CRLF 行尾"

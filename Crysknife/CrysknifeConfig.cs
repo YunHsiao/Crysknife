@@ -104,8 +104,7 @@ internal class ConfigPredicates
 
         Predicates = new[]
         {
-            new ConfigPredicate("NameMatches", Target => Cond =>
-                Path.GetFileName(Target).Contains(Cond, StringComparison.OrdinalIgnoreCase)),
+            new ConfigPredicate("NameMatches", Target => Cond => Utils.ContainsRegex(Path.GetFileName(Target), Cond)),
 
             new ConfigPredicate("TargetExists", Cond =>
             {
@@ -449,8 +448,8 @@ internal class ConfigSystem
     private readonly Dictionary<string, string> DependencyVariables = new();
     private readonly Dictionary<string, ConfigSystem> Dependencies = new();
     private readonly Dictionary<string, string> Children = new();
-    private readonly CommentTagFormat Format;
 
+    public readonly CommentTagFormat Format;
     public readonly InjectionRegexGroup PatchRegex;
     public readonly CommentTagPacker TagPacker;
     public readonly string PluginName;
@@ -461,8 +460,12 @@ internal class ConfigSystem
         var RootPath = Utils.GetPluginDirectory("Crysknife");
         var ConfigPath = Path.Combine(RootPath, "BaseCrysknife.ini");
         if (File.Exists(ConfigPath)) BaseConfig = new ConfigFile(ConfigPath);
-        ConfigPath = Path.Combine(RootPath, "BaseCrysknifeLocal.ini");
-        if (File.Exists(ConfigPath)) BaseConfig.Merge(new ConfigFile(ConfigPath));
+        
+        foreach (int Index in Enumerable.Range(0, 10))
+        {
+            ConfigPath = Path.Combine(RootPath, $"BaseCrysknifeLocal{(Index > 0 ? Index.ToString() : "")}.ini");
+            if (File.Exists(ConfigPath)) BaseConfig.Merge(new ConfigFile(ConfigPath));
+        }
         ConfigFile.Init(RootPath);
     }
 
@@ -470,8 +473,12 @@ internal class ConfigSystem
     {
         var ConfigPath = GetConfigPath(PluginName);
         var Config = File.Exists(ConfigPath) ? new ConfigFile(ConfigPath).Merge(BaseConfig, false) : BaseConfig;
-        var LocalConfigPath = GetConfigPath(PluginName, ConfigType.Local);
-        if (File.Exists(LocalConfigPath)) Config.Merge(new ConfigFile(LocalConfigPath));
+        
+        foreach (int Index in Enumerable.Range(0, 10))
+        {
+            var LocalConfigPath = GetConfigPath(PluginName, ConfigType.Local, Index);
+            if (File.Exists(LocalConfigPath)) Config.Merge(new ConfigFile(LocalConfigPath));
+        }
 
         var FinalOverrides = string.Join(',',
             $"#CRYSKNIFE_ENGINE_ROOT={Utils.GetEngineRoot()}",
@@ -489,12 +496,12 @@ internal class ConfigSystem
         Local,
         Cache,
     }
-    private static string GetConfigPath(string PluginName, ConfigType Type = ConfigType.Main)
+    private static string GetConfigPath(string PluginName, ConfigType Type = ConfigType.Main, int SetIndex = 0)
     {
         var Directory = Utils.GetPatchDirectory(PluginName);
         return Type switch
         {
-            ConfigType.Local => Path.Combine(Directory, "CrysknifeLocal.ini"),
+            ConfigType.Local => Path.Combine(Directory, $"CrysknifeLocal{(SetIndex > 0 ? SetIndex.ToString() : "")}.ini"),
             ConfigType.Cache => Path.Combine(Directory, "CrysknifeCache.ini"),
             _ => Path.Combine(Directory, "Crysknife.ini"),
         };
@@ -563,34 +570,30 @@ internal class ConfigSystem
         }
         ConfigSectionHierarchy.Link(Hierarchy, Sections);
 
-        Format = new CommentTagFormat
+        Format = new CommentTagFormat(PluginName);
+
+        foreach (int Index in Enumerable.Range(0, 10))
         {
-            PrefixRegex = GetVariable("CRYSKNIFE_COMMENT_TAG_PREFIX_RE"),
-            SuffixRegex = GetVariable("CRYSKNIFE_COMMENT_TAG_SUFFIX_RE"),
-            BeginRegex = GetVariable("CRYSKNIFE_COMMENT_TAG_BEGIN_RE"),
-            EndRegex = GetVariable("CRYSKNIFE_COMMENT_TAG_END_RE")
-        };
+            string Prefix = "CRYSKNIFE_COMMENT_TAG" + (Index > 0 ? $"_{Index}" : "");
+            if (!Utils.IsTruthyValue(GetVariable(Prefix + "_PREDICATE"))) continue;
 
-        Format.PrefixCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_PREFIX_CTOR", Format.PrefixRegex);
-        Format.SuffixCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_SUFFIX_CTOR", Format.SuffixRegex);
-        Format.BeginCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_BEGIN_CTOR", Format.BeginRegex);
-        Format.EndCtor = GetVariable("CRYSKNIFE_COMMENT_TAG_END_CTOR", Format.EndRegex);
+            Format.Tag = GetVariable(Prefix, Format.Tag);
 
-        if (Utils.IsTruthyValue(GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG")))
-        {
-            Format.PrefixRegex = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_PREFIX_RE", Format.PrefixRegex);
-            Format.SuffixRegex = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_SUFFIX_RE", Format.SuffixRegex);
-            Format.BeginRegex = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_BEGIN_RE", Format.BeginRegex);
-            Format.EndRegex = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_END_RE", Format.EndRegex);
+            Format.PrefixRegex = GetVariable(Prefix + "_PREFIX_RE", Format.PrefixRegex);
+            Format.SuffixRegex = GetVariable(Prefix + "_SUFFIX_RE", Format.SuffixRegex);
+            Format.BeginRegex = GetVariable(Prefix + "_BEGIN_RE", Format.BeginRegex);
+            Format.EndRegex = GetVariable(Prefix + "_END_RE", Format.EndRegex);
+            Format.Anastrophe = Utils.IsTruthyValue(GetVariable(Prefix + "_ANASTROPHE", Format.Anastrophe.ToString()));
+            Format.CRLF = Utils.IsTruthyValue(GetVariable(Prefix + "_CRLF", Format.CRLF.ToString()));
 
-            Format.PrefixCtor = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_PREFIX_CTOR", Format.PrefixRegex);
-            Format.SuffixCtor = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_SUFFIX_CTOR", Format.SuffixRegex);
-            Format.BeginCtor = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_BEGIN_CTOR", Format.BeginRegex);
-            Format.EndCtor = GetVariable("CRYSKNIFE_CUSTOM_COMMENT_TAG_END_CTOR", Format.EndRegex);
+            Format.PrefixCtor = GetVariable(Prefix + "_PREFIX_CTOR", Format.PrefixRegex);
+            Format.SuffixCtor = GetVariable(Prefix + "_SUFFIX_CTOR", Format.SuffixRegex);
+            Format.BeginCtor = GetVariable(Prefix + "_BEGIN_CTOR", Format.BeginRegex);
+            Format.EndCtor = GetVariable(Prefix + "_END_CTOR", Format.EndRegex);
         }
 
-        PatchRegex = new InjectionRegexGroup(new InjectionRegex(CommentTag, Format));
-        TagPacker = new CommentTagPacker(Path.GetFileName(PluginName), CommentTag, Format);
+        PatchRegex = new InjectionRegexGroup(new InjectionRegex(Format));
+        TagPacker = new CommentTagPacker(Path.GetFileName(PluginName), Format);
     }
 
     // Always create parent dependencies first
@@ -631,7 +634,7 @@ internal class ConfigSystem
             }
             if (!Parent.Children.ContainsKey(PluginName))
             {
-                Parent.RegisterChildren(PluginName, Config.CommentTag);
+                Parent.RegisterChildren(PluginName, Config.Format.Tag);
             }
 
             Config.Dependencies.TryAdd(Pair.Key, Parent);
@@ -667,7 +670,7 @@ internal class ConfigSystem
         Result.Dispatch(Config =>
         {
             // Fill in children plugins
-            Config.PatchRegex.AddResiduals(Config.Children.Select(Pair => new InjectionRegex(Pair.Value, Config.Format)));
+            Config.PatchRegex.AddResiduals(Config.Children.Select(Pair => new InjectionRegex(Config.Format, Pair.Value)));
             // Save config cache
             File.WriteAllText(GetConfigPath(Config.PluginName, ConfigType.Cache), Config.ToString());
             // Map local variables
@@ -677,7 +680,6 @@ internal class ConfigSystem
     }
 
     public IReadOnlyDictionary<string, string> Variables => InnerVariables;
-    public string CommentTag => GetVariable("CRYSKNIFE_COMMENT_TAG", Path.GetFileName(PluginName));
 
     public void Dispatch(Action<ConfigSystem> Action, bool ParentFirst)
     {

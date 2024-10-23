@@ -39,15 +39,24 @@ internal class InjectionRegexForm
 
 internal struct CommentTagFormat
 {
-    public string PrefixRegex;
-    public string SuffixRegex;
-    public string BeginRegex;
-    public string EndRegex;
+    public string Tag;
 
-    public string PrefixCtor;
-    public string SuffixCtor;
-    public string BeginCtor;
-    public string EndCtor;
+    public string PrefixRegex = "";
+    public string SuffixRegex = "";
+    public string BeginRegex = "";
+    public string EndRegex = "";
+    public bool Anastrophe = false;
+    public bool CRLF = false;
+
+    public string PrefixCtor = "";
+    public string SuffixCtor = "";
+    public string BeginCtor = "";
+    public string EndCtor = "";
+
+    public CommentTagFormat(string PluginName)
+    {
+        Tag = Path.GetFileName(PluginName);
+    }
 }
 
 internal class InjectionRegex
@@ -55,14 +64,17 @@ internal class InjectionRegex
     private readonly InjectionRegexForm[] MatchForms;
     private readonly Regex TestPattern;
 
-    public InjectionRegex(string Tag, CommentTagFormat Format)
+    public InjectionRegex(CommentTagFormat Format, string? TagOverride = null)
     {
-        var CommentTag = Utils.EscapeForRegex(Tag) + @"[^\n]*?"; // Allow some comments in between
+        string Tag = TagOverride ?? Format.Tag;
+        var CommentTag = Utils.EscapeLiteralsForRegex(Tag) + @"[^\n]*?"; // Allow some comments in between
 
         MatchForms = new []
         {
             // Form order matters here, specific -> general
-            new InjectionRegexForm(Tag, string.Format(@"[^\S\n]*//[^\S\n]*{0}(?<Tag>{1}){2}{3}(?<Content>.*?)// (?<EndTag>{0}{1}{2}{4})[^\S\n]*\n",
+            new InjectionRegexForm(Tag, string.Format(Format.Anastrophe ? 
+                    @"[^\S\n]*//[^\S\n]*{0}{3}(?<Tag>{1}){2}(?<Content>.*?)// (?<EndTag>{0}{4}{1}{2})[^\S\n]*\n" :
+                    @"[^\S\n]*//[^\S\n]*{0}(?<Tag>{1}){2}{3}(?<Content>.*?)// (?<EndTag>{0}{1}{2}{4})[^\S\n]*\n",
                 Format.PrefixRegex, CommentTag, Format.SuffixRegex, Format.BeginRegex, Format.EndRegex),
                 RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.Compiled), // Multi-line form
             new InjectionRegexForm(Tag, $@"^(?<Content>[^\S\n]*\S+.*?)[^\S\n]*//[^\S\n]*{Format.PrefixRegex}(?<Tag>{CommentTag}){Format.SuffixRegex}[^\S\n]*\n",
@@ -125,21 +137,22 @@ internal class InjectionRegexGroup
 
 internal class CommentTagPacker
 {
-    private readonly string Tag;
     private readonly CommentTagFormat Format;
     private readonly string ModuleName;
 
     private readonly Regex PackRegex;
     private readonly Regex UnpackRegex;
 
-    public CommentTagPacker(string ModuleName, string Tag, CommentTagFormat Format)
+    public CommentTagPacker(string ModuleName, CommentTagFormat Format)
     {
-        this.Tag = Tag;
         this.Format = Format;
         this.ModuleName = ModuleName;
 
-        var CommentTag = Utils.EscapeForRegex(Tag) + @"[^\n]*?"; // Allow some comments in between
-        var PackFormat = $@"//[^\S\n]*{Format.PrefixRegex}(?<Tag>{CommentTag}){Format.SuffixRegex}(?<Begin>{Format.BeginRegex})?(?<End>{Format.EndRegex})?[^\S\n]*(?=\n)";
+        var CommentTag = Utils.EscapeLiteralsForRegex(Format.Tag) + @"[^\n]*?"; // Allow some comments in between
+        var PackFormat = string.Format(Format.Anastrophe ? 
+                @"//[^\S\n]*{0}(?<Begin>{3})?(?<End>{4})?(?<Tag>{1}){2}[^\S\n]*(?=\n)" :
+                @"//[^\S\n]*{0}(?<Tag>{1}){2}(?<Begin>{3})?(?<End>{4})?[^\S\n]*(?=\n)",
+            Format.PrefixRegex, CommentTag, Format.SuffixRegex, Format.BeginRegex, Format.EndRegex);
         PackRegex = new Regex(PackFormat, RegexOptions.IgnoreCase | RegexOptions.Compiled);
         UnpackRegex = new Regex($@"@{ModuleName}Tag(\w*)\(([^\n]*)\)\n", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     }
@@ -151,7 +164,7 @@ internal class CommentTagPacker
             string Result = $"// @{ModuleName}Tag";
             if (Matched.Groups["Begin"].Success) Result += "Begin";
             else if (Matched.Groups["End"].Success) Result += "End";
-            Result += $"({Matched.Groups["Tag"].Value[Tag.Length..]})\n";
+            Result += $"({Matched.Groups["Tag"].Value[Format.Tag.Length..]})\n";
             if (SkipCaptures) return Result;
 
             foreach (var Index in Enumerable.Range(0, 10))
@@ -175,13 +188,14 @@ internal class CommentTagPacker
                 return string.Empty;
             }
 
-            var Reconstructed = Format.PrefixCtor + Tag + Matched.Groups[2].Value + Format.SuffixCtor;
+            var ReconstructedPre = Format.Anastrophe ? Format.PrefixCtor : Format.PrefixCtor + Format.Tag + Matched.Groups[2].Value + Format.SuffixCtor;
+            var ReconstructedPost = Format.Anastrophe ? Format.Tag + Matched.Groups[2].Value + Format.SuffixCtor : "";
 
             return Matched.Groups[1].Value switch
             {
-                "" => Reconstructed,
-                "Begin" => Reconstructed + Format.BeginCtor,
-                "End" => Reconstructed + Format.EndCtor,
+                "" => ReconstructedPre + ReconstructedPost,
+                "Begin" => ReconstructedPre + Format.BeginCtor + ReconstructedPost,
+                "End" => ReconstructedPre + Format.EndCtor + ReconstructedPost,
                 _ => throw new ArgumentOutOfRangeException(nameof(Content))
             };
         });
@@ -260,6 +274,11 @@ internal static class Utils
         return Result;
     }
 
+    public static bool ContainsRegex(string Content, string TargetRE)
+    {
+        return new Regex(TargetRE).IsMatch(Content);
+    }
+
     private static readonly Regex PredicateRegex = new (@"@Predicate\((.+)\)", RegexOptions.Compiled);
     public static bool GetVariablePredicate(string Value, out string Predicate)
     {
@@ -276,6 +295,11 @@ internal static class Utils
     public static string UnifySeparators(string Value)
     {
         return UnifySeparators(Value, Path.DirectorySeparatorChar.ToString());
+    }
+
+    public static string UnifyLineEndings(string Content, bool CRLF = false)
+    {
+        return Content.Replace(CRLF ? "\n" : "\r\n", CRLF ? "\r\n" : "\n");
     }
 
     private static readonly Regex TruthyRegex = new ("^(?:T|On)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -465,7 +489,7 @@ internal static class Utils
     }
 
     private static readonly Regex EscapeRegex = new("\\" + string.Join<char>("|\\", "^$()[].*+?"), RegexOptions.Compiled);
-    public static string EscapeForRegex(string Value)
+    public static string EscapeLiteralsForRegex(string Value)
     {
         return EscapeRegex.Replace(Value, Matched => $"\\{Matched.Value}");
     }

@@ -117,7 +117,7 @@ internal static class ProjectSetup
 
     private static readonly string[] IgnoredFiles =
     {
-        "CrysknifeLocal.ini",
+        "CrysknifeLocal*.ini",
         "CrysknifeCache.ini",
         "*.protected.patch",
     };
