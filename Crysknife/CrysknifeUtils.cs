@@ -157,6 +157,11 @@ internal class CommentTagPacker
         UnpackRegex = new Regex($@"@{ModuleName}Tag(\w*)\(([^\n]*)\)\n", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     }
 
+    public bool HasAnyMatch(string Content)
+    {
+        return PackRegex.IsMatch(Content);
+    }
+
     private string Pack(string Content, bool SkipCaptures)
     {
         return PackRegex.Replace(Content, Matched =>

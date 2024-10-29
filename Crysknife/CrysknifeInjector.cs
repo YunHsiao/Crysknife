@@ -220,7 +220,7 @@ public class Injector
         }
     }
 
-    private void RegisterSourcePatch(SourcePatchInfo SourcePatch, string InputPaths)
+    private void RegisterSourcePatch(ConfigSystem Config, string InputPaths)
     {
         var PatchedPaths = new List<string>();
 
@@ -246,10 +246,10 @@ public class Injector
         foreach (var PatchedPath in PatchedPaths)
         {
             var RelativePath = Path.GetRelativePath(Utils.GetSourceDirectory(), PatchedPath);
-            var PatchPath = Path.Combine(SourcePatch.Directory, RelativePath);
+            var PatchPath = Path.Combine(Utils.GetPatchDirectory(Config.PluginName), RelativePath);
 
             // Register any file starts with the plugin name
-            if (Path.GetFileName(PatchedPath).StartsWith(SourcePatch.PluginName))
+            if (Path.GetFileName(PatchedPath).StartsWith(Config.PluginName))
             {
                 if (File.Exists(PatchPath)) continue;
                 goto Register;
@@ -257,7 +257,7 @@ public class Injector
 
             // Or new patched files
             PatchPath += PatcherInstance.DefaultExtension;
-            if (!File.Exists(PatchPath) && SourcePatch.PatchRegex.Injection.HasAnyMatch(File.ReadAllText(PatchedPath)))
+            if (!File.Exists(PatchPath) && Config.TagPacker.HasAnyMatch(Utils.UnifyLineEndings(File.ReadAllText(PatchedPath))))
             {
                 goto Register;
             }
@@ -436,7 +436,7 @@ public class Injector
 
     public void RegisterSourcePatch(string InputPaths)
     {
-        DefaultConfig.Dispatch(Config => RegisterSourcePatch(new SourcePatchInfo(Config), InputPaths), true);
+        DefaultConfig.Dispatch(Config => RegisterSourcePatch(Config, InputPaths), true);
     }
 
     public void UnregisterSourcePatch(string InputPaths)
