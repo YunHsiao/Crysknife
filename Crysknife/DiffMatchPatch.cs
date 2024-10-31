@@ -21,11 +21,12 @@
 
 /*
  * The following changes are made for Crysknife usages:
+ *   Fixed apply op for patches with non-equal diffs after first insert (see Index1Offset)
  *   Support constrained match with specified context range
  *   Use 64-bit mask for the bitap matching algorithm
  *   `patch_apply` returns additional insights into the patching process 
  *   Misc format & semantic improvements for .Net 6
- *   Use Preformatted text element in HTML output
+ *   Use preformatted text element in HTML output
  */
 
 // ReSharper disable MemberCanBePrivate.Global
@@ -2206,10 +2207,12 @@ internal class DiffMatchPatch
 
         foreach (var Patch in Patches)
         {
+            var MaxLengthPerContext = MatchMaxBits / (Patch.Context == MatchContext.All ? 2 : 1) - PatchMargin * 2;
+
             if (Patch.Diffs.First().Operation == Operation.Equal)
             {
-                var PreLimit = Patch.Context.HasFlag(MatchContext.Upper) ? Math.Min(Patch.ContextLength, MatchMaxBits - PatchMargin) : 0;
-                if (PreLimit < 0) PreLimit = (MatchMaxBits - PatchMargin) / (Patch.Context.HasFlag(MatchContext.Lower) ? 2 : 1);
+                var PreLimit = Patch.Context.HasFlag(MatchContext.Upper) ? Math.Min(Patch.ContextLength, MaxLengthPerContext) : 0;
+                if (PreLimit < 0) PreLimit = MaxLengthPerContext;
                 if (PreLimit >= 0 && PreLimit < Patch.Diffs.First().Text.Length)
                 {
                     var Cutout = Patch.Diffs.First().Text.Length - PreLimit;
@@ -2224,8 +2227,8 @@ internal class DiffMatchPatch
 
             if (Patch.Diffs.Last().Operation == Operation.Equal)
             {
-                var PostLimit = Patch.Context.HasFlag(MatchContext.Lower) ? Math.Min(Patch.ContextLength, MatchMaxBits - PatchMargin) : 0;
-                if (PostLimit < 0) PostLimit = (MatchMaxBits - PatchMargin) / (Patch.Context.HasFlag(MatchContext.Upper) ? 2 : 1);
+                var PostLimit = Patch.Context.HasFlag(MatchContext.Lower) ? Math.Min(Patch.ContextLength, MaxLengthPerContext) : 0;
+                if (PostLimit < 0) PostLimit = MaxLengthPerContext;
                 if (PostLimit >= 0 && PostLimit < Patch.Diffs.Last().Text.Length)
                 {
                     var Cutout = Patch.Diffs.Last().Text.Length - PostLimit;
@@ -2347,11 +2350,12 @@ internal class DiffMatchPatch
                     {
                         diff_cleanupSemanticLossless(Diffs);
                         var Index1 = 0;
+                        var Index1Offset = 0;
                         foreach (var ADiff in APatch.Diffs)
                         {
                             if (ADiff.Operation != Operation.Equal)
                             {
-                                var Index2 = diff_xIndex(Diffs, Index1);
+                                var Index2 = diff_xIndex(Diffs, Index1) + Index1Offset;
                                 if (ADiff.Operation == Operation.Insert)
                                 {
                                     // Insertion
@@ -2364,9 +2368,13 @@ internal class DiffMatchPatch
                                 }
                             }
 
-                            if (ADiff.Operation != Operation.Delete)
+                            if (ADiff.Operation == Operation.Equal)
                             {
                                 Index1 += ADiff.Text.Length;
+                            }
+                            else if (ADiff.Operation == Operation.Insert)
+                            {
+                                Index1Offset += ADiff.Text.Length; // Inserted length should only affect index2
                             }
                         }
                     }
