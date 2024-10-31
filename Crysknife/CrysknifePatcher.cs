@@ -6,8 +6,6 @@ using System.Diagnostics;
 
 namespace Crysknife;
 
-using System.Numerics;
-
 using DiffMatchPatch;
 
 internal interface IPatchBundle
@@ -194,20 +192,28 @@ internal class Patcher
         private PatchBundle Pack(PatchBundle Patches, bool SkipCaptures)
         {
             var Results = new PatchBundle(DiffMatchPatch.patch_deepCopy(Patches.Patches));
-            var TotalIncrement = 0;
+            var TotalInc1 = 0;
+            var TotalInc2 = 0;
 
             foreach (var Patch in Results.Patches)
             {
-                var Increment = 0;
+                var Inc1 = 0;
+                var Inc2 = 0;
 
                 foreach (var Diff in Patch.Diffs)
                 {
-                    Diff.Text = Packers.Aggregate(Diff.Text, (Current, Packer) => Packer.Pack(Current, ref Increment, SkipCaptures));
+                    Diff.Text = Packers.Aggregate(Diff.Text, (Current, Packer) =>
+                        Diff.Operation == Operation.Insert ?
+                        Packer.Pack(Current, ref Inc2, SkipCaptures) :
+                        Packer.Pack(Current, ref Inc1, SkipCaptures));
                 }
 
-                Patch.Start2 += TotalIncrement;
-                Patch.Length2 += Increment;
-                TotalIncrement += Increment;
+                Patch.Start1 += TotalInc1;
+                Patch.Start2 += TotalInc2;
+                Patch.Length1 += Inc1;
+                Patch.Length2 += Inc2;
+                TotalInc1 += Inc1;
+                TotalInc2 += Inc2;
             }
 
             return Results;
@@ -215,20 +221,28 @@ internal class Patcher
 
         private PatchBundle Unpack(PatchBundle Patches)
         {
-            var TotalIncrement = 0;
+            var TotalInc1 = 0;
+            var TotalInc2 = 0;
 
             foreach (var Patch in Patches.Patches)
             {
-                var Increment = 0;
+                var Inc1 = 0;
+                var Inc2 = 0;
 
                 foreach (var Diff in Patch.Diffs)
                 {
-                    Diff.Text = Packers.Aggregate(Diff.Text, (Current, Packer) => Packer.Unpack(Current, ref Increment, Variables));
+                    Diff.Text = Packers.Aggregate(Diff.Text, (Current, Packer) =>
+                        Diff.Operation == Operation.Insert ?
+                            Packer.Unpack(Current, ref Inc2, Variables) :
+                            Packer.Unpack(Current, ref Inc1, Variables));
                 }
 
-                Patch.Start2 += TotalIncrement;
-                Patch.Length2 += Increment;
-                TotalIncrement += Increment;
+                Patch.Start1 += TotalInc1;
+                Patch.Start2 += TotalInc2;
+                Patch.Length1 += Inc1;
+                Patch.Length2 += Inc2;
+                TotalInc1 += Inc1;
+                TotalInc2 += Inc2;
             }
 
             return Patches;

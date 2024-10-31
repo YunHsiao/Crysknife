@@ -45,7 +45,7 @@ internal class ConfigPredicate
         return Conditions.Count > 0;
     }
 
-    public void RequireConjunction()
+    private void RequireConjunction()
     {
         LogicalAnd = true;
     }
@@ -584,7 +584,7 @@ internal class ConfigSystem
             Format.BeginRegex = GetVariable(Prefix + "_BEGIN_RE", Format.BeginRegex);
             Format.EndRegex = GetVariable(Prefix + "_END_RE", Format.EndRegex);
             Format.Anastrophe = Utils.IsTruthyValue(GetVariable(Prefix + "_ANASTROPHE", Format.Anastrophe.ToString()));
-            Format.CRLF = Utils.IsTruthyValue(GetVariable(Prefix + "_CRLF", Format.CRLF.ToString()));
+            Format.Crlf = Utils.IsTruthyValue(GetVariable(Prefix + "_CRLF", Format.Crlf.ToString()));
 
             Format.PrefixCtor = GetVariable(Prefix + "_PREFIX_CTOR", Format.PrefixRegex);
             Format.SuffixCtor = GetVariable(Prefix + "_SUFFIX_CTOR", Format.SuffixRegex);

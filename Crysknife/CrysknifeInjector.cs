@@ -112,7 +112,7 @@ public class Injector
         void Clear()
         {
             if (ClearedTarget.Length == TargetContent.Length) return;
-            File.WriteAllText(TargetPath, Utils.UnifyLineEndings(ClearedTarget, SourcePatch.Format.CRLF));
+            File.WriteAllText(TargetPath, Utils.UnifyLineEndings(ClearedTarget, SourcePatch.Format.Crlf));
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("Patch removed from: " + TargetPath);
             TargetContent = ClearedTarget;
@@ -141,7 +141,7 @@ public class Injector
                         if (OverrideConfirm.HasFlag(Utils.ConfirmResult.No)) return;
                     }
 
-                    Utils.FileAccessGuard(() => File.WriteAllText(TargetPath, Utils.UnifyLineEndings(Patched, SourcePatch.Format.CRLF)), TargetPath);
+                    Utils.FileAccessGuard(() => File.WriteAllText(TargetPath, Utils.UnifyLineEndings(Patched, SourcePatch.Format.Crlf)), TargetPath);
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.WriteLine("Patched: " + TargetPath);
                     TargetContent = Patched;
@@ -151,7 +151,7 @@ public class Injector
         }
     }
 
-    private void ProcessFile(JobType Job, string SrcPath, string DstPath, bool CRLF)
+    private void ProcessFile(JobType Job, string SrcPath, string DstPath, bool Crlf)
     {
         var Exists = File.Exists(DstPath);
         var IsSymLink = Exists && new FileInfo(DstPath).Attributes.HasFlag(FileAttributes.ReparsePoint);
@@ -212,7 +212,7 @@ public class Injector
 
             if (ShouldBeSymLink ?
                 Utils.FileAccessGuard(() => File.CreateSymbolicLink(DstPath, SrcPath), DstPath) :
-                Utils.FileAccessGuard(() => File.WriteAllText(DstPath, Utils.UnifyLineEndings(SourceContent, CRLF)), DstPath))
+                Utils.FileAccessGuard(() => File.WriteAllText(DstPath, Utils.UnifyLineEndings(SourceContent, Crlf)), DstPath))
             {
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("{0}: {1} -> {2}", ShouldBeSymLink ? "Linked" : "Copied", SrcPath, DstPath);
@@ -336,7 +336,7 @@ public class Injector
                     else Utils.FileAccessGuard(() => File.Delete(OutputPath), OutputPath);
                 }
 
-                ProcessFile(Job, SrcPath, OutputPath, SourcePatch.Format.CRLF);
+                ProcessFile(Job, SrcPath, OutputPath, SourcePatch.Format.Crlf);
             }
         }
 
@@ -352,7 +352,7 @@ public class Injector
                 foreach (var PatchSuffix in Patcher.Extensions)
                 {
                     var PatchFilePath = PatchPath + PatchSuffix;
-                    if (File.Exists(PatchFilePath)) ProcessFile(Job, PatchFilePath, SourcePath + PatchSuffix, SourcePatch.Format.CRLF);
+                    if (File.Exists(PatchFilePath)) ProcessFile(Job, PatchFilePath, SourcePath + PatchSuffix, SourcePatch.Format.Crlf);
                 }
                 continue;
             }

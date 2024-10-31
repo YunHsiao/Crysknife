@@ -46,7 +46,7 @@ internal struct CommentTagFormat
     public string BeginRegex = "";
     public string EndRegex = "";
     public bool Anastrophe = false;
-    public bool CRLF = false;
+    public bool Crlf = false;
 
     public string PrefixCtor = "";
     public string SuffixCtor = "";
@@ -73,7 +73,7 @@ internal class InjectionRegex
         {
             // Form order matters here, specific -> general
             new InjectionRegexForm(Tag, string.Format(Format.Anastrophe ? 
-                    @"[^\S\n]*//[^\S\n]*{0}{3}(?<Tag>{1}){2}(?<Content>.*?)// (?<EndTag>{0}{4}{1}{2})[^\S\n]*\n" :
+                    @"[^\S\n]*//[^\S\n]*{0}{3}(?<Tag>{1}){2}\n(?<Content>.*?)// (?<EndTag>{0}{4}{1}{2})[^\S\n]*\n" :
                     @"[^\S\n]*//[^\S\n]*{0}(?<Tag>{1}){2}{3}(?<Content>.*?)// (?<EndTag>{0}{1}{2}{4})[^\S\n]*\n",
                 Format.PrefixRegex, CommentTag, Format.SuffixRegex, Format.BeginRegex, Format.EndRegex),
                 RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.Compiled), // Multi-line form
@@ -302,9 +302,9 @@ internal static class Utils
         return UnifySeparators(Value, Path.DirectorySeparatorChar.ToString());
     }
 
-    public static string UnifyLineEndings(string Content, bool CRLF = false)
+    public static string UnifyLineEndings(string Content, bool Crlf = false)
     {
-        return Content.Replace(CRLF ? "\n" : "\r\n", CRLF ? "\r\n" : "\n");
+        return Content.Replace(Crlf ? "\n" : "\r\n", Crlf ? "\r\n" : "\n");
     }
 
     private static readonly Regex TruthyRegex = new ("^(?:T|On)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -432,9 +432,16 @@ internal static class Utils
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.Write("{0} [Yes(Y)/No(N)/YesForAll(A)/NoForAll(Z)/Abort(C)] ", Message);
-            Response = Console.ReadKey(false).Key;   // true is intercept key (dont show), false is show
-            if (Response != ConsoleKey.Enter) Console.WriteLine();
-
+            if (!Console.IsInputRedirected)
+            {
+                Response = Console.ReadKey(false).Key; // true is intercept key (dont show), false is show
+                if (Response != ConsoleKey.Enter) Console.WriteLine();
+            }
+            else
+            {
+                var Key = Console.ReadLine()?.ToUpper()[0].ToString();
+                if (!Enum.TryParse(Key, out Response)) Response = ConsoleKey.Enter;
+            }
         } while (Response is not (ConsoleKey.Y or ConsoleKey.N or ConsoleKey.A or ConsoleKey.Z or ConsoleKey.C));
 
         if (Response == ConsoleKey.C)
