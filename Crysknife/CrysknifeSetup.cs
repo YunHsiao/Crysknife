@@ -37,8 +37,8 @@ internal static class ProjectSetup
         Console.WriteLine("Setup scripts created: " + Path.Combine(TargetDirectory, "Setup"));
     }
 
-    private static readonly JsonObject PluginReference = new(
-        new[]
+    private static readonly JsonObject PluginReference = new (
+        new []
         {
             KeyValuePair.Create<string, JsonNode?>("Name", "Crysknife"),
             KeyValuePair.Create<string, JsonNode?>("Enabled", true)

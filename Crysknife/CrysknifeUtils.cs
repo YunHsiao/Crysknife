@@ -302,9 +302,11 @@ internal static class Utils
         return UnifySeparators(Value, Path.DirectorySeparatorChar.ToString());
     }
 
+    private static readonly Regex NonWindowsRE = new (@"(?<!\r)\n|\r", RegexOptions.Compiled);
+    private static readonly Regex NonUnixRE = new (@"\r\n|\r(?!\n)", RegexOptions.Compiled);
     public static string UnifyLineEndings(string Content, bool Crlf = false)
     {
-        return Content.Replace(Crlf ? "\n" : "\r\n", Crlf ? "\r\n" : "\n");
+        return Crlf ? NonWindowsRE.Replace(Content, "\r\n") : NonUnixRE.Replace(Content, "\n");
     }
 
     private static readonly Regex TruthyRegex = new ("^(?:T|On)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -500,7 +502,7 @@ internal static class Utils
         return CaseRegex.Replace(Value, Match => $"_{Match.Value}").ToLower();
     }
 
-    private static readonly Regex EscapeRegex = new("\\" + string.Join<char>("|\\", "^$()[].*+?"), RegexOptions.Compiled);
+    private static readonly Regex EscapeRegex = new ("\\" + string.Join<char>("|\\", "^$()[].*+?"), RegexOptions.Compiled);
     public static string EscapeLiteralsForRegex(string Value)
     {
         return EscapeRegex.Replace(Value, Matched => $"\\{Matched.Value}");

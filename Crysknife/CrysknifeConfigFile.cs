@@ -42,7 +42,7 @@ internal class ConfigLine
 internal class ConfigFileSection
 {
     public readonly string Name;
-    public readonly List<ConfigLine> Lines = new ();
+    public readonly List<ConfigLine> Lines = new();
 
     public void ParseLines(IDictionary<string, string> Result, char Separator, Func<string, string>? MapFunc = null)
     {
@@ -93,7 +93,7 @@ internal class ConfigFile
 
     private static void ReadIntoSections(string Location, IDictionary<string, ConfigFileSection> Sections, ConfigLineAction DefaultAction)
     {
-        using StreamReader Reader = new(Location);
+        using StreamReader Reader = new (Location);
         ConfigFileSection? CurrentSection = null;
         Dictionary<string, string>? CurrentRemap = null;
 
@@ -282,11 +282,11 @@ internal class ConfigFile
     // Remap of config names/sections
     private static readonly Dictionary<string, string> SectionNameRemap = new();
     private static readonly Dictionary<string, Dictionary<string, string>> SectionKeyRemap = new();
-    private static readonly HashSet<string> WarnedKeys = new(StringComparer.InvariantCultureIgnoreCase);
+    private static readonly HashSet<string> WarnedKeys = new (StringComparer.InvariantCultureIgnoreCase);
 
     public static void Init(string RootDirectory)
     {
-        Dictionary<string, ConfigFileSection> Sections = new(StringComparer.InvariantCultureIgnoreCase);
+        Dictionary<string, ConfigFileSection> Sections = new (StringComparer.InvariantCultureIgnoreCase);
         try
         {
             // read the special ConfigRedirects.ini file into sections
@@ -317,7 +317,7 @@ internal class ConfigFile
             else
             {
                 // any other section is rmembered by the section name here, and each key/value pair is a remap for the given section
-                Dictionary<string, string> KeyRemap = new(StringComparer.InvariantCultureIgnoreCase);
+                Dictionary<string, string> KeyRemap = new (StringComparer.InvariantCultureIgnoreCase);
                 SectionKeyRemap.Add(Pair.Key, KeyRemap);
                 foreach (var Line in Pair.Value.Lines)
                 {

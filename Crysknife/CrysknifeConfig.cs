@@ -355,7 +355,7 @@ internal class ConfigSectionHierarchy
     }
 
     private ConfigFileSectionNode? Section;
-    private readonly Dictionary<string, ConfigSectionHierarchy> Children = new ();
+    private readonly Dictionary<string, ConfigSectionHierarchy> Children = new();
 
     public void InheritancePatch(ConfigFileSection? Parent = null)
     {

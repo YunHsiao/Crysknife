@@ -77,7 +77,8 @@ public class Injector
             return;
         }
 
-        var TargetContent = SourcePatch.PatchRegex.ClearResiduals(Utils.UnifyLineEndings(File.ReadAllText(TargetPath)));
+        var CurrentContent = File.ReadAllText(TargetPath);
+        var TargetContent = SourcePatch.PatchRegex.ClearResiduals(Utils.UnifyLineEndings(CurrentContent));
         var ClearedTarget = SourcePatch.PatchRegex.Unpatch(TargetContent);
 
         if (Job.HasFlag(JobType.Generate) && Job.HasFlag(JobType.Clear)) Generate();
@@ -129,7 +130,9 @@ public class Injector
                         Path.GetRelativePath(Utils.GetSourceDirectory(), TargetPath));
 
                 var Success = PatcherInstance.Apply(Patches, ClearedTarget, DumpPath, Options.HasFlag(JobOptions.DryRun), out var Patched);
-                if (Success && !Patched.Equals(TargetContent, StringComparison.Ordinal))
+                var FinalContent = Utils.UnifyLineEndings(Patched, SourcePatch.Format.Crlf);
+                if (Success && (!Patched.Equals(TargetContent, StringComparison.Ordinal) ||
+                    (Options.HasFlag(JobOptions.Force) && !FinalContent.Equals(CurrentContent, StringComparison.Ordinal))))
                 {
                     if (TargetContent.Length != ClearedTarget.Length)
                     {
@@ -141,7 +144,7 @@ public class Injector
                         if (OverrideConfirm.HasFlag(Utils.ConfirmResult.No)) return;
                     }
 
-                    Utils.FileAccessGuard(() => File.WriteAllText(TargetPath, Utils.UnifyLineEndings(Patched, SourcePatch.Format.Crlf)), TargetPath);
+                    Utils.FileAccessGuard(() => File.WriteAllText(TargetPath, FinalContent), TargetPath);
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.WriteLine("Patched: " + TargetPath);
                     TargetContent = Patched;
@@ -156,7 +159,7 @@ public class Injector
         var Exists = File.Exists(DstPath);
         var IsSymLink = Exists && new FileInfo(DstPath).Attributes.HasFlag(FileAttributes.ReparsePoint);
         var SourceContent = File.ReadAllText(SrcPath);
-        var TargetContent = Utils.UnifyLineEndings(File.ReadAllText(DstPath));
+        var TargetContent = Exists ? Utils.UnifyLineEndings(File.ReadAllText(DstPath)) : string.Empty;
         var UpToDate = Exists && !IsSymLink && SourceContent == TargetContent;
 
         if (Job.HasFlag(JobType.Generate) && !IsSymLink && !UpToDate)

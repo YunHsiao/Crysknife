@@ -639,7 +639,7 @@ internal class DiffMatchPatch
 
         // Diff took too long and hit the deadline or
         // number of diffs equals number of characters, no commonality at all.
-        var Diffs = new List<Diff> { new(Operation.Delete, Text1), new(Operation.Insert, Text2) };
+        var Diffs = new List<Diff> { new (Operation.Delete, Text1), new (Operation.Insert, Text2) };
         return Diffs;
     }
 
@@ -1238,8 +1238,8 @@ internal class DiffMatchPatch
     }
 
     // Define some regex patterns for matching boundaries.
-    private readonly Regex Blanklineend = new("\\n\\r?\\n\\Z");
-    private readonly Regex Blanklinestart = new("\\A\\r?\\n\\r?\\n");
+    private readonly Regex Blanklineend = new ("\\n\\r?\\n\\Z");
+    private readonly Regex Blanklinestart = new ("\\A\\r?\\n\\r?\\n");
 
     /**
      * Reduce the number of edits by eliminating operationally trivial
