@@ -46,7 +46,6 @@ internal struct CommentTagFormat
     public string BeginRegex = "";
     public string EndRegex = "";
     public bool Anastrophe = false;
-    public bool Crlf = false;
 
     public string PrefixCtor = "";
     public string SuffixCtor = "";
@@ -290,6 +289,12 @@ internal static class Utils
         var Matched = PredicateRegex.Match(Value);
         Predicate = Matched.Groups[1].Value;
         return Matched.Success;
+    }
+
+    private static readonly Regex LocalConfigRegex = new (@"Crysknife(\w*)Local.ini", RegexOptions.Compiled);
+    public static string GetLocalConfigSuffix(string Value)
+    {
+        return LocalConfigRegex.Match(Value).Groups[1].Value;
     }
 
     private static readonly Regex SeparatorRegex = new (@"[\\/]", RegexOptions.Compiled);

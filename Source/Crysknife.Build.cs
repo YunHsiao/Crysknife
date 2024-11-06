@@ -18,7 +18,7 @@ public class Crysknife : ModuleRules
 	public Crysknife(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
-		
+
 		PrivateDependencyModuleNames.AddRange(new[]
 		{
 			"Core"
@@ -47,16 +47,33 @@ public class Crysknife : ModuleRules
 		}
 	}
 
-	private static readonly Tuple<string, bool>[] Configs =
+	private static string GetLocalSuffix(string TargetDirectory)
 	{
-		new Tuple<string, bool>("Crysknife.ini", true),
-		new Tuple<string, bool>("CrysknifeLocal.ini", false),
-		new Tuple<string, bool>("CrysknifeCache.ini", false),
-	};
+		var RootDirectory = TargetDirectory.Substring(0, TargetDirectory.LastIndexOf("Plugins" + Path.DirectorySeparatorChar, StringComparison.Ordinal) + 7);
+		var ConfigPath = Path.Combine(RootDirectory, "CrysknifeCache.ini");
+		if (!File.Exists(ConfigPath)) return string.Empty;
+
+		var Config = new ConfigFile(new FileReference(ConfigPath));
+		ConfigFileSection VariableSection;
+		if (!Config.TryGetSection("Variables", out VariableSection)) return string.Empty;
+
+		foreach (var Variable in VariableSection.Lines.Where(Variable => Variable.Key == "CRYSKNIFE_LOCAL_CONFIG"))
+		{
+			return Variable.Value;
+		}
+		return string.Empty;
+	}
 
 	public static void FillInConfigVariables(List<string> Definitions, string TargetDirectory, string Prefix)
 	{
 		var Variables = new Dictionary<string, string>();
+		var LocalSuffix = GetLocalSuffix(TargetDirectory);
+		var Configs = new []
+		{
+			new Tuple<string, bool>("Crysknife.ini", true),
+			new Tuple<string, bool>(string.Format("Crysknife{0}Local.ini", LocalSuffix), false),
+			new Tuple<string, bool>(string.Format("Crysknife{0}Cache.ini", LocalSuffix), false),
+		};
 
 		foreach (var Pair in Configs)
 		{

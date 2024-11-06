@@ -15,10 +15,9 @@ bin
 Binaries
 Intermediate
 
-*CrysknifeLocal*.ini
-CrysknifeCache.ini
+*Crysknife*Local.ini
+Crysknife*Cache.ini
 *.protected.patch
-
 
 # Created by https://www.toptal.com/developers/gitignore/api/python,jupyternotebooks
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,jupyternotebooks

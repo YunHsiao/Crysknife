@@ -39,29 +39,11 @@ public enum IncrementalMode
 
 public class Injector
 {
-    private readonly struct SourcePatchInfo
+    private void ProcessPatch(JobType Job, string PatchPath, string TargetPath, ConfigSystem Config)
     {
-        public readonly string Directory;
-        public readonly string PluginName;
-        public readonly CommentTagFormat Format;
-        public readonly InjectionRegexGroup PatchRegex;
-        public readonly IReadOnlyDictionary<string, string> Variables;
-
-        public SourcePatchInfo(ConfigSystem Config)
-        {
-            Directory = Utils.GetPatchDirectory(Config.PluginName);
-            PluginName = Config.PluginName;
-            Format = Config.Format;
-            PatchRegex = Config.PatchRegex;
-            Variables = Config.Variables;
-        }
-    }
-
-    private void ProcessPatch(JobType Job, string PatchPath, string TargetPath, SourcePatchInfo SourcePatch)
-    {
-        PatcherInstance.Injection = SourcePatch.PatchRegex.Injection;
-        PatcherInstance.CommentTag = SourcePatch.Format.Tag;
-        PatcherInstance.Variables = SourcePatch.Variables;
+        PatcherInstance.Injection = Config.PatchRegex.Injection;
+        PatcherInstance.CommentTag = Config.Format.Tag;
+        PatcherInstance.Variables = Config.Variables;
         PatcherInstance.CurrentPatch = PatchPath;
 
         // The target file have to exist
@@ -78,8 +60,8 @@ public class Injector
         }
 
         var CurrentContent = File.ReadAllText(TargetPath);
-        var TargetContent = SourcePatch.PatchRegex.ClearResiduals(Utils.UnifyLineEndings(CurrentContent));
-        var ClearedTarget = SourcePatch.PatchRegex.Unpatch(TargetContent);
+        var TargetContent = Config.PatchRegex.ClearResiduals(Utils.UnifyLineEndings(CurrentContent));
+        var ClearedTarget = Config.PatchRegex.Unpatch(TargetContent);
 
         if (Job.HasFlag(JobType.Generate) && Job.HasFlag(JobType.Clear)) Generate();
         if (Job.HasFlag(JobType.Clear)) Clear();
@@ -113,7 +95,7 @@ public class Injector
         void Clear()
         {
             if (ClearedTarget.Length == TargetContent.Length) return;
-            File.WriteAllText(TargetPath, Utils.UnifyLineEndings(ClearedTarget, SourcePatch.Format.Crlf));
+            File.WriteAllText(TargetPath, Utils.UnifyLineEndings(ClearedTarget, OutputCrlf));
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("Patch removed from: " + TargetPath);
             TargetContent = ClearedTarget;
@@ -126,11 +108,11 @@ public class Injector
             if (Patches.IsValid())
             {
                 var DumpPath = Options.HasFlag(JobOptions.DryRun) ? TargetPath
-                    : Path.Combine(Utils.GetPluginDirectory(SourcePatch.PluginName), "Intermediate", "Crysknife",
+                    : Path.Combine(Utils.GetPluginDirectory(Config.PluginName), "Intermediate", "Crysknife",
                         Path.GetRelativePath(Utils.GetSourceDirectory(), TargetPath));
 
                 var Success = PatcherInstance.Apply(Patches, ClearedTarget, DumpPath, Options.HasFlag(JobOptions.DryRun), out var Patched);
-                var FinalContent = Utils.UnifyLineEndings(Patched, SourcePatch.Format.Crlf);
+                var FinalContent = Utils.UnifyLineEndings(Patched, OutputCrlf);
                 if (Success && (!Patched.Equals(TargetContent, StringComparison.Ordinal) ||
                     (Options.HasFlag(JobOptions.Force) && !FinalContent.Equals(CurrentContent, StringComparison.Ordinal))))
                 {
@@ -148,13 +130,13 @@ public class Injector
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.WriteLine("Patched: " + TargetPath);
                     TargetContent = Patched;
-                    ClearedTarget = SourcePatch.PatchRegex.Unpatch(TargetContent);
+                    ClearedTarget = Config.PatchRegex.Unpatch(TargetContent);
                 }
             }
         }
     }
 
-    private void ProcessFile(JobType Job, string SrcPath, string DstPath, bool Crlf)
+    private void ProcessFile(JobType Job, string SrcPath, string DstPath)
     {
         var Exists = File.Exists(DstPath);
         var IsSymLink = Exists && new FileInfo(DstPath).Attributes.HasFlag(FileAttributes.ReparsePoint);
@@ -215,7 +197,7 @@ public class Injector
 
             if (ShouldBeSymLink ?
                 Utils.FileAccessGuard(() => File.CreateSymbolicLink(DstPath, SrcPath), DstPath) :
-                Utils.FileAccessGuard(() => File.WriteAllText(DstPath, Utils.UnifyLineEndings(SourceContent, Crlf)), DstPath))
+                Utils.FileAccessGuard(() => File.WriteAllText(DstPath, Utils.UnifyLineEndings(SourceContent, OutputCrlf)), DstPath))
             {
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("{0}: {1} -> {2}", ShouldBeSymLink ? "Linked" : "Copied", SrcPath, DstPath);
@@ -275,7 +257,7 @@ public class Injector
         }
     }
 
-    private void UnregisterSourcePatch(SourcePatchInfo SourcePatch, string InputPaths)
+    private void UnregisterSourcePatch(ConfigSystem Config, string InputPaths)
     {
         var PatchedPaths = new List<string>();
 
@@ -301,10 +283,10 @@ public class Injector
         foreach (var PatchedPath in PatchedPaths)
         {
             var RelativePath = Path.GetRelativePath(Utils.GetSourceDirectory(), PatchedPath);
-            var PatchPath = Path.Combine(SourcePatch.Directory, RelativePath + PatcherInstance.DefaultExtension);
+            var PatchPath = Path.Combine(Config.PatchDirectory, RelativePath + PatcherInstance.DefaultExtension);
             if (!File.Exists(PatchPath)) continue;
 
-            ProcessPatch(JobType.Clear, PatchPath, PatchedPath, SourcePatch);
+            ProcessPatch(JobType.Clear, PatchPath, PatchedPath, Config);
             File.Delete(PatchPath);
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("Patch file deleted: " + PatchPath);
@@ -313,15 +295,14 @@ public class Injector
 
     private void Process(ConfigSystem Config, JobType Job)
     {
-        var SourcePatch = new SourcePatchInfo(Config);
         var VerboseLogging = Options.HasFlag(JobOptions.Verbose);
         var Patches = new HashSet<string>();
 
-        foreach (var SrcPath in Directory.GetFiles(SourcePatch.Directory, "*", new EnumerationOptions { RecurseSubdirectories = true }))
+        foreach (var SrcPath in Directory.GetFiles(Config.PatchDirectory, "*", new EnumerationOptions { RecurseSubdirectories = true }))
         {
             if (!SrcPath.Contains(InclusiveFilter) || SrcPath.Contains(ExclusiveFilter)) continue;
 
-            var RelativePath = Path.GetRelativePath(SourcePatch.Directory, SrcPath);
+            var RelativePath = Path.GetRelativePath(Config.PatchDirectory, SrcPath);
             if (RelativePath.EndsWith(".patch", StringComparison.OrdinalIgnoreCase)) // Patch existing files
             {
                 Patches.Add(Patcher.GetSourcePath(RelativePath));
@@ -339,7 +320,7 @@ public class Injector
                     else Utils.FileAccessGuard(() => File.Delete(OutputPath), OutputPath);
                 }
 
-                ProcessFile(Job, SrcPath, OutputPath, SourcePatch.Format.Crlf);
+                ProcessFile(Job, SrcPath, OutputPath);
             }
         }
 
@@ -347,7 +328,7 @@ public class Injector
         {
             if (!Config.Remap(RelativePath, out var NewRelativePath, VerboseLogging, PatcherInstance.DefaultExtension)) continue;
 
-            var PatchPath = Path.Combine(SourcePatch.Directory, RelativePath);
+            var PatchPath = Path.Combine(Config.PatchDirectory, RelativePath);
             var SourcePath = Path.GetFullPath(Path.Combine(Utils.GetSourceDirectory(), NewRelativePath));
 
             if (Options.HasFlag(JobOptions.TreatPatchAsFile))
@@ -355,7 +336,7 @@ public class Injector
                 foreach (var PatchSuffix in Patcher.Extensions)
                 {
                     var PatchFilePath = PatchPath + PatchSuffix;
-                    if (File.Exists(PatchFilePath)) ProcessFile(Job, PatchFilePath, SourcePath + PatchSuffix, SourcePatch.Format.Crlf);
+                    if (File.Exists(PatchFilePath)) ProcessFile(Job, PatchFilePath, SourcePath + PatchSuffix);
                 }
                 continue;
             }
@@ -375,17 +356,18 @@ public class Injector
                 }
             }
 
-            ProcessPatch(Job, PatchPath, SourcePath, SourcePatch);
+            ProcessPatch(Job, PatchPath, SourcePath, Config);
         }
 
         Console.ForegroundColor = ConsoleColor.Blue;
-        Console.WriteLine("{0} job done: {1} <=> {2}", Job.ToString(), SourcePatch.Directory, Utils.GetSourceDirectory());
+        Console.WriteLine("{0} job done: {1} <=> {2}", Job.ToString(), Config.PatchDirectory, Utils.GetSourceDirectory());
     }
 
     private readonly JobOptions Options;
     private readonly ConfigSystem DefaultConfig;
     private readonly Patcher PatcherInstance;
 
+    private readonly bool OutputCrlf;
     private string PrivateInclusiveFilter = string.Empty;
     private string PrivateExclusiveFilter = "NonExist";
     private Utils.ConfirmResult OverrideConfirm;
@@ -403,6 +385,7 @@ public class Injector
         PatcherInstance = new Patcher(Options.HasFlag(JobOptions.Protected));
         DefaultConfig.Dispatch(Config => PatcherInstance.Packers.Add(Config.TagPacker), false); // Always pack all dependent plugins
 
+        OutputCrlf = DefaultConfig.OutputCrlf;
         OverrideConfirm = Options.HasFlag(JobOptions.Force) ? Utils.ConfirmResult.Yes | Utils.ConfirmResult.ForAll : Utils.ConfirmResult.NotDecided;
     }
 
@@ -444,7 +427,7 @@ public class Injector
 
     public void UnregisterSourcePatch(string InputPaths)
     {
-        DefaultConfig.Dispatch(Config => UnregisterSourcePatch(new SourcePatchInfo(Config), InputPaths), false);
+        DefaultConfig.Dispatch(Config => UnregisterSourcePatch(Config, InputPaths), false);
     }
 
     public static void Init(string RootDirectory)

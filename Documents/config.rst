@@ -62,7 +62,7 @@ The dependencies section declares relevant source patches inside other plugins,
 which can provide seamless support when source patches are separated into multiple plugins.
 
 .. note::
-   You can also create 'local' config files (``CrysknifeLocal.ini``) that overrides the main one.
+   You can also create 'local' config files (``Crysknife${YourEngineName}Local.ini``) that overrides the main one.
 
    By design it is ignored in your plugin's git repo, but should be committed into the main engine (e.g. perforce) code base.
 
@@ -138,13 +138,13 @@ Built-in Variables
    Full path to the target plugin directory, readonly
 ``CRYSKNIFE_SOURCE_DIRECTORY``
    Full path to the engine source directory, readonly
+``CRYSKNIFE_OUTPUT_CRLF``
+   Whether to use CRLF line endings for all outputs
+``CRYSKNIFE_LOCAL_CONFIG_PREDICATE``
+   Enable the current config file iff this predicate evaluates to true
 ``CRYSKNIFE_COMMENT_TAG``
    Default to the plugin folder name, you can assign a more distinctive name if needed
-``CRYSKNIFE_CUSTOM_COMMENT_TAG_PREDICATE``
-   Enable custom comment tag format iff this predicate evaluates to true
 ``CRYSKNIFE_COMMENT_TAG_(PREFIX|SUFFIX|BEGIN|END)_(RE|CTOR)``
-   Regex matchers & re-constructors of the comment tag
+   Regex matchers & re-constructors of the comment tag, see :ref:`Formatting`.
 ``CRYSKNIFE_COMMENT_TAG_ANASTROPHE``
    Whether to put tag & suffix after begin/end clause
-``CRYSKNIFE_COMMENT_TAG_CRLF``
-   Whether to use CRLF line endings for all outputs

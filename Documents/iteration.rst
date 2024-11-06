@@ -2,6 +2,8 @@
    SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
    SPDX-License-Identifier: MIT
 
+.. _Iteration:
+
 Multilateral Iteration
 ======================
 

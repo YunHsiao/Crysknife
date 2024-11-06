@@ -453,18 +453,49 @@ internal class ConfigSystem
     public readonly InjectionRegexGroup PatchRegex;
     public readonly CommentTagPacker TagPacker;
     public readonly string PluginName;
+    public readonly string PatchDirectory;
+    public readonly bool OutputCrlf;
 
     private static ConfigFile BaseConfig = new();
+    private static string LocalSuffix = string.Empty;
+    private static readonly string LocalConfigTemplate = @"
+        [Variables]
+        CRYSKNIFE_LOCAL_CONFIG={0}
+    ".Replace("    ", string.Empty);
+
     public static void Init()
     {
         var RootPath = Utils.GetPluginDirectory("Crysknife");
         var ConfigPath = Path.Combine(RootPath, "BaseCrysknife.ini");
-        if (File.Exists(ConfigPath)) BaseConfig = new ConfigFile(ConfigPath);
-        
-        foreach (int Index in Enumerable.Range(0, 10))
+        Debug.Assert(File.Exists(ConfigPath), "Base config file missing, check your repo status");
+        BaseConfig = new ConfigFile(ConfigPath);
+
+        foreach (var LocalConfigPath in Directory.GetFiles(RootPath, "BaseCrysknife*Local.ini"))
         {
-            ConfigPath = Path.Combine(RootPath, $"BaseCrysknifeLocal{(Index > 0 ? Index.ToString() : "")}.ini");
-            if (File.Exists(ConfigPath)) BaseConfig.Merge(new ConfigFile(ConfigPath));
+            var LocalConfigFile = new ConfigFile(LocalConfigPath);
+            if (!Utils.IsTruthyValue(new ConfigSystem(LocalConfigFile).GetVariable("CRYSKNIFE_LOCAL_CONFIG_PREDICATE"))) continue;
+
+            var CurrentSuffix = Utils.GetLocalConfigSuffix(LocalConfigPath);
+            if (LocalSuffix.Length > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Aborting due to multiple sets of active local configs: {0} & {1}", LocalSuffix, CurrentSuffix);
+                Utils.Abort();
+            }
+            BaseConfig.Merge(LocalConfigFile);
+            LocalSuffix = CurrentSuffix;
+        }
+
+        if (LocalSuffix.Length > 0)
+        {
+            var OutputPath = Path.Combine(Utils.GetEngineRoot(), "Plugins", "CrysknifeCache.ini");
+            var TargetContent = string.Format(LocalConfigTemplate, LocalSuffix);
+            if (File.ReadAllText(OutputPath) != TargetContent)
+            {
+                File.WriteAllText(OutputPath, TargetContent);
+            }
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.WriteLine("Internal environment detected, operating under '{0}' local config", LocalSuffix);
         }
         ConfigFile.Init(RootPath);
     }
@@ -473,12 +504,9 @@ internal class ConfigSystem
     {
         var ConfigPath = GetConfigPath(PluginName);
         var Config = File.Exists(ConfigPath) ? new ConfigFile(ConfigPath).Merge(BaseConfig, false) : BaseConfig;
-        
-        foreach (int Index in Enumerable.Range(0, 10))
-        {
-            var LocalConfigPath = GetConfigPath(PluginName, ConfigType.Local, Index);
-            if (File.Exists(LocalConfigPath)) Config.Merge(new ConfigFile(LocalConfigPath));
-        }
+
+        var LocalConfigPath = GetConfigPath(PluginName, ConfigType.Local);
+        if (File.Exists(LocalConfigPath)) Config.Merge(new ConfigFile(LocalConfigPath));
 
         var FinalOverrides = string.Join(',',
             $"#CRYSKNIFE_ENGINE_ROOT={Utils.GetEngineRoot()}",
@@ -496,13 +524,13 @@ internal class ConfigSystem
         Local,
         Cache,
     }
-    private static string GetConfigPath(string PluginName, ConfigType Type = ConfigType.Main, int SetIndex = 0)
+    private static string GetConfigPath(string PluginName, ConfigType Type = ConfigType.Main)
     {
         var Directory = Utils.GetPatchDirectory(PluginName);
         return Type switch
         {
-            ConfigType.Local => Path.Combine(Directory, $"CrysknifeLocal{(SetIndex > 0 ? SetIndex.ToString() : "")}.ini"),
-            ConfigType.Cache => Path.Combine(Directory, "CrysknifeCache.ini"),
+            ConfigType.Local => Path.Combine(Directory, $"Crysknife{LocalSuffix}Local.ini"),
+            ConfigType.Cache => Path.Combine(Directory, $"Crysknife{LocalSuffix}Cache.ini"),
             _ => Path.Combine(Directory, "Crysknife.ini"),
         };
     }
@@ -516,11 +544,8 @@ internal class ConfigSystem
         }
     }
 
-    private ConfigSystem(string PluginName, string VariableOverrides)
+    private List<string> BuildVariableList(ConfigFile Config)
     {
-        this.PluginName = PluginName;
-        var Config = CreateConfigFile(PluginName, VariableOverrides);
-
         var SectionNames = Config.SectionNames.ToList();
 
         // Gather variables
@@ -544,9 +569,30 @@ internal class ConfigSystem
             InnerVariables[Pair.Key] = Utils.MapVariables(Variables, Pair.Value, Utils.MapFlag.IgnoreFallbacks);
         }
 
+        return SectionNames;
+    }
+
+    private ConfigSystem(ConfigFile Config)
+    {
+        PluginName = PatchDirectory = string.Empty;
+        Hierarchy = new ConfigSectionHierarchy();
+        Format = new CommentTagFormat(PluginName);
+        PatchRegex = new InjectionRegexGroup(new InjectionRegex(Format));
+        TagPacker = new CommentTagPacker(PluginName, Format);
+        BuildVariableList(Config);
+    }
+
+    private ConfigSystem(string PluginName, string VariableOverrides)
+    {
+        this.PluginName = PluginName;
+        PatchDirectory = Utils.GetPatchDirectory(PluginName);
+
+        var Config = CreateConfigFile(PluginName, VariableOverrides);
+        var SectionNames = BuildVariableList(Config);
+
         // Gather dependencies
         var DependencySecIndex = SectionNames.FindIndex(Name => Name.Equals("Dependencies", StringComparison.OrdinalIgnoreCase));
-        if (DependencySecIndex >= 0 && Config.TryGetSection(SectionNames[DependencySecIndex], out Section))
+        if (DependencySecIndex >= 0 && Config.TryGetSection(SectionNames[DependencySecIndex], out var Section))
         {
             Section.ParseLines(DependencyVariables, ',', Value => Utils.MapVariables(Variables, Value));
             SectionNames.RemoveAt(DependencySecIndex);
@@ -570,30 +616,24 @@ internal class ConfigSystem
         }
         ConfigSectionHierarchy.Link(Hierarchy, Sections);
 
-        Format = new CommentTagFormat(PluginName);
+        string Prefix = "CRYSKNIFE_COMMENT_TAG";
+        Format = new CommentTagFormat(Path.GetFileName(PluginName));
+        Format.Tag = GetVariable(Prefix, Format.Tag);
 
-        foreach (int Index in Enumerable.Range(0, 10))
-        {
-            string Prefix = "CRYSKNIFE_COMMENT_TAG" + (Index > 0 ? $"_{Index}" : "");
-            if (!Utils.IsTruthyValue(GetVariable(Prefix + "_PREDICATE"))) continue;
+        Format.PrefixRegex = GetVariable(Prefix + "_PREFIX_RE", Format.PrefixRegex);
+        Format.SuffixRegex = GetVariable(Prefix + "_SUFFIX_RE", Format.SuffixRegex);
+        Format.BeginRegex = GetVariable(Prefix + "_BEGIN_RE", Format.BeginRegex);
+        Format.EndRegex = GetVariable(Prefix + "_END_RE", Format.EndRegex);
+        Format.Anastrophe = Utils.IsTruthyValue(GetVariable(Prefix + "_ANASTROPHE", Format.Anastrophe.ToString()));
 
-            Format.Tag = GetVariable(Prefix, Format.Tag);
-
-            Format.PrefixRegex = GetVariable(Prefix + "_PREFIX_RE", Format.PrefixRegex);
-            Format.SuffixRegex = GetVariable(Prefix + "_SUFFIX_RE", Format.SuffixRegex);
-            Format.BeginRegex = GetVariable(Prefix + "_BEGIN_RE", Format.BeginRegex);
-            Format.EndRegex = GetVariable(Prefix + "_END_RE", Format.EndRegex);
-            Format.Anastrophe = Utils.IsTruthyValue(GetVariable(Prefix + "_ANASTROPHE", Format.Anastrophe.ToString()));
-            Format.Crlf = Utils.IsTruthyValue(GetVariable(Prefix + "_CRLF", Format.Crlf.ToString()));
-
-            Format.PrefixCtor = GetVariable(Prefix + "_PREFIX_CTOR", Format.PrefixRegex);
-            Format.SuffixCtor = GetVariable(Prefix + "_SUFFIX_CTOR", Format.SuffixRegex);
-            Format.BeginCtor = GetVariable(Prefix + "_BEGIN_CTOR", Format.BeginRegex);
-            Format.EndCtor = GetVariable(Prefix + "_END_CTOR", Format.EndRegex);
-        }
+        Format.PrefixCtor = GetVariable(Prefix + "_PREFIX_CTOR", Format.PrefixRegex);
+        Format.SuffixCtor = GetVariable(Prefix + "_SUFFIX_CTOR", Format.SuffixRegex);
+        Format.BeginCtor = GetVariable(Prefix + "_BEGIN_CTOR", Format.BeginRegex);
+        Format.EndCtor = GetVariable(Prefix + "_END_CTOR", Format.EndRegex);
 
         PatchRegex = new InjectionRegexGroup(new InjectionRegex(Format));
         TagPacker = new CommentTagPacker(Path.GetFileName(PluginName), Format);
+        OutputCrlf = Utils.IsTruthyValue(GetVariable("CRYSKNIFE_OUTPUT_CRLF"));
     }
 
     // Always create parent dependencies first
