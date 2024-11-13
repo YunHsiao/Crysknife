@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Crysknife \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-09-05 22:05+0800\n"
+"POT-Creation-Date: 2024-11-13 16:44+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -15,59 +15,59 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.16.0\n"
 
-#: usage.rst:6
+#: ../../usage.rst:6
 msgid "Usage"
 msgstr "使用文档"
 
-#: usage.rst:9
+#: ../../usage.rst:9
 msgid "Installation"
 msgstr "环境搭建"
 
-#: usage.rst:11
+#: ../../usage.rst:11
 msgid "You should clone this repo as an engine plugin::"
 msgstr "将仓库 Clone 到引擎扩展目录："
 
-#: usage.rst:15
+#: ../../usage.rst:15
 msgid ""
 "For first-time setup, you should use the script file matching your "
 "operating system and run::"
 msgstr "首次集成时，选择和系统匹配的脚本执行生成部署脚本命令::"
 
-#: usage.rst:19
+#: ../../usage.rst:19
 msgid ""
 "This will generate a few ``Setup`` scripts to your plugin directory as "
 "the main entry for any operations."
 msgstr "这会在指定的扩展目录下生成几个 ``Setup`` 脚本，作为所有操作的入口。"
 
-#: usage.rst:21
+#: ../../usage.rst:21
 msgid "And code patches will be read from / write to the following directory::"
 msgstr "程序会尝试从指定扩展的以下目录搜索 Patch 并应用到 ``Engine/Source``::"
 
-#: usage.rst:25
+#: ../../usage.rst:25
 msgid ""
 "All relative structures from the ``Engine/Source`` directory will be "
 "preserved."
 msgstr "从 ``SourcePatch`` 文件夹起的所有相对目录结构默认都会完整保留。"
 
-#: usage.rst:27
+#: ../../usage.rst:27
 msgid ""
 "The injector itself doesn't magically change the way your code is "
 "organized. Here are the recommended general principles:"
 msgstr "注入器本身相对简单直接，并不会神奇地自动改变任何代码结构，更多的是开发者自己对架构设计的权衡，以下是一些推荐的通用原则："
 
-#: usage.rst:30
+#: ../../usage.rst:30
 msgid ""
 "Only make source patches when there is no way around it, you can still go"
 " very far with only the builtin plugin system"
 msgstr "实现功能时尽量优先依赖引擎内置的扩展和回调系统，即使不依赖任何注入也可以做到很多事"
 
-#: usage.rst:32
+#: ../../usage.rst:32
 msgid ""
 "Try to move as much code as possible to separate new files instead of "
 "embedding them inline into the existing engine base"
 msgstr "尽量把需要注入的代码都拆分到独立的新文件，在引擎源码中的注入点越少越好"
 
-#: usage.rst:35
+#: ../../usage.rst:35
 #, python-format
 msgid ""
 "Empirically more than 90% of the code can be written inside the plugin "
@@ -75,39 +75,39 @@ msgid ""
 "new engine source files"
 msgstr "根据经验，超过 90% 的代码可以直接正常写在扩展内，其余注入代码里超过一半可以组织到新的引擎文件中"
 
-#: usage.rst:39
+#: ../../usage.rst:39
 msgid "Patch Syntax"
 msgstr "Patch 语法"
 
-#: usage.rst:41
+#: ../../usage.rst:41
 msgid ""
 "For changes in existing engine files we detect & inject in the following "
 "forms (with comment guards):"
 msgstr "在引擎源码中新增代码，需要遵守固定的语法规则才可以被注入器识别，所有修改都要加注释桩："
 
-#: usage.rst:44
+#: ../../usage.rst:44
 msgid "Multi-line"
 msgstr "多行形式"
 
-#: usage.rst:53
+#: ../../usage.rst:53
 msgid "Single-line"
 msgstr "单行形式"
 
-#: usage.rst:60
+#: ../../usage.rst:60
 msgid "Next-line"
 msgstr "下行形式"
 
-#: usage.rst:62
+#: ../../usage.rst:62
 msgid "Note that there can be no code at the same line with the comment guard:"
 msgstr "注意此形式下注释桩独占一行，行内不可以有任何有效代码："
 
-#: usage.rst:69
+#: ../../usage.rst:69
 msgid ""
 "The comment tag is defaulted to plugin folder name but can be modified if"
 " needed, see :ref:`Formatting`."
 msgstr "注释桩默认为扩展文件夹名，如需修改相关格式可以参考 :ref:`Formatting` 章节。"
 
-#: usage.rst:73
+#: ../../usage.rst:73
 msgid ""
 "For non-performance-critical code, try to find the most representative "
 "context to insert your code (beginning of class, after long-standing "
@@ -115,35 +115,35 @@ msgid ""
 "finding matches in different engine bases."
 msgstr "如果不影响性能的话，尽量选择最有代表性的注入点，如类的开始，长期存在的公开接口后等，可以大大提高在不同版本的引擎间自动匹配 Patch 的成功率。"
 
-#: usage.rst:77
+#: ../../usage.rst:77
 msgid "Modifying Existing Code"
 msgstr "删改引擎源码"
 
-#: usage.rst:79
+#: ../../usage.rst:79
 msgid "Additionally, to modify the stock engine code, follow these steps:"
 msgstr "对于要直接修改的官方引擎源码，遵循如下流程："
 
-#: usage.rst:81
+#: ../../usage.rst:81
 msgid ""
 "Comment out the original code block (only line comments are supported "
 "atm.)"
 msgstr "将要修改的引擎代码全部注释掉（暂只支持行注释 ``//``）"
 
-#: usage.rst:82
+#: ../../usage.rst:82
 msgid ""
 "Guard the comment block using any of the above forms, with one special "
 "tweak*"
 msgstr "将注释掉的代码加任何一种上述形式的注释桩，外加一个小变化*"
 
-#: usage.rst:83
+#: ../../usage.rst:83
 msgid "Add a new guarded block normally for your code"
 msgstr "在此之上再按标准流程，继续正常新增你自己的代码"
 
-#: usage.rst:85
+#: ../../usage.rst:85
 msgid "Where the special tweak is:"
 msgstr "这个小变化是："
 
-#: usage.rst:91
+#: ../../usage.rst:91
 msgid ""
 "**The minus sign** after the comment tag is enough to tell the injector "
 "that the surrounding code segment is directly from the stock engine "
@@ -152,93 +152,101 @@ msgstr ""
 "注释中扩展名字后面的 **减号** 至关重要，它会告诉注入器接下来这个代码块是直接来自原版引擎源码的，在应用 Patch "
 "时应该直接通过注释的形式删除。"
 
-#: usage.rst:95
+#: ../../usage.rst:95
 msgid "The minus sign can be omitted in the ending comment for multi-line guards."
 msgstr "在多行形式的注释桩中，结尾注释可以省略减号。"
 
-#: usage.rst:97
+#: ../../usage.rst:97
 msgid ""
 "If having to modify large blocks of engine code, remember there's always "
 "the macro guard approach which does not need to touch every line of the "
 "code:"
 msgstr "如果的确要删改大段引擎源码，也可以用宏包围，这样不需要逐行修改："
 
-#: usage.rst:107
+#: ../../usage.rst:109
 msgid "Decorators"
 msgstr "装饰器"
 
-#: usage.rst:109
+#: ../../usage.rst:111
 msgid ""
 "To improve the robustness of the fuzzy-match process, etc. on a per-code-"
 "block basis, inline decorators can be specified inside the guarded block "
 "in the following format:"
 msgstr "在注释桩修饰的代码内，可以通过装饰器的形式配置一些逐代码块的参数，来提高比如模糊匹配过程的稳定性："
 
-#: usage.rst:118
+#: ../../usage.rst:120
 msgid "Supported Directives"
 msgstr "装饰器指令"
 
-#: usage.rst:122
+#: ../../usage.rst:124
 msgid "``MatchContext=<UPPER|LOWER>``"
 msgstr ""
 
-#: usage.rst:121
+#: ../../usage.rst:123
 msgid ""
 "Limit the fuzzy-matching context to the specified direction, by default "
 "all contexts are matched"
 msgstr "指定匹配的上下文方向，默认所有方向都会匹配"
 
-#: usage.rst:126
+#: ../../usage.rst:128
 msgid "``MatchLength=<LENGTH>``"
 msgstr ""
 
-#: usage.rst:125
+#: ../../usage.rst:127
 msgid ""
 "For each matching context, only match up to the specified length of the "
 "context, default is 64 (maximum)"
 msgstr "对每个上下文方向，最多只匹配到指定长度，默认为 64（最大值）"
 
-#: usage.rst:130
+#: ../../usage.rst:132
 msgid "``NewerThan=<VERSION>``, ``OlderThan=<VERSION>``"
 msgstr ""
 
-#: usage.rst:129
+#: ../../usage.rst:131
 msgid ""
 "Mark the Enclosing code block as engine-version-relevant, so it would "
 "only apply to matching engine versions"
 msgstr "将当前代码块标记为引擎版本相关，应用时只会影响匹配的引擎版本"
 
-#: usage.rst:133
+#: ../../usage.rst:135
+msgid "``IsTruthy=<VARIABLE>``"
+msgstr ""
+
+#: ../../usage.rst:135
+msgid "Apply the current patch only when the specified variable is true"
+msgstr "当且仅当指定变量值为真时才应用当前 Patch"
+
+#: ../../usage.rst:138
 msgid "Builtin Source Patches"
 msgstr "内置 Patch"
 
-#: usage.rst:135
+#: ../../usage.rst:140
 msgid ""
 "We included some useful utilities in the built-in ``SourcePatch`` folder,"
 " which can provide some interesting trade-offs."
 msgstr "我们在 `SourcePatch` 文件夹内置了一些可能有用的工具，可以提供一些有趣的权衡。"
 
-#: usage.rst:139
+#: ../../usage.rst:144
 msgid "Include Path"
 msgstr "头文件路径"
 
-#: usage.rst:139
+#: ../../usage.rst:144
 msgid "Module"
 msgstr "模块"
 
-#: usage.rst:139
+#: ../../usage.rst:144
 msgid "Comment"
 msgstr "备注"
 
-#: usage.rst:141
+#: ../../usage.rst:146
 msgid "`Misc/PrivateAccessor.h`_"
 msgstr ""
 
-#: usage.rst:141
+#: ../../usage.rst:146
 msgid "Core"
 msgstr ""
 
-#: usage.rst:141
+#: ../../usage.rst:146
 msgid "A tiny library for accessing private members from non-friend contexts"
 msgstr "允许在非友元环境下访问私有变量或函数的小工具"
 

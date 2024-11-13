@@ -131,6 +131,9 @@ Supported Directives
    Mark the Enclosing code block as engine-version-relevant,
    so it would only apply to matching engine versions
 
+``IsTruthy=<VARIABLE>``
+   Apply the current patch only when the specified variable is true
+
 Builtin Source Patches
 ----------------------
 

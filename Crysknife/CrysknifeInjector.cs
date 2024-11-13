@@ -363,6 +363,17 @@ public class Injector
         Console.WriteLine("{0} job done: {1} <=> {2}", Job.ToString(), Config.PatchDirectory, Utils.GetSourceDirectory());
     }
 
+    private IncrementalMode GetDefaultIncrementalMode()
+    {
+        return DefaultConfig.RepoType switch
+        {
+            RepositoryType.Release => IncrementalMode.Disabled,
+            RepositoryType.Stock => IncrementalMode.Enabled,
+            RepositoryType.Internal => IncrementalMode.Aggressive,
+            _ => throw new ArgumentOutOfRangeException()
+        };
+    }
+
     private readonly JobOptions Options;
     private readonly ConfigSystem DefaultConfig;
     private readonly Patcher PatcherInstance;
@@ -382,7 +393,7 @@ public class Injector
         if (Options.HasFlag(JobOptions.DryRun)) VariableOverrides = string.Join(',', "CRYSKNIFE_DRY_RUN=1", VariableOverrides);
         DefaultConfig = ConfigSystem.Create(Utils.UnifySeparators(PluginName), VariableOverrides);
 
-        PatcherInstance = new Patcher(Options.HasFlag(JobOptions.Protected));
+        PatcherInstance = new Patcher(Options.HasFlag(JobOptions.Protected), GetDefaultIncrementalMode());
         DefaultConfig.Dispatch(Config => PatcherInstance.Packers.Add(Config.TagPacker), false); // Always pack all dependent plugins
 
         OutputCrlf = DefaultConfig.OutputCrlf;

@@ -100,6 +100,13 @@ internal class Patcher
                             if (!GetDecoratorValue("MatchLength", Decorator, out var Target)) continue;
                             if (int.TryParse(Target, out var Length)) DecoratePatch(ref Patch.ContextLength, Length, -1, "MatchLength");
                         }
+                        else if (Decorator.StartsWith("IsTruthy", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (!GetDecoratorValue("IsTruthy", Decorator, out var Target)) continue;
+                            var ShouldSkip = !Target.StartsWith("!");
+                            if (Variables.TryGetValue(ShouldSkip ? Target : Target[1..], out var Value)) ShouldSkip ^= Utils.IsTruthyValue(Value);
+                            Patch.Skip = ShouldSkip && (Patch.Skip != BooleanOverride.False) ? BooleanOverride.True : BooleanOverride.False;
+                        }
                         else if (Decorator.StartsWith("NewerThan", StringComparison.OrdinalIgnoreCase))
                         {
                             if (!GetDecoratorValue("NewerThan", Decorator, out var Target)) continue;
@@ -454,7 +461,7 @@ internal class Patcher
 
     private readonly DmpContext Context = new();
     public readonly string DefaultExtension;
-    public IncrementalMode Incremental = IncrementalMode.Disabled;
+    public IncrementalMode Incremental;
 
     private enum PatchFileType
     {
@@ -467,8 +474,9 @@ internal class Patcher
         ".patch",
     };
 
-    public Patcher(bool Protected)
+    public Patcher(bool Protected, IncrementalMode Mode)
     {
+        Incremental = Mode;
         DefaultExtension = Protected ? Extensions[(int)PatchFileType.Protected] : Extensions[(int)PatchFileType.Main]; // All custom engine patches are protected
     }
 

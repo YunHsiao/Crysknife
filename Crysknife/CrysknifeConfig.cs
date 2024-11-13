@@ -440,6 +440,13 @@ internal class ConfigSectionHierarchy
     }
 }
 
+internal enum RepositoryType
+{
+    Release,
+    Stock,
+    Internal
+}
+
 internal class ConfigSystem
 {
     private readonly Dictionary<string, string> InnerVariables = new();
@@ -490,7 +497,7 @@ internal class ConfigSystem
         {
             var OutputPath = Path.Combine(Utils.GetEngineRoot(), "Plugins", "CrysknifeCache.ini");
             var TargetContent = string.Format(LocalConfigTemplate, LocalSuffix);
-            if (File.ReadAllText(OutputPath) != TargetContent)
+            if (!File.Exists(OutputPath) || File.ReadAllText(OutputPath) != TargetContent)
             {
                 File.WriteAllText(OutputPath, TargetContent);
             }
@@ -616,7 +623,7 @@ internal class ConfigSystem
         }
         ConfigSectionHierarchy.Link(Hierarchy, Sections);
 
-        string Prefix = "CRYSKNIFE_COMMENT_TAG";
+        const string Prefix = "CRYSKNIFE_COMMENT_TAG";
         Format = new CommentTagFormat(Path.GetFileName(PluginName));
         Format.Tag = GetVariable(Prefix, Format.Tag);
 
@@ -718,6 +725,9 @@ internal class ConfigSystem
         }, true);
         return Result;
     }
+
+    public RepositoryType RepoType => LocalSuffix.Length > 0 ? RepositoryType.Internal :
+        Utils.IsTruthyValue(GetVariable("CRYSKNIFE_BASE_REPO")) ? RepositoryType.Release : RepositoryType.Stock;
 
     public IReadOnlyDictionary<string, string> Variables => InnerVariables;
 

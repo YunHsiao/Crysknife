@@ -25,6 +25,12 @@ or within the engine version range explicitly specified in :ref:`Decorators`.
 Since we are maintaining the same set of patches across repos, update strategies must be chosen carefully
 to migrate changes smoothly.
 
+By default Crysknife will try to detect type of the current repository, and set the default updating strategies accordingly:
+
+- All repositories with active local base configs are treated as ``Internal``
+- All other repositories with a truthy ``CRYSKNIFE_BASE_REPO`` value will be treated as ``Release``
+- All the rest repos are ``Stock``
+
 .. image:: iteration.png
 
 Workspace Setup

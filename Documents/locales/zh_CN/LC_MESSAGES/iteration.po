@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Crysknife \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-09-30 16:30+0800\n"
+"POT-Creation-Date: 2024-11-13 16:52+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -15,57 +15,79 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.16.0\n"
 
-#: ../../iteration.rst:6
+#: ../../iteration.rst:8
 msgid "Multilateral Iteration"
 msgstr "多边迭代"
 
-#: ../../iteration.rst:8
+#: ../../iteration.rst:10
 msgid "Repositories can be categorized into three types:"
 msgstr "引擎仓库大致可以分为三类："
 
-#: ../../iteration.rst:10
+#: ../../iteration.rst:12
 msgid "The latest release engine repo (``Release``)"
 msgstr "最新的发布版引擎仓库 (``Release``)"
 
-#: ../../iteration.rst:11
+#: ../../iteration.rst:13
 msgid "Any stock version engine repo (``Stock``)"
 msgstr "任何旧版官方引擎仓库 (``Stock``)"
 
-#: ../../iteration.rst:12
+#: ../../iteration.rst:14
 msgid "Any in-house engine repo (``Internal``)"
 msgstr "任何项目定制的内部引擎仓库 (``Internal``)"
 
-#: ../../iteration.rst:14
+#: ../../iteration.rst:16
 msgid "Three strategies are provided for updating patches accordingly:"
 msgstr "相对应地，我们提供三种 Patch 更新策略："
 
-#: ../../iteration.rst:16
+#: ../../iteration.rst:18
 msgid ""
 "``-G``: Full-scale update for all patches relevant to the current engine "
 "version."
 msgstr "``-G``: 全量更新所有与当前版本相关的 Patch"
 
-#: ../../iteration.rst:18
+#: ../../iteration.rst:20
 msgid ""
 "``-Gn``: Only update patches that actually changed, or within the engine "
 "version range explicitly specified in :ref:`Decorators`."
 msgstr "``-Gn``: 只更新实际有变化，或任何在 :ref:`Decorators` 中显式声明为与当前版本相关的 Patch"
 
-#: ../../iteration.rst:21
+#: ../../iteration.rst:23
 msgid "``-Gn 2``: Only update patches that actually changed."
 msgstr "``-Gn 2``: 只更新实际有变化的 Patch"
 
-#: ../../iteration.rst:23
+#: ../../iteration.rst:25
 msgid ""
 "Since we are maintaining the same set of patches across repos, update "
 "strategies must be chosen carefully to migrate changes smoothly."
 msgstr "因为是跨仓库共用同一套 Patch，认真选择好更新策略，才能平稳顺利地在仓库间迁移修改。"
 
-#: ../../iteration.rst:29
+#: ../../iteration.rst:28
+msgid ""
+"By default Crysknife will try to detect type of the current repository, "
+"and set the default updating strategies accordingly:"
+msgstr "Crysknife 默认会尝试自动检测当前仓库的类型，并默认使用对应的更新策略："
+
+#: ../../iteration.rst:30
+msgid ""
+"All repositories with active local base configs are treated as "
+"``Internal``"
+msgstr "所有使用本地 Base 配置的仓库都被视为 ``Internal`` 类型"
+
+#: ../../iteration.rst:31
+msgid ""
+"All other repositories with a truthy ``CRYSKNIFE_BASE_REPO`` value will "
+"be treated as ``Release``"
+msgstr "所有其他变量 ``CRYSKNIFE_BASE_REPO`` 为真值的仓库都被视为 ``Release`` 类型"
+
+#: ../../iteration.rst:32
+msgid "All the rest repos are ``Stock``"
+msgstr "其余所有仓库都被视为 ``Stock`` 类型"
+
+#: ../../iteration.rst:37
 msgid "Workspace Setup"
 msgstr "工作区配置"
 
-#: ../../iteration.rst:31
+#: ../../iteration.rst:39
 msgid ""
 "First, you should **link** all the relevant plugin folders into every "
 "engine repositories you want to port to, this way only one set of plugin "
@@ -77,27 +99,27 @@ msgstr ""
 "首先， **链接** 所有相关扩展文件夹到每个需要适配的引擎仓库，这样可以只维护一套扩展代码，大幅简化工作流。Setup "
 "脚本也考虑了此类环境，直接在不同的链接路径运行同一个脚本也能正确更新。"
 
-#: ../../iteration.rst:36
+#: ../../iteration.rst:44
 msgid "A multi-root workspace can be setup as follows:"
 msgstr "可以按如下配置多目录工作区："
 
-#: ../../iteration.rst:106
+#: ../../iteration.rst:114
 msgid "Iteration Examples"
 msgstr "迭代案例"
 
-#: ../../iteration.rst:108
+#: ../../iteration.rst:116
 msgid ""
 "Say we just finished development under ``Release``, now want to port to "
 "``Stock``:"
 msgstr "假设我们现在刚刚完成对 ``Release`` 仓库的适配，要移植到 ``Stock``："
 
-#: ../../iteration.rst:117
+#: ../../iteration.rst:125
 msgid ""
 "Then switch to ``Stock`` and start resolving conflicts & do the actual "
 "porting. After finished:"
 msgstr "然后切到 ``Stock`` 仓库就可以开始处理冲突和实际移植了。工作完成后执行："
 
-#: ../../iteration.rst:128
+#: ../../iteration.rst:136
 msgid ""
 "This way the patches are updated incrementally, making it much easier and"
 " focused to sync back to the ``Release`` repo. It may take some back-and-"
@@ -107,13 +129,13 @@ msgstr ""
 "这样就只会增量更新 Patch，可以大幅简化同步回 ``Release`` "
 "仓库的过程，帮助开发者专注于关键修改。适配过程可能会需要多次来回才能确保同一套 Patch 在两边可以同步，但这是最终无缝部署体验的关键前提。"
 
-#: ../../iteration.rst:132
+#: ../../iteration.rst:140
 msgid ""
 "Finally, when the porting is done, the same process still applies "
 "**anywhere anytime** changes are made. Say we just fixed a rare corner "
-"case found in ``Internal`` repo, to properly commit the changes, follow these"
-" steps:"
+"case found in ``Internal`` repo, to properly commit the changes, follow "
+"these steps:"
 msgstr ""
-"当移植工作终于完成后，对于 **无论何时何地** 的迭代需求，相同的迭代流程依然适用。假设我们刚刚在 ``Internal`` 仓库修复了一个罕见的 "
-"Bug，可以按以下流程来准确正式地提交 Patch 相关修改："
+"当移植工作终于完成后，对于 **无论何时何地** 的迭代需求，相同的迭代流程依然适用。假设我们刚刚在 ``Internal`` "
+"仓库修复了一个罕见的 Bug，可以按以下流程来准确正式地提交 Patch 相关修改："
 
