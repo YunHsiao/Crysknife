@@ -80,7 +80,7 @@ public class Injector
                 }
                 if (AutoClearConfirm.HasFlag(Utils.ConfirmResult.Yes))
                 {
-                    UnregisterSourcePatch(TargetPath);
+                    UnregisterSourcePatch(Config, TargetPath);
                     return;
                 }
             }
@@ -234,7 +234,7 @@ public class Injector
             var PatchPath = Path.Combine(Utils.GetPatchDirectory(Config.PluginName), RelativePath);
 
             // Register any file starts with the plugin name
-            if (Path.GetFileName(PatchedPath).StartsWith(Config.PluginName))
+            if (Path.GetFileName(PatchedPath).StartsWith(Path.GetFileName(Config.PluginName)))
             {
                 if (File.Exists(PatchPath)) continue;
                 goto Register;
