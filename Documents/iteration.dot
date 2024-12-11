@@ -3,22 +3,28 @@
 
 digraph G {
     layout=dot splines=true compound=true overlap=false bgcolor="#262626" rankdir=TB
-    node [fontname="Noto Serif CJK SC" shape=box style=rounded color="#CDD3DE" fontcolor="#CDD3DE"]
+    node [fontname="Noto Serif CJK SC" shape=Mrecord style=rounded color="#CDD3DE" fontcolor="#CDD3DE"]
     edge [fontname="Source Code Pro" color="#CDD3DE", fontcolor="#CDD3DE"]
-    graph [center=true pad=0.5 nodesep=0.9]
+    graph [center=true pad=0.5 nodesep=0.9 compound=true]
 
     A [label="Internal\nRepositories" color="#7777FF" fontcolor="#7777FF"]
+
+    subgraph cluster_patches {
+        color="#CDD3DE" fontcolor="#FFCB6B" style=dotted
+        E [label="Source Patches" shape=box3d]
+    }
+
     B [label="Stock\nRepositories" color="#77FF77" fontcolor="#77FF77"]
     C [label="Release\nRepository" color="#FF7777" fontcolor="#FF7777"]
-    D [label="Source\nPatches"]
+
     { rank = same; B; C; }
 
-    A -> D [dir=back]
-    D -> A [dir=back label=" -Gn 2" color="#7777FF", fontcolor="#7777FF"]
+    A -> E [lhead=cluster_patches dir=back]
+    E -> A [ltail=cluster_patches dir=back label=" -Gn 2" color="#7777FF", fontcolor="#7777FF"]
 
-    B -> D [label="-Gn" color="#77FF77", fontcolor="#77FF77"]
-    D -> B
+    B -> E [lhead=cluster_patches label="-Gn" color="#77FF77", fontcolor="#77FF77"]
+    E -> B [ltail=cluster_patches]
 
-    C -> D [label="-G" color="#FF7777", fontcolor="#FF7777"]
-    D -> C
+    C -> E [lhead=cluster_patches label="-G" color="#FF7777", fontcolor="#FF7777"]
+    E -> C [ltail=cluster_patches ]
 }

@@ -40,8 +40,8 @@ internal class Patcher
         private readonly DiffMatchPatch Context = new()
         {
             // Be more strict on matches
-            PatchDeleteThreshold = 0.3f,
-            MatchThreshold = 0.3f,
+            PatchDeleteThreshold = 0.4f,
+            MatchThreshold = 0.4f,
             // Line number may vary significantly
             MatchDistance = int.MaxValue
         };

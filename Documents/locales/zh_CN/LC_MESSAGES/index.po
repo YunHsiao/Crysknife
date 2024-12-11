@@ -1,11 +1,10 @@
 # SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
 # SPDX-License-Identifier: MIT
-
 msgid ""
 msgstr ""
 "Project-Id-Version: Crysknife \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-28 11:59+0800\n"
+"POT-Creation-Date: 2024-12-11 21:21+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -16,15 +15,26 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.16.0\n"
 
-#: index.rst:6
+#: ../../index.rst:6
 msgid "Welcome to Crysknife's documentation!"
 msgstr "欢迎查阅 Crysknife 文档！"
 
-#: index.rst:10
+#: ../../index.rst:10
 msgid "This project is under active development."
 msgstr "本项目尚在活跃开发期。"
 
-#: index.rst:13
+#: ../../index.rst:14
 msgid "Contents"
 msgstr "目录"
 
+#: ../../index.rst:25
+msgid "About the name..."
+msgstr "关于项目名…"
+
+#: ../../index.rst:27
+msgid "It is a highly practical tool with surgical precision,"
+msgstr "这是一个手术刀般精准，极度实用的工具，"
+
+#: ../../index.rst:28
+msgid "made out of tiny parts of something humongous & sacred."
+msgstr "以某个巨大且神圣的实体的微小部件制作而成。"

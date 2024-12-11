@@ -9,6 +9,7 @@ Welcome to Crysknife's documentation!
 
    This project is under active development.
 
+
 Contents
 --------
 
@@ -19,3 +20,9 @@ Contents
    config
    iteration
    comment-tag
+
+About the name...
+-----------------
+
+| It is a highly practical tool with surgical precision,
+| made out of tiny parts of something humongous & sacred.

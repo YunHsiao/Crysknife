@@ -20,9 +20,9 @@ if [ ! -z "$Loc" ]; then
     cd $DIR/../$Project
     SOURCE=`find . -path './Source/*.*' -not -path "./Source/ThirdParty/*" | xargs wc -l`
     if [ "$(uname)" == "Darwin" ]; then
-        NEW=`find -E . -regex './SourcePatch/.*\.(cpp|h|mm)' | xargs wc -l`
+        NEW=`find -E . -regex './SourcePatch/.*\.(cpp|h|inl|cs|mm)' | xargs wc -l`
     else
-        NEW=`find . -regex './SourcePatch/.*\.\(cpp\|h\|mm\)' | xargs wc -l`
+        NEW=`find . -regex './SourcePatch/.*\.\(cpp\|h\|inl\|cs\|mm\)' | xargs wc -l`
     fi
     P=`find . -path './SourcePatch/*.patch' | xargs grep ^+ | grep -o %0a | wc -l`
 
