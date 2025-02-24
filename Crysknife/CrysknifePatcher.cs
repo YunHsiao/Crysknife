@@ -88,7 +88,12 @@ internal class Patcher
                     var Decorators = Utils.GetInjectionDecorators(Diff.Text);
                     if (Decorators.Length == 0) continue;
 
-                    foreach (var Decorator in Decorators.Split(',', Utils.SplitOptions))
+                    var DecoratorList = Decorators.Split(',', Utils.SplitOptions).ToList();
+                    var ConjunctionIndex = DecoratorList.FindIndex(Decorator => Decorator.Equals("Conjunction", StringComparison.OrdinalIgnoreCase));
+                    bool Conjunction = ConjunctionIndex >= 0;
+                    if (Conjunction) DecoratorList.RemoveAt(ConjunctionIndex);
+
+                    foreach (var Decorator in DecoratorList)
                     {
                         if (Decorator.StartsWith("MatchContext", StringComparison.OrdinalIgnoreCase))
                         {
@@ -105,19 +110,17 @@ internal class Patcher
                             if (!GetDecoratorValue("IsTruthy", Decorator, out var Target)) continue;
                             var ShouldSkip = !Target.StartsWith("!");
                             if (Variables.TryGetValue(ShouldSkip ? Target : Target[1..], out var Value)) ShouldSkip ^= Utils.IsTruthyValue(Value);
-                            Patch.Skip = ShouldSkip && (Patch.Skip != BooleanOverride.False) ? BooleanOverride.True : BooleanOverride.False;
+                            Patch.Skip = Eval(Conjunction, ShouldSkip, Patch.Skip);
                         }
                         else if (Decorator.StartsWith("NewerThan", StringComparison.OrdinalIgnoreCase))
                         {
                             if (!GetDecoratorValue("NewerThan", Decorator, out var Target)) continue;
-                            var ShouldSkip = !Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target));
-                            Patch.Skip = ShouldSkip && (Patch.Skip != BooleanOverride.False) ? BooleanOverride.True : BooleanOverride.False;
+                            Patch.Skip = Eval(Conjunction, !Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target)), Patch.Skip);
                         }
                         else if (Decorator.StartsWith("OlderThan", StringComparison.OrdinalIgnoreCase))
                         {
                             if (!GetDecoratorValue("OlderThan", Decorator, out var Target)) continue;
-                            var ShouldSkip = Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target));
-                            Patch.Skip = ShouldSkip && (Patch.Skip != BooleanOverride.False) ? BooleanOverride.True : BooleanOverride.False;
+                            Patch.Skip = Eval(Conjunction, Utils.CurrentEngineVersion.NewerThan(EngineVersion.Create(Target)), Patch.Skip);
                         }
                         else
                         {
@@ -128,6 +131,12 @@ internal class Patcher
                 }
             }
             return Patches;
+            
+            BooleanOverride Eval(bool Conjunction, bool ShouldSkip, BooleanOverride Value)
+            {
+                if (Conjunction) return ShouldSkip || Value == BooleanOverride.True ? BooleanOverride.True : BooleanOverride.False;
+                return !ShouldSkip || Value == BooleanOverride.False ? BooleanOverride.False : BooleanOverride.True;
+            }
         }
 
         private List<Diff> MakeDiffs(string Before, string After)
