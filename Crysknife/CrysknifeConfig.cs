@@ -499,7 +499,7 @@ internal class ConfigSystem
             var TargetContent = string.Format(LocalConfigTemplate, LocalSuffix);
             if (!File.Exists(OutputPath) || File.ReadAllText(OutputPath) != TargetContent)
             {
-                File.WriteAllText(OutputPath, TargetContent);
+                Utils.FileAccessGuard(() => File.WriteAllText(OutputPath, TargetContent), OutputPath);
             }
             Console.ForegroundColor = ConsoleColor.Blue;
             Console.WriteLine("Internal environment detected, operating under '{0}' local config", LocalSuffix);
