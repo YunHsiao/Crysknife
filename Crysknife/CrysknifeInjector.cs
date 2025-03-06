@@ -39,10 +39,11 @@ public enum IncrementalMode
 
 public class Injector
 {
+    // PatchPath is from SourcePatch folder
     private void ProcessPatch(JobType Job, string PatchPath, string TargetPath, ConfigSystem Config)
     {
         PatcherInstance.Injection = Config.PatchRegex.Injection;
-        PatcherInstance.CommentTag = Config.Format.Tag;
+        PatcherInstance.CommentTag = Config.TagPacker.Format.Tag;
         PatcherInstance.Variables = Config.Variables;
         PatcherInstance.CurrentPatch = PatchPath;
 
@@ -95,7 +96,7 @@ public class Injector
         void Clear()
         {
             if (ClearedTarget.Length == TargetContent.Length) return;
-            File.WriteAllText(TargetPath, Utils.UnifyLineEndings(ClearedTarget, OutputCrlf));
+            Utils.FileAccessGuard(() => File.WriteAllText(TargetPath, Utils.UnifyLineEndings(ClearedTarget, OutputCrlf)), TargetPath);
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("Patch removed from: " + TargetPath);
             TargetContent = ClearedTarget;
@@ -136,11 +137,12 @@ public class Injector
         }
     }
 
-    private void ProcessFile(JobType Job, string SrcPath, string DstPath)
+    // SrcPath is from SourcePatch folder
+    private void ProcessFile(JobType Job, string SrcPath, string DstPath, ConfigSystem Config)
     {
         var Exists = File.Exists(DstPath);
         var IsSymLink = Exists && new FileInfo(DstPath).Attributes.HasFlag(FileAttributes.ReparsePoint);
-        var SourceContent = File.ReadAllText(SrcPath);
+        var SourceContent = Utils.ApplyNewFileTag(Config.TagPacker, Config.Variables, File.ReadAllText(SrcPath));
         var TargetContent = Exists ? Utils.UnifyLineEndings(File.ReadAllText(DstPath)) : string.Empty;
         var UpToDate = Exists && !IsSymLink && SourceContent == TargetContent;
 
@@ -159,7 +161,7 @@ public class Injector
                     Console.WriteLine("Source file removed: {0}", SrcPath);
                 }
             }
-            else if (Utils.FileAccessGuard(() => File.WriteAllText(SrcPath, TargetContent), SrcPath))
+            else if (Utils.FileAccessGuard(() => File.WriteAllText(SrcPath, Utils.StripNewFileTag(Config.TagPacker, Config.Variables, TargetContent)), SrcPath))
             {
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Copied back: {0} <- {1}", SrcPath, DstPath);
@@ -170,7 +172,7 @@ public class Injector
 
         if (Job.HasFlag(JobType.Clear) && Exists)
         {
-            File.Delete(DstPath);
+            Utils.FileAccessGuard(() => File.Delete(DstPath), DstPath);
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("{0} removed: {1}", IsSymLink ? "Link" : "File", DstPath);
             Exists = IsSymLink = UpToDate = false;
@@ -320,7 +322,7 @@ public class Injector
                     else Utils.FileAccessGuard(() => File.Delete(OutputPath), OutputPath);
                 }
 
-                ProcessFile(Job, SrcPath, OutputPath);
+                ProcessFile(Job, SrcPath, OutputPath, Config);
             }
         }
 
@@ -336,7 +338,7 @@ public class Injector
                 foreach (var PatchSuffix in Patcher.Extensions)
                 {
                     var PatchFilePath = PatchPath + PatchSuffix;
-                    if (File.Exists(PatchFilePath)) ProcessFile(Job, PatchFilePath, SourcePath + PatchSuffix);
+                    if (File.Exists(PatchFilePath)) ProcessFile(Job, PatchFilePath, SourcePath + PatchSuffix, Config);
                 }
                 continue;
             }
