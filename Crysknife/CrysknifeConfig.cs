@@ -455,8 +455,8 @@ internal class ConfigSystem
     private readonly Dictionary<string, string> DependencyVariables = new();
     private readonly Dictionary<string, ConfigSystem> Dependencies = new();
     private readonly Dictionary<string, string> Children = new();
+    private readonly CommentTagFormat Format;
 
-    public readonly CommentTagFormat Format;
     public readonly InjectionRegexGroup PatchRegex;
     public readonly CommentTagPacker TagPacker;
     public readonly string PluginName;
@@ -632,6 +632,7 @@ internal class ConfigSystem
         Format.BeginRegex = GetVariable(Prefix + "_BEGIN_RE", Format.BeginRegex);
         Format.EndRegex = GetVariable(Prefix + "_END_RE", Format.EndRegex);
         Format.Anastrophe = Utils.IsTruthyValue(GetVariable(Prefix + "_ANASTROPHE", Format.Anastrophe.ToString()));
+        Format.TagNewFiles = Utils.IsTruthyValue(GetVariable(Prefix + "_NEW_FILES", Format.TagNewFiles.ToString()));
 
         Format.PrefixCtor = GetVariable(Prefix + "_PREFIX_CTOR", Format.PrefixRegex);
         Format.SuffixCtor = GetVariable(Prefix + "_SUFFIX_CTOR", Format.SuffixRegex);

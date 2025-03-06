@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
 // SPDX-License-Identifier: MIT
 
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 
 namespace Crysknife;
@@ -46,6 +47,7 @@ internal struct CommentTagFormat
     public string BeginRegex = "";
     public string EndRegex = "";
     public bool Anastrophe = false;
+    public bool TagNewFiles = false;
 
     public string PrefixCtor = "";
     public string SuffixCtor = "";
@@ -136,7 +138,7 @@ internal class InjectionRegexGroup
 
 internal class CommentTagPacker
 {
-    private readonly CommentTagFormat Format;
+    public readonly CommentTagFormat Format;
     private readonly string ModuleName;
 
     private readonly Regex PackRegex;
@@ -156,10 +158,8 @@ internal class CommentTagPacker
         UnpackRegex = new Regex($@"@{ModuleName}Tag(\w*)\(([^\n]*)\)\n", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     }
 
-    public bool HasAnyMatch(string Content)
-    {
-        return PackRegex.IsMatch(Content);
-    }
+    public string GetDefaultTag(IReadOnlyDictionary<string, string> Variables) { return Unpack($"@{ModuleName}Tag()\n", Variables); }
+    public bool HasAnyMatch(string Content) { return PackRegex.IsMatch(Content); }
 
     private string Pack(string Content, bool SkipCaptures)
     {
@@ -511,6 +511,19 @@ internal static class Utils
     public static string EscapeLiteralsForRegex(string Value)
     {
         return EscapeRegex.Replace(Value, Matched => $"\\{Matched.Value}");
+    }
+
+    public static string ApplyNewFileTag(CommentTagPacker Packer, IReadOnlyDictionary<string, string> Variables, string Content)
+    {
+        if (!Packer.Format.TagNewFiles) return Content;
+        return $"/** {Packer.GetDefaultTag(Variables)} */\n{Content}";
+    }
+
+    public static string StripNewFileTag(CommentTagPacker Packer, IReadOnlyDictionary<string, string> Variables, string Content)
+    {
+        if (!Packer.Format.TagNewFiles) return Content;
+        int NewLine = Content.IndexOf('\n');
+        return Content[..NewLine].Contains(Packer.GetDefaultTag(Variables)) ? Content[(NewLine + 1)..] : Content;
     }
 
     public static void Abort()
