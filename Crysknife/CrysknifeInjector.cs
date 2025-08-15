@@ -52,10 +52,12 @@ public class Injector
         {
             // We may encounter files that only exists in specific engine versions
             // If so it is perfectly okay
-            if (PatcherInstance.Load().HasAnyActivePatch())
+            var Patches = PatcherInstance.Load();
+            if (Patches.HasAnyActivePatch())
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine("Skipped patch: {0} does not exist!", TargetPath);
+	            Patches.Dump(GetDumpPath());
             }
             return;
         }
@@ -108,11 +110,7 @@ public class Injector
 
             if (Patches.IsValid())
             {
-                var DumpPath = Options.HasFlag(JobOptions.DryRun) ? TargetPath
-                    : Path.Combine(Utils.GetPluginDirectory(Config.PluginName), "Intermediate", "Crysknife",
-                        Path.GetRelativePath(Utils.GetSourceDirectory(), TargetPath));
-
-                var Success = PatcherInstance.Apply(Patches, ClearedTarget, DumpPath, Options.HasFlag(JobOptions.DryRun), out var Patched);
+                var Success = PatcherInstance.Apply(Patches, ClearedTarget, GetDumpPath(), Options.HasFlag(JobOptions.DryRun), out var Patched);
                 var FinalContent = Utils.UnifyLineEndings(Patched, OutputCrlf);
                 if (Success && (!Patched.Equals(TargetContent, StringComparison.Ordinal) ||
                     (Options.HasFlag(JobOptions.Force) && !FinalContent.Equals(CurrentContent, StringComparison.Ordinal))))
@@ -134,6 +132,13 @@ public class Injector
                     ClearedTarget = Config.PatchRegex.Unpatch(TargetContent);
                 }
             }
+        }
+
+        string GetDumpPath()
+        {
+	        return Options.HasFlag(JobOptions.DryRun) ? TargetPath
+		        : Path.Combine(Utils.GetPluginDirectory(Config.PluginName), "Intermediate", "Crysknife",
+			        Path.GetRelativePath(Utils.GetSourceDirectory(), TargetPath));
         }
     }
 
