@@ -12,6 +12,7 @@ internal interface IPatchBundle
 {
     bool IsValid();
     bool HasAnyActivePatch();
+    void Dump(string DumpPath);
 }
 
 internal class Patcher
@@ -34,6 +35,27 @@ internal class Patcher
             public bool HasAnyActivePatch()
             {
                 return Patches.Any(P => P.Skip != BooleanOverride.True);
+            }
+
+            public void Dump(string DumpPath)
+            {
+	            Dump(DumpPath, true);
+            }
+
+            public void Dump(string DumpPath, bool Log)
+            {
+	            var OutputPath = $"{DumpPath}.html";
+	            Utils.EnsureParentDirectoryExists(OutputPath);
+	            var Diffs = Patches.Aggregate(new List<Diff>(), (Acc, Cur) =>
+	            {
+		            if (Acc.Count > 0) Acc.Add(new Diff(Operation.Equal, new string('=', 120)));
+		            Acc.AddRange(Cur.Diffs);
+		            return Acc;
+	            });
+	            File.WriteAllText(OutputPath, DiffMatchPatch.diff_prettyHtml(Diffs));
+	            if (!Log) return;
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("Patch full dump: '{0}'", OutputPath);
             }
         }
 
@@ -303,17 +325,7 @@ internal class Patcher
             }
 
             if (ForceDump || FailureCount > 0)
-            {
-                var OutputPath = $"{DumpPath}.html";
-                Utils.EnsureParentDirectoryExists(OutputPath);
-                var Diffs = Patches.Patches.Aggregate(new List<Diff>(), (Acc, Cur) =>
-                {
-                    if (Acc.Count > 0) Acc.Add(new Diff(Operation.Equal, new string('=', 120)));
-                    Acc.AddRange(Cur.Diffs);
-                    return Acc;
-                });
-                File.WriteAllText(OutputPath, DiffMatchPatch.diff_prettyHtml(Diffs));
-            }
+                Patches.Dump(DumpPath, false);
 
             Patched = Result.Text;
             return FailureCount < Result.Locations.Count; // Success if any patch is applied
