@@ -66,7 +66,6 @@ public class Crysknife : ModuleRules
 
 	public static void FillInConfigVariables(List<string> Definitions, string TargetDirectory, string Prefix)
 	{
-		var Variables = new Dictionary<string, string>();
 		var LocalSuffix = GetLocalSuffix(TargetDirectory);
 		var Configs = new []
 		{
@@ -75,6 +74,7 @@ public class Crysknife : ModuleRules
 			new Tuple<string, bool>(string.Format("Crysknife{0}Cache.ini", LocalSuffix), false),
 		};
 
+		var Variables = new Dictionary<string, string>();
 		foreach (var Pair in Configs)
 		{
 			string ConfigPath = Path.Combine(TargetDirectory, "SourcePatch", Pair.Item1);

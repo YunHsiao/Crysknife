@@ -69,7 +69,7 @@ internal class ConfigPredicates
     private string[] Descriptions = Array.Empty<string>();
     private ConfigPredicate[] Predicates = Array.Empty<ConfigPredicate>();
     private bool CompileTimeCondition;
-    private bool LogicalAnd; // By default all predicates are disjunction
+    private bool LogicalAnd; // All predicates are disjunction by default
 
     private bool Eval(bool Result, bool NewResult)
     {
@@ -265,7 +265,7 @@ internal class ConfigSection
 
     public void MapLocalVariables(IReadOnlyDictionary<string, string> Variables)
     {
-        // Only remap targets can have local variable refenreces for now
+        // Only remap targets can have local variable references for now
         RemapTarget = Utils.MapVariables(Variables, RemapTarget, Utils.MapFlag.AllowLocal);
     }
 
@@ -338,7 +338,7 @@ internal class ConfigSection
     }
 }
 
-// Parent directory config applies to all sub-directories
+// Parent directory config applies to all subdirectories
 internal class ConfigSectionHierarchy
 {
     private class ConfigFileSectionNode
@@ -495,7 +495,7 @@ internal class ConfigSystem
 
         if (LocalSuffix.Length > 0)
         {
-            var OutputPath = Path.Combine(Utils.GetEngineRoot(), "Plugins", "CrysknifeCache.ini");
+            var OutputPath = Utils.GetPluginDirectory("CrysknifeCache.ini");
             var TargetContent = string.Format(LocalConfigTemplate, LocalSuffix);
             if (!File.Exists(OutputPath) || File.ReadAllText(OutputPath) != TargetContent)
             {
@@ -517,6 +517,7 @@ internal class ConfigSystem
 
         var FinalOverrides = string.Join(',',
             $"#CRYSKNIFE_ENGINE_ROOT={Utils.GetEngineRoot()}",
+            $"CRYSKNIFE_UNITY_ENGINE={(Utils.IsUnity() ? "1" : "0")}",
             $"CRYSKNIFE_SOURCE_DIRECTORY={Path.Combine("${CRYSKNIFE_ENGINE_ROOT}", Utils.GetEngineRelativePath(Utils.GetSourceDirectory()))}",
             $"CRYSKNIFE_PLUGIN_DIRECTORY={Path.Combine("${CRYSKNIFE_ENGINE_ROOT}", Utils.GetEngineRelativePath(Utils.GetPluginDirectory(PluginName)))}",
             VariableOverrides.Replace("\"", string.Empty) // Need to strip quotes if specified from CLI

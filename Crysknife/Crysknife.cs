@@ -64,7 +64,7 @@ internal static class Launcher
 
         var EngineRoot = Directory.GetCurrentDirectory();
         EngineRoot = Path.GetFullPath(Path.Combine(EngineRoot[..(EngineRoot.IndexOf("Crysknife", StringComparison.Ordinal) - 1)], ".."));
-        if (Arguments.TryGetValue("E", out var Parameters)) EngineRoot = Path.GetFullPath(Path.Combine(Parameters, "Engine"));
+        if (Arguments.TryGetValue("E", out var Parameters)) EngineRoot = Path.GetFullPath(Parameters);
 
         Injector.Init(EngineRoot);
 
@@ -101,7 +101,7 @@ internal static class Launcher
         if (Arguments.ContainsKey("G")) Job |= JobType.Generate;
         if (Arguments.ContainsKey("C")) Job |= JobType.Clear;
         if (Arguments.ContainsKey("A")) Job |= JobType.Apply;
-        if (Job == JobType.None) Job = JobType.Apply; // By default do the apply action
+        if (Job == JobType.None) Job = JobType.Apply; // Do the apply action by default
 
         InjectorInstance.Process(Job);
         Console.ResetColor();

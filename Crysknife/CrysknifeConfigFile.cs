@@ -246,10 +246,10 @@ internal class ConfigFile
         var Key = Line.Substring(KeyStartIdx, KeyEndIdx - KeyStartIdx);
         var Value = Line.Substring(ValueStartIdx, ValueEndIdx - ValueStartIdx);
 
-        // remap the key if needed
+        // Remap the key if needed
         var NewKey = RemapSectionOrKey(KeyRemap, Key, $"which is a config key in section [{Section.Name}], in '{Filename}'");
 
-        // look for a section:name remap
+        // Look for a section:name remap
         if (!NewKey.Equals(Key) && NewKey.Contains(':'))
         {
             var SectionName = NewKey[..NewKey.IndexOf(':')];
@@ -289,7 +289,7 @@ internal class ConfigFile
         Dictionary<string, ConfigFileSection> Sections = new (StringComparer.InvariantCultureIgnoreCase);
         try
         {
-            // read the special ConfigRedirects.ini file into sections
+            // Read the special ConfigRedirects.ini file into sections
             var ConfigRemapFile = Path.Combine(RootDirectory, "ConfigRedirects.ini");
             if (File.Exists(ConfigRemapFile))
             {
@@ -303,10 +303,10 @@ internal class ConfigFile
             Console.WriteLine("Failed to read ConfigRemapFile into Sections");
         }
 
-        // walk over the sections, where all but the special SectionNameRemap section is a section of keys to remap in that same section
+        // Walk over the sections, where all but the special SectionNameRemap section is a section of keys to remap in that same section
         foreach (var Pair in Sections)
         {
-            // remember a remap for section names
+            // Remember a remap for section names
             if (Pair.Key.Equals("SectionNameRemap", StringComparison.InvariantCultureIgnoreCase))
             {
                 foreach (var Line in Pair.Value.Lines)
@@ -316,7 +316,7 @@ internal class ConfigFile
             }
             else
             {
-                // any other section is rmembered by the section name here, and each key/value pair is a remap for the given section
+                // Any other section is remembered by the section name here, and each key/value pair is a remap for the given section
                 Dictionary<string, string> KeyRemap = new (StringComparer.InvariantCultureIgnoreCase);
                 SectionKeyRemap.Add(Pair.Key, KeyRemap);
                 foreach (var Line in Pair.Value.Lines)

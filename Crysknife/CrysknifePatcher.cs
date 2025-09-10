@@ -39,21 +39,21 @@ internal class Patcher
 
             public void Dump(string DumpPath)
             {
-	            Dump(DumpPath, true);
+                Dump(DumpPath, true);
             }
 
             public void Dump(string DumpPath, bool Log)
             {
-	            var OutputPath = $"{DumpPath}.html";
-	            Utils.EnsureParentDirectoryExists(OutputPath);
-	            var Diffs = Patches.Aggregate(new List<Diff>(), (Acc, Cur) =>
-	            {
-		            if (Acc.Count > 0) Acc.Add(new Diff(Operation.Equal, new string('=', 120)));
-		            Acc.AddRange(Cur.Diffs);
-		            return Acc;
-	            });
-	            File.WriteAllText(OutputPath, DiffMatchPatch.diff_prettyHtml(Diffs));
-	            if (!Log) return;
+                var OutputPath = $"{DumpPath}.html";
+                Utils.EnsureParentDirectoryExists(OutputPath);
+                var Diffs = Patches.Aggregate(new List<Diff>(), (Acc, Cur) =>
+                {
+                    if (Acc.Count > 0) Acc.Add(new Diff(Operation.Equal, new string('=', 120)));
+                    Acc.AddRange(Cur.Diffs);
+                    return Acc;
+                });
+                File.WriteAllText(OutputPath, DiffMatchPatch.diff_prettyHtml(Diffs));
+                if (!Log) return;
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine("Patch full dump: '{0}'", OutputPath);
             }
@@ -353,7 +353,7 @@ internal class Patcher
             if (Incremental == IncrementalMode.Disabled)
             {
                 New.Patches.AddRange(History.Patches.Where(Patch => Patch.Skip == BooleanOverride.True));
-                // Techniquely we shouldn't sort at all because of DMP's rolling context
+                // Technically we shouldn't sort at all because of DMP's rolling context
                 // But for our purposes this should be fine
                 New.Patches.Sort((A, B) => A.Start1 - B.Start1);
                 return New;

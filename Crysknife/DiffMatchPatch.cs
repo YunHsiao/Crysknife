@@ -23,7 +23,7 @@
  * The following changes are made for Crysknife usages:
  *   Fixed apply op for patches with non-equal diffs after first insert (see Index1Offset)
  *   Support constrained match with specified context range
- *   Use 64-bit mask for the bitap matching algorithm
+ *   Use 64-bit mask for the Bitap matching algorithm
  *   `patch_apply` returns additional insights into the patching process 
  *   Misc format & semantic improvements for .Net 6
  *   Use preformatted text element in HTML output
@@ -260,14 +260,14 @@ internal class DiffMatchPatch
 
     /**
      * Find the differences between two texts.
-     * @param text1 Old string to be diffed.
-     * @param text2 New string to be diffed.
-     * @param checklines Speedup flag.  If false, then don't run a
+     * @param Text1 Old string to be diffed.
+     * @param Text2 New string to be diffed.
+     * @param CheckLines Speedup flag.  If false, then don't run a
      *     line-level diff first to identify the changed areas.
      *     If true, then run a faster slightly less optimal diff.
      * @return List of Diff objects.
      */
-    public List<Diff> diff_main(string Text1, string Text2, bool Checklines = true)
+    public List<Diff> diff_main(string Text1, string Text2, bool CheckLines = true)
     {
         // Set a deadline by which time the diff must be complete.
         DateTime Deadline;
@@ -280,23 +280,23 @@ internal class DiffMatchPatch
             Deadline = DateTime.Now + new TimeSpan(((long)(DiffTimeout * 1000)) * 10000);
         }
 
-        return diff_main(Text1, Text2, Checklines, Deadline);
+        return diff_main(Text1, Text2, CheckLines, Deadline);
     }
 
     /**
      * Find the differences between two texts.  Simplifies the problem by
      * stripping any common prefix or suffix off the texts before diffing.
-     * @param text1 Old string to be diffed.
-     * @param text2 New string to be diffed.
-     * @param checklines Speedup flag.  If false, then don't run a
+     * @param Text1 Old string to be diffed.
+     * @param Text2 New string to be diffed.
+     * @param CheckLines Speedup flag.  If false, then don't run a
      *     line-level diff first to identify the changed areas.
      *     If true, then run a faster slightly less optimal diff.
-     * @param deadline Time when the diff should be complete by.  Used
+     * @param Deadline Time when the diff should be complete by.  Used
      *     internally for recursive calls.  Users should set DiffTimeout
      *     instead.
      * @return List of Diff objects.
      */
-    private List<Diff> diff_main(string Text1, string Text2, bool Checklines, DateTime Deadline)
+    private List<Diff> diff_main(string Text1, string Text2, bool CheckLines, DateTime Deadline)
     {
         // Check for null inputs not needed since null can't be passed in C#.
 
@@ -314,29 +314,29 @@ internal class DiffMatchPatch
         }
 
         // Trim off common prefix (speedup).
-        var Commonlength = diff_commonPrefix(Text1, Text2);
-        var Commonprefix = Text1[..Commonlength];
-        Text1 = Text1[Commonlength..];
-        Text2 = Text2[Commonlength..];
+        var CommonLength = diff_commonPrefix(Text1, Text2);
+        var CommonPrefix = Text1[..CommonLength];
+        Text1 = Text1[CommonLength..];
+        Text2 = Text2[CommonLength..];
 
         // Trim off common suffix (speedup).
-        Commonlength = diff_commonSuffix(Text1, Text2);
-        var Commonsuffix = Text1[^Commonlength..];
-        Text1 = Text1[..^Commonlength];
-        Text2 = Text2[..^Commonlength];
+        CommonLength = diff_commonSuffix(Text1, Text2);
+        var CommonSuffix = Text1[^CommonLength..];
+        Text1 = Text1[..^CommonLength];
+        Text2 = Text2[..^CommonLength];
 
         // Compute the diff on the middle block.
-        Diffs = diff_compute(Text1, Text2, Checklines, Deadline);
+        Diffs = diff_compute(Text1, Text2, CheckLines, Deadline);
 
         // Restore the prefix and suffix.
-        if (Commonprefix.Length != 0)
+        if (CommonPrefix.Length != 0)
         {
-            Diffs.Insert(0, (new Diff(Operation.Equal, Commonprefix)));
+            Diffs.Insert(0, (new Diff(Operation.Equal, CommonPrefix)));
         }
 
-        if (Commonsuffix.Length != 0)
+        if (CommonSuffix.Length != 0)
         {
-            Diffs.Add(new Diff(Operation.Equal, Commonsuffix));
+            Diffs.Add(new Diff(Operation.Equal, CommonSuffix));
         }
 
         diff_cleanupMerge(Diffs);
@@ -346,15 +346,15 @@ internal class DiffMatchPatch
     /**
      * Find the differences between two texts.  Assumes that the texts do not
      * have any common prefix or suffix.
-     * @param text1 Old string to be diffed.
-     * @param text2 New string to be diffed.
-     * @param checklines Speedup flag.  If false, then don't run a
+     * @param Text1 Old string to be diffed.
+     * @param Text2 New string to be diffed.
+     * @param CheckLines Speedup flag.  If false, then don't run a
      *     line-level diff first to identify the changed areas.
      *     If true, then run a faster slightly less optimal diff.
      * @param deadline Time when the diff should be complete by.
      * @return List of Diff objects.
      */
-    private List<Diff> diff_compute(string Text1, string Text2, bool Checklines, DateTime Deadline)
+    private List<Diff> diff_compute(string Text1, string Text2, bool CheckLines, DateTime Deadline)
     {
         var Diffs = new List<Diff>();
 
@@ -372,20 +372,20 @@ internal class DiffMatchPatch
             return Diffs;
         }
 
-        var Longtext = Text1.Length > Text2.Length ? Text1 : Text2;
-        var Shorttext = Text1.Length > Text2.Length ? Text2 : Text1;
-        var I = Longtext.IndexOf(Shorttext, StringComparison.Ordinal);
+        var LongText = Text1.Length > Text2.Length ? Text1 : Text2;
+        var ShortText = Text1.Length > Text2.Length ? Text2 : Text1;
+        var I = LongText.IndexOf(ShortText, StringComparison.Ordinal);
         if (I != -1)
         {
             // Shorter text is inside the longer text (speedup).
             var Op = (Text1.Length > Text2.Length) ? Operation.Delete : Operation.Insert;
-            Diffs.Add(new Diff(Op, Longtext[..I]));
-            Diffs.Add(new Diff(Operation.Equal, Shorttext));
-            Diffs.Add(new Diff(Op, Longtext[(I + Shorttext.Length)..]));
+            Diffs.Add(new Diff(Op, LongText[..I]));
+            Diffs.Add(new Diff(Operation.Equal, ShortText));
+            Diffs.Add(new Diff(Op, LongText[(I + ShortText.Length)..]));
             return Diffs;
         }
 
-        if (Shorttext.Length == 1)
+        if (ShortText.Length == 1)
         {
             // Single character string.
             // After the previous speedup, the character can't be an equality.
@@ -395,7 +395,7 @@ internal class DiffMatchPatch
         }
 
         // Check to see if the problem can be split in two.
-        string[]? Hm = diff_halfMatch(Text1, Text2);
+        var Hm = diff_halfMatch(Text1, Text2);
         if (Hm != null)
         {
             // A half-match was found, sort out the return data.
@@ -405,8 +405,8 @@ internal class DiffMatchPatch
             var Text2B = Hm[3];
             var MidCommon = Hm[4];
             // Send both pairs off for separate processing.
-            var DiffsA = diff_main(Text1A, Text2A, Checklines, Deadline);
-            var DiffsB = diff_main(Text1B, Text2B, Checklines, Deadline);
+            var DiffsA = diff_main(Text1A, Text2A, CheckLines, Deadline);
+            var DiffsB = diff_main(Text1B, Text2B, CheckLines, Deadline);
             // Merge the results.
             Diffs = DiffsA;
             Diffs.Add(new Diff(Operation.Equal, MidCommon));
@@ -414,7 +414,7 @@ internal class DiffMatchPatch
             return Diffs;
         }
 
-        if (Checklines && Text1.Length > 100 && Text2.Length > 100)
+        if (CheckLines && Text1.Length > 100 && Text2.Length > 100)
         {
             return diff_lineMode(Text1, Text2, Deadline);
         }
@@ -423,30 +423,30 @@ internal class DiffMatchPatch
     }
 
     /**
-     * Do a quick line-level diff on both strings, then rediff the parts for
+     * Do a quick line-level diff on both strings, then re-diff the parts for
      * greater accuracy.
      * This speedup can produce non-minimal diffs.
-     * @param text1 Old string to be diffed.
-     * @param text2 New string to be diffed.
-     * @param deadline Time when the diff should be complete by.
+     * @param Text1 Old string to be diffed.
+     * @param Text2 New string to be diffed.
+     * @param Deadline Time when the diff should be complete by.
      * @return List of Diff objects.
      */
     private List<Diff> diff_lineMode(string Text1, string Text2, DateTime Deadline)
     {
         // Scan the text on a line-by-line basis first.
-        object[] A = diff_linesToChars(Text1, Text2);
+        var A = diff_linesToChars(Text1, Text2);
         Text1 = (string)A[0];
         Text2 = (string)A[1];
-        var Linearray = (List<string>)A[2];
+        var LineArray = (List<string>)A[2];
 
         var Diffs = diff_main(Text1, Text2, false, Deadline);
 
         // Convert the diff back to original text.
-        diff_charsToLines(Diffs, Linearray);
+        diff_charsToLines(Diffs, LineArray);
         // Eliminate freak matches (e.g. blank lines)
         diff_cleanupSemantic(Diffs);
 
-        // Rediff any replacement blocks, this time character-by-character.
+        // Re-diff any replacement blocks, this time character-by-character.
         // Add a dummy entry at the end.
         Diffs.Add(new Diff(Operation.Equal, string.Empty));
         var Pointer = 0;
@@ -661,11 +661,11 @@ internal class DiffMatchPatch
         var Text2B = Text2[Y..];
 
         // Compute both diffs serially.
-        var Diffs = diff_main(Text1A, Text2A, false, Deadline);
-        var Diffsb = diff_main(Text1B, Text2B, false, Deadline);
+        var DiffsA = diff_main(Text1A, Text2A, false, Deadline);
+        var DiffsB = diff_main(Text1B, Text2B, false, Deadline);
 
-        Diffs.AddRange(Diffsb);
-        return Diffs;
+        DiffsA.AddRange(DiffsB);
+        return DiffsA;
     }
 
     /**
@@ -681,8 +681,8 @@ internal class DiffMatchPatch
     {
         var LineArray = new List<string>();
         var LineHash = new Dictionary<string, int>();
-        // e.g. linearray[4] == "Hello\n"
-        // e.g. linehash.get("Hello\n") == 4
+        // e.g. LineArray[4] == "Hello\n"
+        // e.g. LineHash.get("Hello\n") == 4
 
         // "\x00" is a valid character, but various debuggers don't like it.
         // So we'll insert a junk entry to avoid generating a null character.
@@ -886,17 +886,17 @@ internal class DiffMatchPatch
             return null;
         }
 
-        var Longtext = Text1.Length > Text2.Length ? Text1 : Text2;
-        var Shorttext = Text1.Length > Text2.Length ? Text2 : Text1;
-        if (Longtext.Length < 4 || Shorttext.Length * 2 < Longtext.Length)
+        var LongText = Text1.Length > Text2.Length ? Text1 : Text2;
+        var ShortText = Text1.Length > Text2.Length ? Text2 : Text1;
+        if (LongText.Length < 4 || ShortText.Length * 2 < LongText.Length)
         {
             return null; // Pointless.
         }
 
         // First check if the second quarter is the seed for a half-match.
-        string[]? Hm1 = diff_halfMatchI(Longtext, Shorttext, (Longtext.Length + 3) / 4);
+        var Hm1 = diff_halfMatchI(LongText, ShortText, (LongText.Length + 3) / 4);
         // Check again based on the third quarter.
-        string[]? Hm2 = diff_halfMatchI(Longtext, Shorttext, (Longtext.Length + 1) / 2);
+        var Hm2 = diff_halfMatchI(LongText, ShortText, (LongText.Length + 1) / 2);
         string[] Hm;
         if (Hm1 == null && Hm2 == null)
         {
@@ -926,44 +926,44 @@ internal class DiffMatchPatch
     }
 
     /**
-     * Does a Substring of shorttext exist within longtext such that the
+     * Does a Substring of shortText exist within longtext such that the
      * Substring is at least half the length of longtext?
-     * @param longtext Longer string.
-     * @param shorttext Shorter string.
-     * @param i Start index of quarter length Substring within longtext.
+     * @param LongText Longer string.
+     * @param ShortText Shorter string.
+     * @param Index Start index of quarter length Substring within longtext.
      * @return Five element string array, containing the prefix of longtext, the
-     *     suffix of longtext, the prefix of shorttext, the suffix of shorttext
+     *     suffix of longtext, the prefix of shortText, the suffix of shortText
      *     and the common middle.  Or null if there was no match.
      */
-    private static string[]? diff_halfMatchI(string Longtext, string Shorttext, int I)
+    private static string[]? diff_halfMatchI(string Longtext, string ShortText, int Index)
     {
         // Start with a 1/4 length Substring at position i as a seed.
-        var Seed = Longtext.Substring(I, Longtext.Length / 4);
+        var Seed = Longtext.Substring(Index, Longtext.Length / 4);
         var J = -1;
         var BestCommon = string.Empty;
-        string BestLongtextA = string.Empty, BestLongtextB = string.Empty;
-        string BestShorttextA = string.Empty, BestShorttextB = string.Empty;
-        while (J < Shorttext.Length && (J = Shorttext.IndexOf(Seed, J + 1, StringComparison.Ordinal)) != -1)
+        string BestLongTextA = string.Empty, BestLongTextB = string.Empty;
+        string BestShortTextA = string.Empty, BestShortTextB = string.Empty;
+        while (J < ShortText.Length && (J = ShortText.IndexOf(Seed, J + 1, StringComparison.Ordinal)) != -1)
         {
-            var PrefixLength = diff_commonPrefix(Longtext[I..], Shorttext[J..]);
-            var SuffixLength = diff_commonSuffix(Longtext[..I], Shorttext[..J]);
+            var PrefixLength = diff_commonPrefix(Longtext[Index..], ShortText[J..]);
+            var SuffixLength = diff_commonSuffix(Longtext[..Index], ShortText[..J]);
             if (BestCommon.Length >= SuffixLength + PrefixLength) continue;
-            BestCommon = string.Concat(Shorttext.AsSpan(J - SuffixLength, SuffixLength), Shorttext.AsSpan(J, PrefixLength));
-            BestLongtextA = Longtext[..(I - SuffixLength)];
-            BestLongtextB = Longtext[(I + PrefixLength)..];
-            BestShorttextA = Shorttext[..(J - SuffixLength)];
-            BestShorttextB = Shorttext[(J + PrefixLength)..];
+            BestCommon = string.Concat(ShortText.AsSpan(J - SuffixLength, SuffixLength), ShortText.AsSpan(J, PrefixLength));
+            BestLongTextA = Longtext[..(Index - SuffixLength)];
+            BestLongTextB = Longtext[(Index + PrefixLength)..];
+            BestShortTextA = ShortText[..(J - SuffixLength)];
+            BestShortTextB = ShortText[(J + PrefixLength)..];
         }
 
         return BestCommon.Length * 2 >= Longtext.Length
-            ? new[] { BestLongtextA, BestLongtextB, BestShorttextA, BestShorttextB, BestCommon }
+            ? new[] { BestLongTextA, BestLongTextB, BestShortTextA, BestShortTextB, BestCommon }
             : null;
     }
 
     /**
      * Reduce the number of edits by eliminating semantically trivial
      * equalities.
-     * @param diffs List of Diff objects.
+     * @param Diffs List of Diff objects.
      */
     public void diff_cleanupSemantic(List<Diff> Diffs)
     {
@@ -1201,8 +1201,8 @@ internal class DiffMatchPatch
         var Whitespace2 = NonAlphaNumeric2 && char.IsWhiteSpace(Char2);
         var LineBreak1 = Whitespace1 && char.IsControl(Char1);
         var LineBreak2 = Whitespace2 && char.IsControl(Char2);
-        var BlankLine1 = LineBreak1 && Blanklineend.IsMatch(One);
-        var BlankLine2 = LineBreak2 && Blanklinestart.IsMatch(Two);
+        var BlankLine1 = LineBreak1 && BlankLineEnd.IsMatch(One);
+        var BlankLine2 = LineBreak2 && BlankLineStart.IsMatch(Two);
 
         if (BlankLine1 || BlankLine2)
         {
@@ -1238,8 +1238,8 @@ internal class DiffMatchPatch
     }
 
     // Define some regex patterns for matching boundaries.
-    private readonly Regex Blanklineend = new ("\\n\\r?\\n\\Z");
-    private readonly Regex Blanklinestart = new ("\\A\\r?\\n\\r?\\n");
+    private readonly Regex BlankLineEnd = new (@"\n\r?\n\Z");
+    private readonly Regex BlankLineStart = new (@"\A\r?\n\r?\n");
 
     /**
      * Reduce the number of edits by eliminating operationally trivial
@@ -1381,33 +1381,33 @@ internal class DiffMatchPatch
                         {
                             if (CountDelete != 0 && CountInsert != 0)
                             {
-                                // Factor out any common prefixies.
-                                var Commonlength = diff_commonPrefix(TextInsert, TextDelete);
-                                if (Commonlength != 0)
+                                // Factor out any common prefixes.
+                                var CommonLength = diff_commonPrefix(TextInsert, TextDelete);
+                                if (CommonLength != 0)
                                 {
                                     if ((Pointer - CountDelete - CountInsert) > 0 &&
                                         Diffs[Pointer - CountDelete - CountInsert - 1].Operation == Operation.Equal)
                                     {
                                         Diffs[Pointer - CountDelete - CountInsert - 1].Text +=
-                                            TextInsert[..Commonlength];
+                                            TextInsert[..CommonLength];
                                     }
                                     else
                                     {
-                                        Diffs.Insert(0, new Diff(Operation.Equal, TextInsert[..Commonlength]));
+                                        Diffs.Insert(0, new Diff(Operation.Equal, TextInsert[..CommonLength]));
                                         Pointer++;
                                     }
 
-                                    TextInsert = TextInsert[Commonlength..];
-                                    TextDelete = TextDelete[Commonlength..];
+                                    TextInsert = TextInsert[CommonLength..];
+                                    TextDelete = TextDelete[CommonLength..];
                                 }
 
-                                // Factor out any common suffixies.
-                                Commonlength = diff_commonSuffix(TextInsert, TextDelete);
-                                if (Commonlength != 0)
+                                // Factor out any common suffixes.
+                                CommonLength = diff_commonSuffix(TextInsert, TextDelete);
+                                if (CommonLength != 0)
                                 {
-                                    Diffs[Pointer].Text = TextInsert[^Commonlength..] + Diffs[Pointer].Text;
-                                    TextInsert = TextInsert[..^Commonlength];
-                                    TextDelete = TextDelete[..^Commonlength];
+                                    Diffs[Pointer].Text = TextInsert[^CommonLength..] + Diffs[Pointer].Text;
+                                    TextInsert = TextInsert[..^CommonLength];
+                                    TextDelete = TextDelete[..^CommonLength];
                                 }
                             }
 
@@ -1631,7 +1631,7 @@ internal class DiffMatchPatch
                     Deletions += ADiff.Text.Length;
                     break;
                 case Operation.Equal:
-                    // A deletion and an insertion is one substitution.
+                    // A deletion and an insertion are one substitution.
                     Levenshtein += Math.Max(Insertions, Deletions);
                     Insertions = 0;
                     Deletions = 0;
@@ -1689,7 +1689,7 @@ internal class DiffMatchPatch
      * Given the original text1, and an encoded string which describes the
      * operations required to transform text1 into text2, compute the full diff.
      * @param text1 Source string for the diff.
-     * @param delta Delta text.
+     * @param delta The delta text.
      * @return Array of Diff objects or null if invalid.
      * @throws ArgumentException If invalid input.
      */
@@ -1716,14 +1716,6 @@ internal class DiffMatchPatch
                     Param = Param.Replace("+", "%2b");
 
                     Param = HttpUtility.UrlDecode(Param);
-                    //} catch (UnsupportedEncodingException e) {
-                    //  // Not likely on modern system.
-                    //  throw new Error("This system does not support UTF-8.", e);
-                    //} catch (IllegalArgumentException e) {
-                    //  // Malformed URI sequence.
-                    //  throw new IllegalArgumentException(
-                    //      "Illegal escape in diff_fromDelta: " + param, e);
-                    //}
                     Diffs.Add(new Diff(Operation.Insert, Param));
                     break;
                 case '-':
@@ -1843,7 +1835,7 @@ internal class DiffMatchPatch
         }
 
         // Initialise the bit arrays.
-        var Matchmask = 1ul << (Pattern.Length - 1);
+        var MatchMask = 1ul << (Pattern.Length - 1);
         BestLoc = -1;
 
         var BinMax = Pattern.Length + Text.Length;
@@ -1902,7 +1894,7 @@ internal class DiffMatchPatch
                             LastRd[J + 1];
                 }
 
-                if ((Rd[J] & Matchmask) != 0)
+                if ((Rd[J] & MatchMask) != 0)
                 {
                     var Score = match_bitapScore(D, J - 1, Loc, Pattern);
                     // This match will almost certainly be better than any existing
@@ -1943,7 +1935,7 @@ internal class DiffMatchPatch
      * @param e Number of errors in match.
      * @param x Location of match.
      * @param loc Expected location of match.
-     * @param pattern Pattern being sought.
+     * @param pattern The pattern being sought.
      * @return Overall score for match (0.0 = good, 1.0 = bad).
      */
     private double match_bitapScore(int E, int X, int Loc, string Pattern)
@@ -2091,11 +2083,11 @@ internal class DiffMatchPatch
         var Patch = new Patch();
         var CharCount1 = 0; // Number of characters into the text1 string.
         var CharCount2 = 0; // Number of characters into the text2 string.
-        // Start with text1 (prepatch_text) and apply the diffs until we arrive at
-        // text2 (postpatch_text). We recreate the patches one by one to determine
+        // Start with text1 (pre_patch_text) and apply the diffs until we arrive at
+        // text2 (post_patch_text). We recreate the patches one by one to determine
         // context info.
-        var PrepatchText = Text1;
-        var PostpatchText = Text1;
+        var PrePatchText = Text1;
+        var PostPatchText = Text1;
         var ForceSplit = false;
         foreach (var Index in Enumerable.Range(0, Diffs.Count))
         {
@@ -2112,13 +2104,13 @@ internal class DiffMatchPatch
                 case Operation.Insert:
                     Patch.Diffs.Add(ADiff);
                     Patch.Length2 += ADiff.Text.Length;
-                    PostpatchText = PostpatchText.Insert(CharCount2, ADiff.Text);
+                    PostPatchText = PostPatchText.Insert(CharCount2, ADiff.Text);
                     ForceSplit = SplitOnInsertion;
                     break;
                 case Operation.Delete:
                     Patch.Length1 += ADiff.Text.Length;
                     Patch.Diffs.Add(ADiff);
-                    PostpatchText = PostpatchText.Remove(CharCount2, ADiff.Text.Length);
+                    PostPatchText = PostPatchText.Remove(CharCount2, ADiff.Text.Length);
                     break;
                 case Operation.Equal:
                     if (ADiff.Text.Length <= 2 * PatchMargin && Patch.Diffs.Count != 0 && (Index != Diffs.Count - 1) && !ForceSplit)
@@ -2134,14 +2126,14 @@ internal class DiffMatchPatch
                         // Time for a new patch.
                         if (Patch.Diffs.Count != 0)
                         {
-                            patch_addContext(Patch, PrepatchText);
+                            patch_addContext(Patch, PrePatchText);
                             Patches.Add(Patch);
                             Patch = new Patch();
                             // Unlike Unidiff, our patch lists have a rolling context.
                             // https://github.com/google/diff-match-patch/wiki/Unidiff
                             // Update prepatch text & pos to reflect the application of the
                             // just completed patch.
-                            PrepatchText = PostpatchText;
+                            PrePatchText = PostPatchText;
                             CharCount1 = CharCount2;
                             ForceSplit = false;
                         }
@@ -2165,7 +2157,7 @@ internal class DiffMatchPatch
         // Pick up the leftover patch if not empty.
         if (Patch.Diffs.Count == 0) return Patches;
 
-        patch_addContext(Patch, PrepatchText);
+        patch_addContext(Patch, PrePatchText);
         Patches.Add(Patch);
         return Patches;
     }
@@ -2250,7 +2242,7 @@ internal class DiffMatchPatch
         public string Text; // The new text
         public List<int> Locations = new(); // < 0 if failed, otherwise the applied starting location
         public List<int> Indices = new(); // Indices into the source patch array
-        public List<Patch> Patches = new(); // The splitted patches
+        public List<Patch> Patches = new(); // The split patches
 
         public ApplyResult(string Text)
         {
@@ -2604,19 +2596,19 @@ internal class DiffMatchPatch
     /**
      * Parse a textual representation of patches and return a List of Patch
      * objects.
-     * @param textline Text representation of patches.
+     * @param TextLine Text representation of patches.
      * @return List of Patch objects.
      * @throws ArgumentException If invalid input.
      */
-    public static List<Patch> patch_fromText(string Textline)
+    public static List<Patch> patch_fromText(string TextLine)
     {
         var Patches = new List<Patch>();
-        if (Textline.Length == 0)
+        if (TextLine.Length == 0)
         {
             return Patches;
         }
 
-        string[] Text = Textline.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        var Text = TextLine.Split('\n', StringSplitOptions.RemoveEmptyEntries);
         var TextPointer = 0;
         var PatchHeader = new Regex(@"^@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@\s*$");
         while (TextPointer < Text.Length)

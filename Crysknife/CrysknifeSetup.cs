@@ -8,22 +8,22 @@ namespace Crysknife;
 
 internal static class ProjectSetup
 {
-    private static readonly string WindowsTemplate = @"
+    private static readonly string WindowsTemplate = @$"
         @echo off
         cd %~dp0
         :start
         cd ..
         for %%I in (%cd%) do set DIR=%%~nxI
-        if ""%DIR%"" neq ""Plugins"" (goto start)
-        call ""Crysknife\Crysknife.bat"" -P {0} %*
+        if ""%DIR%"" neq ""{Utils.GetPluginFolderName()}"" (goto start)
+        call ""Crysknife\Crysknife.bat"" -P {{0}} %*
         pause
     ".Replace("    ", string.Empty);
 
-    private static readonly string LinuxTemplate = @"
+    private static readonly string LinuxTemplate = @$"
         #!/usr/bin/env bash
         DIR=`cd ""$(dirname ""$0"")""; pwd`
-        while [[ $(basename $DIR) != ""Plugins"" ]]; do DIR=`dirname $DIR`; done
-        ""$DIR/Crysknife/Crysknife.sh"" -P {0} ""$@""
+        while [[ $(basename $DIR) != ""{Utils.GetPluginFolderName()}"" ]]; do DIR=`dirname $DIR`; done
+        ""$DIR/Crysknife/Crysknife.sh"" -P {{0}} ""$@""
     ".Replace("    ", string.Empty).Replace("\r\n", "\n");
 
     private static void GenerateSetupScripts(string TargetDirectory, string PluginName)
@@ -47,6 +47,8 @@ internal static class ProjectSetup
 
     private static void PatchPluginDescription(string TargetDirectory, string PluginName)
     {
+        if (Utils.IsUnity()) return;
+
         var PluginDescFile = Path.Combine(TargetDirectory, Path.GetFileName(PluginName) + ".uplugin");
         if (!File.Exists(PluginDescFile))
         {
@@ -139,7 +141,7 @@ internal static class ProjectSetup
         PatchPluginDescription(TargetDirectory, PluginName);
         GenerateSetupScripts(TargetDirectory, PluginName);
         WriteIgnoreFile(TargetDirectory);
-        var SourcePatchDirectory = Path.Combine(TargetDirectory, "SourcePatch");
+        var SourcePatchDirectory = Utils.GetPatchDirectory(PluginName);
         Utils.EnsureParentDirectoryExists(SourcePatchDirectory);
         WriteDefaultConfig(SourcePatchDirectory, PluginName);
     }

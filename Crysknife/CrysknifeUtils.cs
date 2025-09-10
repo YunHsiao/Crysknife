@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
 // SPDX-License-Identifier: MIT
 
-using System.Diagnostics;
 using System.Text.RegularExpressions;
 
 namespace Crysknife;
@@ -258,8 +257,13 @@ internal readonly struct EngineVersion
 internal static class Utils
 {
     private static readonly Regex EngineVersionRegex = new (@"#define\s+ENGINE_MAJOR_VERSION\s+(\d+)\s*#define\s+ENGINE_MINOR_VERSION\s+(\d+)\s*#define\s+ENGINE_PATCH_VERSION\s+(\d+)", RegexOptions.Compiled);
+    private static readonly Regex UnityVersionRegex = new (@"unityVersion\s*=\s*""([\d.]+)", RegexOptions.Compiled);
     private static string GetCurrentEngineVersion(string SourceDirectory)
     {
+        if (Unity)
+        {
+            return UnityVersionRegex.Match(File.ReadAllText(Path.Combine(SourceDirectory, "Configuration/BuildConfig.pm"))).Groups[1].Value;
+        }
         var VersionMatch = EngineVersionRegex.Match(File.ReadAllText(Path.Combine(SourceDirectory, "Runtime/Launch/Resources/Version.h")));
         return $"{VersionMatch.Groups[1].Value}.{VersionMatch.Groups[2].Value}.{VersionMatch.Groups[3].Value}";
     }
@@ -441,7 +445,7 @@ internal static class Utils
             Console.Write("{0} [Yes(Y)/No(N)/YesForAll(A)/NoForAll(Z)/Abort(C)] ", Message);
             if (!Console.IsInputRedirected)
             {
-                Response = Console.ReadKey(false).Key; // true is intercept key (dont show), false is show
+                Response = Console.ReadKey(false).Key; // true is intercept key (don't show), false is show
                 if (Response != ConsoleKey.Enter) Console.WriteLine();
             }
             else
@@ -478,12 +482,17 @@ internal static class Utils
 
     public static string GetSourceDirectory()
     {
-        return Path.Combine(EngineRoot, "Source");
+        return Unity ? Path.Combine(EngineRoot) : Path.Combine(EngineRoot, "Source");
+    }
+
+    public static string GetPluginFolderName()
+    {
+        return Unity ? "Modules" : "Plugins";
     }
 
     public static string GetPluginDirectory(string PluginName)
     {
-        return Path.Combine(EngineRoot, "Plugins", PluginName);
+        return Path.Combine(EngineRoot, GetPluginFolderName(), PluginName);
     }
 
     public static string GetPatchDirectory(string PluginName)
@@ -533,9 +542,17 @@ internal static class Utils
     }
 
     private static string EngineRoot = string.Empty;
+    private static bool Unity;
+
+    public static bool IsUnity()
+    {
+        return Unity;
+    }
+
     public static void Init(string RootDirectory)
     {
         EngineRoot = RootDirectory;
+        Unity = File.Exists(Path.Combine(EngineRoot, "jam"));
         CurrentEngineVersion = EngineVersion.Create(GetCurrentEngineVersion(GetSourceDirectory()));
     }
 }

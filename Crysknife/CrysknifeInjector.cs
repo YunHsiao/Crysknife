@@ -32,7 +32,7 @@ public enum IncrementalMode
     // Only changed or version-specific patches will be updated
     // Recommended for any other engine versions
     Enabled,
-    // Only chanegd patches will be updated
+    // Only changed patches will be updated
     // Recommended for in-house engine repos
     Aggressive
 }
@@ -57,7 +57,7 @@ public class Injector
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine("Skipped patch: {0} does not exist!", TargetPath);
-	            Patches.Dump(GetDumpPath());
+                Patches.Dump(GetDumpPath());
             }
             return;
         }
@@ -136,9 +136,9 @@ public class Injector
 
         string GetDumpPath()
         {
-	        return Options.HasFlag(JobOptions.DryRun) ? TargetPath
-		        : Path.Combine(Utils.GetPluginDirectory(Config.PluginName), "Intermediate", "Crysknife",
-			        Path.GetRelativePath(Utils.GetSourceDirectory(), TargetPath));
+            return Options.HasFlag(JobOptions.DryRun) ? TargetPath
+                : Path.Combine(Utils.GetPluginDirectory(Config.PluginName), "Intermediate", "Crysknife",
+                    Path.GetRelativePath(Utils.GetSourceDirectory(), TargetPath));
         }
     }
 
