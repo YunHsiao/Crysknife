@@ -728,7 +728,7 @@ internal class ConfigSystem
         return Result;
     }
 
-    public RepositoryType RepoType => LocalSuffix.Length > 0 ? RepositoryType.Internal :
+    public RepositoryType RepoType => LocalSuffix.Length > 0 && !Utils.IsTruthyValue(GetVariable("CRYSKNIFE_FORCE_BASE_REPO")) ? RepositoryType.Internal :
         Utils.IsTruthyValue(GetVariable("CRYSKNIFE_BASE_REPO")) ? RepositoryType.Release : RepositoryType.Stock;
 
     public IReadOnlyDictionary<string, string> Variables => InnerVariables;
