@@ -14,18 +14,12 @@ internal enum ConfigLineAction
     RemoveKeyValue
 }
 
-internal class ConfigLine
+internal class ConfigLine(ConfigLineAction action, string key, string value)
 {
-    public readonly ConfigLineAction Action;
-    public readonly string Key;
-    public readonly string Value;
+    public readonly ConfigLineAction Action = action;
+    public readonly string Key = key;
+    public readonly string Value = value;
 
-    public ConfigLine(ConfigLineAction Action, string Key, string Value)
-    {
-        this.Action = Action;
-        this.Key = Key;
-        this.Value = Value;
-    }
     public override string ToString()
     {
         var Prefix = Action switch
@@ -39,9 +33,9 @@ internal class ConfigLine
     }
 }
 
-internal class ConfigFileSection
+internal class ConfigFileSection(string name)
 {
-    public readonly string Name;
+    public readonly string Name = name;
     public readonly List<ConfigLine> Lines = new();
 
     public void ParseLines(IDictionary<string, string> Result, char Separator, Func<string, string>? MapFunc = null)
@@ -70,11 +64,6 @@ internal class ConfigFileSection
                     throw new ArgumentOutOfRangeException();
             }
         }
-    }
-
-    public ConfigFileSection(string Name)
-    {
-        this.Name = Name;
     }
 }
 

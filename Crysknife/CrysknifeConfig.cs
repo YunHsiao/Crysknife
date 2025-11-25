@@ -165,21 +165,15 @@ internal class ConfigPredicates
     }
 }
 
-internal class ConfigRule
+internal class ConfigRule(string keyword)
 {
     private readonly ConfigPredicates BasePredicates = new();
     private readonly ConfigPredicates UserPredicates = new();
-    private readonly string Keyword;
-
-    public ConfigRule(string Keyword)
-    {
-        this.Keyword = Keyword;
-    }
 
     public bool Matches(string Key)
     {
-        return Key.Equals(Keyword, StringComparison.OrdinalIgnoreCase) ||
-               Key.Equals($"Base{Keyword}", StringComparison.OrdinalIgnoreCase);
+        return Key.Equals(keyword, StringComparison.OrdinalIgnoreCase) ||
+               Key.Equals($"Base{keyword}", StringComparison.OrdinalIgnoreCase);
     }
 
     public void SetValue(string Key, string Desc)
@@ -202,10 +196,10 @@ internal class ConfigRule
     public override string ToString()
     {
         var BaseDump = BasePredicates.ToString();
-        if (BaseDump.Length > 0) BaseDump = $"Base{Keyword}={BaseDump}";
+        if (BaseDump.Length > 0) BaseDump = $"Base{keyword}={BaseDump}";
 
         var UserDump = UserPredicates.ToString();
-        if (UserDump.Length > 0) UserDump = $"{Keyword}={UserDump}";
+        if (UserDump.Length > 0) UserDump = $"{keyword}={UserDump}";
 
         return string.Join('\n', BaseDump, UserDump).Trim();
     }
@@ -341,17 +335,12 @@ internal class ConfigSection
 // Parent directory config applies to all subdirectories
 internal class ConfigSectionHierarchy
 {
-    private class ConfigFileSectionNode
+    private class ConfigFileSectionNode(ConfigFileSection source)
     {
-        public readonly ConfigFileSection Source;
+        public readonly ConfigFileSection Source = source;
         public readonly List<ConfigFileSection> AppliedParents = new();
 
         public int LinkedIndex = -1;
-
-        public ConfigFileSectionNode(ConfigFileSection Source)
-        {
-            this.Source = Source;
-        }
     }
 
     private ConfigFileSectionNode? Section;

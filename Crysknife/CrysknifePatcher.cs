@@ -15,17 +15,13 @@ internal interface IPatchBundle
     void Dump(string DumpPath);
 }
 
-internal class Patcher
+internal class Patcher(bool @protected, IncrementalMode mode)
 {
     private class DmpContext
     {
-        public class PatchBundle : IPatchBundle
+        public class PatchBundle(List<Patch> patches) : IPatchBundle
         {
-            public readonly List<Patch> Patches;
-            public PatchBundle(List<Patch> Patches)
-            {
-                this.Patches = Patches;
-            }
+            public readonly List<Patch> Patches = patches;
 
             public bool IsValid()
             {
@@ -481,8 +477,8 @@ internal class Patcher
     }
 
     private readonly DmpContext Context = new();
-    public readonly string DefaultExtension;
-    public IncrementalMode Incremental;
+    public readonly string DefaultExtension = @protected ? Extensions[(int)PatchFileType.Protected] : Extensions[(int)PatchFileType.Main]; // All custom engine patches are protected
+    public IncrementalMode Incremental = mode;
 
     private enum PatchFileType
     {
@@ -494,12 +490,6 @@ internal class Patcher
         ".protected.patch",
         ".patch",
     };
-
-    public Patcher(bool Protected, IncrementalMode Mode)
-    {
-        Incremental = Mode;
-        DefaultExtension = Protected ? Extensions[(int)PatchFileType.Protected] : Extensions[(int)PatchFileType.Main]; // All custom engine patches are protected
-    }
 
     public bool Apply(IPatchBundle Patches, string Before, string DumpPath, bool ForceDump, out string Patched)
     {

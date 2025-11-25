@@ -5,17 +5,10 @@ using System.Text.RegularExpressions;
 
 namespace Crysknife;
 
-internal class InjectionRegexForm
+internal class InjectionRegexForm(string commentTag, string pattern, RegexOptions options)
 {
     private static readonly Regex CommentRegex = new (@"^(\s*)//\s*", RegexOptions.Multiline | RegexOptions.Compiled);
-    private readonly string CommentTag;
-    private readonly Regex Pattern;
-
-    public InjectionRegexForm(string CommentTag, string Pattern, RegexOptions Options)
-    {
-        this.CommentTag = CommentTag;
-        this.Pattern = new Regex(Pattern, Options);
-    }
+    private readonly Regex Pattern = new(pattern, options);
 
     public Match Match(string Content)
     {
@@ -24,7 +17,7 @@ internal class InjectionRegexForm
 
     public string Unpatch(string Content)
     {
-        return Pattern.Replace(Content, Matched => Replace(Matched.Groups["Tag"].Value, Matched.Groups["Content"].Value, CommentTag));
+        return Pattern.Replace(Content, Matched => Replace(Matched.Groups["Tag"].Value, Matched.Groups["Content"].Value, commentTag));
     }
 
     public static string Replace(string Tag, string Content, string CommentTag)
@@ -37,9 +30,9 @@ internal class InjectionRegexForm
     }
 }
 
-internal struct CommentTagFormat
+internal struct CommentTagFormat(string pluginName)
 {
-    public string Tag;
+    public string Tag = Path.GetFileName(pluginName);
 
     public string PrefixRegex = "";
     public string SuffixRegex = "";
@@ -52,11 +45,6 @@ internal struct CommentTagFormat
     public string SuffixCtor = "";
     public string BeginCtor = "";
     public string EndCtor = "";
-
-    public CommentTagFormat(string PluginName)
-    {
-        Tag = Path.GetFileName(PluginName);
-    }
 }
 
 internal class InjectionRegex
@@ -104,15 +92,10 @@ internal class InjectionRegex
     }
 }
 
-internal class InjectionRegexGroup
+internal class InjectionRegexGroup(InjectionRegex injection)
 {
-    public readonly InjectionRegex Injection;
+    public readonly InjectionRegex Injection = injection;
     private readonly List<InjectionRegex> Residuals = new();
-
-    public InjectionRegexGroup(InjectionRegex Injection)
-    {
-        this.Injection = Injection;
-    }
 
     public void AddResiduals(IEnumerable<InjectionRegex> NewResiduals)
     {

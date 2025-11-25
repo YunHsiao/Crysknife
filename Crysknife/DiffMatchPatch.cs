@@ -2237,17 +2237,12 @@ internal class DiffMatchPatch
         return Result;
     }
 
-    public struct ApplyResult
+    public struct ApplyResult(string text)
     {
-        public string Text; // The new text
+        public string Text = text; // The new text
         public List<int> Locations = new(); // < 0 if failed, otherwise the applied starting location
         public List<int> Indices = new(); // Indices into the source patch array
         public List<Patch> Patches = new(); // The split patches
-
-        public ApplyResult(string Text)
-        {
-            this.Text = Text;
-        }
     }
 
     /**
