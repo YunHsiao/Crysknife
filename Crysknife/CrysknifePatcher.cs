@@ -157,6 +157,20 @@ internal class Patcher(bool @protected, IncrementalMode mode)
             }
         }
 
+        private void SkipIfAlreadyAppliedForTaglessPatches(PatchBundle Patches, string Content)
+        {
+            foreach (var Patch in Patches.Patches)
+            {
+                foreach (var Diff in Patch.Diffs)
+                {
+                    if (Diff.Operation != Operation.Insert || Packers.Any(packer => packer.HasAnyMatch(Diff.Text)))
+                        continue;
+                    if (Content.Contains(Diff.Text))
+                        Patch.Skip = BooleanOverride.True;
+                }
+            }
+        }
+
         private List<Diff> MakeDiffs(string Before, string After)
         {
             var Diffs = new List<Diff>();
@@ -295,6 +309,7 @@ internal class Patcher(bool @protected, IncrementalMode mode)
 
         public bool Apply(PatchBundle Patches, string Content, string DumpPath, bool ForceDump, out string Patched)
         {
+            SkipIfAlreadyAppliedForTaglessPatches(Patches, Content);
             var Result = Context.patch_apply(Patches.Patches, Content, true);
 
             var FailureCount = 0;

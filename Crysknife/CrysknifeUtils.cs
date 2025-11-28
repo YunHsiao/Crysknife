@@ -455,7 +455,7 @@ internal static class Utils
 
     public static bool CanBePatched(string TargetPath)
     {
-        return Path.GetExtension(TargetPath) is ".cpp" or ".h" or ".cs" or ".inl" or ".mm";
+        return Path.GetExtension(TargetPath) is ".cpp" or ".h" or ".cs" or ".inl" or ".mm" or ".hlsl";
     }
 
     public static string GetEngineRoot()

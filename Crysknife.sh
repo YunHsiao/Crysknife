@@ -18,14 +18,16 @@ done
 
 if [ ! -z "$Loc" ]; then
     cd $DIR/../$Project
-    SOURCE=`find . -path './Source/*.*' -not -path "./Source/ThirdParty/*" | xargs wc -l`
-    if [ "$(uname)" == "Darwin" ]; then
-        NEW=`find -E . -regex './SourcePatch/.*\.(cpp|h|inl|cs|mm)' | xargs wc -l`
-    else
-        NEW=`find . -regex './SourcePatch/.*\.\(cpp\|h\|inl\|cs\|mm\)' | xargs wc -l`
-    fi
-    P=`find . -path './SourcePatch/*.patch' | xargs grep ^+ | grep -o %0a | wc -l`
+    SOURCE=`find ./Source -type f ! -path "./Source/ThirdParty/*" | xargs wc -l`
 
+    if [ "$(uname)" == "Darwin" ]; then
+        NEW=`find -E ./SourcePatch -regex '.*\.(cpp|h|inl|cs|mm|hlsl)' | xargs wc -l`
+    else
+        NEW=`find ./SourcePatch -regex '.*\.\(cpp\|h\|inl\|cs\|mm\|hlsl\)' | xargs wc -l`
+    fi
+    # NEW=`find ./SourcePatch -type f ! -name '*.patch' ! -name 'Crysknife*.ini' | xargs wc -l`
+
+    P=`find ./SourcePatch -path '*.patch' | xargs grep ^+ | grep -o %0a | wc -l`
     S=`awk '/total/{k+=$1}END{print k}' <<< "$SOURCE"`
     N=`awk '/total/{k+=$1}END{print k}' <<< "$NEW"`
 
@@ -36,4 +38,4 @@ if [ ! -z "$Loc" ]; then
 fi
 
 [ -z "$Skip" ] && dotnet build -nologo -consoleLoggerParameters:NoSummary -verbosity:quiet -c Release
-./bin/Release/net6.0/Crysknife -E $DIR/../.. "$@"
+./bin/Release/net8.0/Crysknife -E $DIR/../.. "$@"

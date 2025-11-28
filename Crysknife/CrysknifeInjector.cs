@@ -47,6 +47,10 @@ public class Injector
         PatcherInstance.Variables = Config.Variables;
         PatcherInstance.CurrentPatch = PatchPath;
 
+        var tagless = TargetPath.EndsWith(".tagless");
+        if (tagless)
+            TargetPath = TargetPath[..^8];
+
         // The target file have to exist
         if (!File.Exists(TargetPath))
         {
@@ -70,9 +74,12 @@ public class Injector
         if (Job.HasFlag(JobType.Clear)) Clear();
         if (Job.HasFlag(JobType.Apply)) Apply();
         if (Job.HasFlag(JobType.Generate) && !Job.HasFlag(JobType.Clear)) Generate();
+        return;
 
         void Generate()
         {
+            if (tagless) return; // Nothing to generate for tagless files
+
             var Patches = PatcherInstance.Generate(ClearedTarget, TargetContent);
 
             if (!Patches.IsValid())
@@ -88,11 +95,10 @@ public class Injector
                 }
             }
 
-            if (PatcherInstance.Save(Patches))
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Patch updated: " + PatchPath);
-            }
+            if (!PatcherInstance.Save(Patches)) return;
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("Patch updated: " + PatchPath);
         }
 
         void Clear()
@@ -107,31 +113,28 @@ public class Injector
         void Apply()
         {
             var Patches = PatcherInstance.Load();
+            if (!Patches.IsValid()) return;
 
-            if (Patches.IsValid())
+            var Success = PatcherInstance.Apply(Patches, ClearedTarget, GetDumpPath(), Options.HasFlag(JobOptions.DryRun), out var Patched);
+            var FinalContent = Utils.UnifyLineEndings(Patched, OutputCrlf);
+            if (!Success || (Patched.Equals(TargetContent, StringComparison.Ordinal) &&
+                (!Options.HasFlag(JobOptions.Force) || FinalContent.Equals(CurrentContent, StringComparison.Ordinal)))) return;
+
+            if (TargetContent.Length != ClearedTarget.Length)
             {
-                var Success = PatcherInstance.Apply(Patches, ClearedTarget, GetDumpPath(), Options.HasFlag(JobOptions.DryRun), out var Patched);
-                var FinalContent = Utils.UnifyLineEndings(Patched, OutputCrlf);
-                if (Success && (!Patched.Equals(TargetContent, StringComparison.Ordinal) ||
-                    (Options.HasFlag(JobOptions.Force) && !FinalContent.Equals(CurrentContent, StringComparison.Ordinal))))
+                // Apply op is potentially dangerous: Confirm before overriding any new contents.
+                if (!OverrideConfirm.HasFlag(Utils.ConfirmResult.ForAll))
                 {
-                    if (TargetContent.Length != ClearedTarget.Length)
-                    {
-                        // Apply op is potentially dangerous: Confirm before overriding any new contents.
-                        if (!OverrideConfirm.HasFlag(Utils.ConfirmResult.ForAll))
-                        {
-                            OverrideConfirm = Utils.PromptToConfirm($"New patches detected for already patched file '{TargetPath}', override?");
-                        }
-                        if (OverrideConfirm.HasFlag(Utils.ConfirmResult.No)) return;
-                    }
-
-                    Utils.FileAccessGuard(() => File.WriteAllText(TargetPath, FinalContent), TargetPath);
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("Patched: " + TargetPath);
-                    TargetContent = Patched;
-                    ClearedTarget = Config.PatchRegex.Unpatch(TargetContent);
+                    OverrideConfirm = Utils.PromptToConfirm($"New patches detected for already patched file '{TargetPath}', override?");
                 }
+                if (OverrideConfirm.HasFlag(Utils.ConfirmResult.No)) return;
             }
+
+            Utils.FileAccessGuard(() => File.WriteAllText(TargetPath, FinalContent), TargetPath);
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("Patched: " + TargetPath);
+            TargetContent = Patched;
+            ClearedTarget = Config.PatchRegex.Unpatch(TargetContent);
         }
 
         string GetDumpPath()
