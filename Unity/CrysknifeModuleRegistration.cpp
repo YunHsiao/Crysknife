@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Yun Hsiao Wu <yunhsiaow@gmail.com>
+// SPDX-License-Identifier: MIT
 #include "UnityPrefix.h"
 
 #define UNITY_MODULE_HAS_INITIALIZE_CLEANUP 1

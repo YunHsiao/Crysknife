@@ -1,11 +1,7 @@
-..
-    SPDX-FileCopyrightText: 2024 Yun Hsiao Wu <yunhsiaow@gmail.com>
-    SPDX-License-Identifier: MIT
-
 Crysknife
 =========
 
-|Doc| |Dotnet|
+|Doc| |Dotnet| `English <README.rst>`__
 
 .. |Doc| image:: https://readthedocs.org/projects/crysknife/badge/?version=latest
    :target: https://crysknife.readthedocs.io/en/latest/?badge=latest
