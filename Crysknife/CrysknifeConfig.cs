@@ -445,7 +445,6 @@ internal class ConfigSystem
     public readonly CommentTagPacker TagPacker;
     public readonly string PluginName;
     public readonly string PatchDirectory;
-    public readonly bool OutputCrlf;
 
     private static ConfigFile BaseConfig = new();
     private static string LocalSuffix = string.Empty;
@@ -453,6 +452,9 @@ internal class ConfigSystem
         [Variables]
         CRYSKNIFE_LOCAL_CONFIG={0}
     ".Replace("    ", string.Empty);
+
+    public bool OutputCrlf => Utils.IsTruthyValue(GetVariable("CRYSKNIFE_OUTPUT_CRLF"));
+    public string PatchableExtensions => GetVariable("CRYSKNIFE_PATCHABLE_EXTENSIONS");
 
     public static void Init()
     {
@@ -623,7 +625,6 @@ internal class ConfigSystem
 
         PatchRegex = new InjectionRegexGroup(new InjectionRegex(Format));
         TagPacker = new CommentTagPacker(Path.GetFileName(PluginName), Format);
-        OutputCrlf = Utils.IsTruthyValue(GetVariable("CRYSKNIFE_OUTPUT_CRLF"));
     }
 
     // Always create parent dependencies first

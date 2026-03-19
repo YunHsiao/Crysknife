@@ -464,7 +464,7 @@ internal class Patcher(bool @protected, IncrementalMode mode)
 
                                 var LocalDiffs = Context.diff_main(Target.Text.Trim(), Diffs[DiffIndex].Text.Trim());
                                 var Distance = DiffMatchPatch.diff_levenshtein(LocalDiffs);
-                                if (Distance >= 3) return false;
+                                if (Distance > 0) return false;
 
                                 Record.Add(Hash);
                                 return true;

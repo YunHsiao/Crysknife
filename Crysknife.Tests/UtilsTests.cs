@@ -257,21 +257,3 @@ public class MapVariablesTests
         Assert.Equal("y", result);
     }
 }
-
-public class CanBePatchedTests
-{
-    [Theory]
-    [InlineData("foo.cpp", true)]
-    [InlineData("bar.h", true)]
-    [InlineData("baz.cs", true)]
-    [InlineData("qux.inl", true)]
-    [InlineData("test.mm", true)]
-    [InlineData("shader.hlsl", true)]
-    [InlineData("readme.txt", false)]
-    [InlineData("image.png", false)]
-    [InlineData("script.py", false)]
-    public void FiltersCorrectExtensions(string filename, bool expected)
-    {
-        Assert.Equal(expected, Utils.CanBePatched(filename));
-    }
-}

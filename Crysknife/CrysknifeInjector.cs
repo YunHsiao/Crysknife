@@ -397,6 +397,8 @@ public class Injector
         DefaultConfig.Dispatch(Config => PatcherInstance.Packers.Add(Config.TagPacker), false); // Always pack all dependent plugins
 
         OutputCrlf = DefaultConfig.OutputCrlf;
+        Utils.SetPatchableExtensions(DefaultConfig.PatchableExtensions);
+
         OverrideConfirm = Options.HasFlag(JobOptions.Force) ? Utils.ConfirmResult.Yes | Utils.ConfirmResult.ForAll : Utils.ConfirmResult.NotDecided;
     }
 
