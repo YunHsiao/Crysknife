@@ -294,7 +294,7 @@ internal static class Utils
         return UnifySeparators(Value, Path.DirectorySeparatorChar.ToString());
     }
 
-    private static readonly Regex NonWindowsRE = new (@"(?<!\r)\n|\r", RegexOptions.Compiled);
+    private static readonly Regex NonWindowsRE = new (@"(?<!\r)\n|\r(?!\n)", RegexOptions.Compiled);
     private static readonly Regex NonUnixRE = new (@"\r\n|\r(?!\n)", RegexOptions.Compiled);
     public static string UnifyLineEndings(string Content, bool Crlf = false)
     {
@@ -302,7 +302,7 @@ internal static class Utils
     }
 
     private static readonly Regex TruthyRegex = new ("^(?:T|On)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-    private static readonly Regex BinaryOps = new ("(==|!=|>|<|>=|<=)", RegexOptions.Compiled);
+    private static readonly Regex BinaryOps = new ("(==|!=|>=|<=|>|<)", RegexOptions.Compiled);
     public static bool IsTruthyValue(string Value)
     {
         var OpsMatch = BinaryOps.Match(Value);
@@ -315,9 +315,9 @@ internal static class Utils
                 "==" => Left.Equals(Right, StringComparison.OrdinalIgnoreCase),
                 "!=" => !Left.Equals(Right, StringComparison.OrdinalIgnoreCase),
                 ">" => int.Parse(Left) > int.Parse(Right),
-                "<" => int.Parse(Left) > int.Parse(Right),
-                ">=" => int.Parse(Left) > int.Parse(Right),
-                "<=" => int.Parse(Left) > int.Parse(Right),
+                "<" => int.Parse(Left) < int.Parse(Right),
+                ">=" => int.Parse(Left) >= int.Parse(Right),
+                "<=" => int.Parse(Left) <= int.Parse(Right),
                 _ => throw new ArgumentOutOfRangeException()
             };
         }
