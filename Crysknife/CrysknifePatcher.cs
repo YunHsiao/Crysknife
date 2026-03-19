@@ -50,8 +50,7 @@ internal class Patcher(bool @protected, IncrementalMode mode)
                 });
                 File.WriteAllText(OutputPath, DiffMatchPatch.diff_prettyHtml(Diffs));
                 if (!Log) return;
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("Patch full dump: '{0}'", OutputPath);
+                Logger.Warning("Patch full dump: '{0}'", OutputPath);
             }
         }
 
@@ -75,9 +74,7 @@ internal class Patcher(bool @protected, IncrementalMode mode)
         {
             if (Output.CompareTo(Expected) != 0 && Output.CompareTo(Value) != 0)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Conflicting decorator '{0}' in the same patch from '{1}'", Decorator, CurrentPatch);
-                Utils.Abort();
+                Utils.Abort($"Conflicting decorator '{Decorator}' in the same patch from '{CurrentPatch}'");
             }
             Output = Value;
         }
@@ -88,8 +85,7 @@ internal class Patcher(bool @protected, IncrementalMode mode)
             var Index = Content.IndexOf('=');
             if (Index < 0)
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("'{0}' declared without a value from '{1}'", Key, CurrentPatch);
+                Logger.Warning("'{0}' declared without a value from '{1}'", Key, CurrentPatch);
                 return false;
             }
 
@@ -142,8 +138,7 @@ internal class Patcher(bool @protected, IncrementalMode mode)
                         }
                         else
                         {
-                            Console.ForegroundColor = ConsoleColor.Yellow;
-                            Console.WriteLine("Unsupported decorator '{0}' declared in '{1}'", Decorator, CurrentPatch);
+                            Logger.Warning("Unsupported decorator '{0}' declared in '{1}'", Decorator, CurrentPatch);
                         }
                     }
                 }
@@ -331,8 +326,7 @@ internal class Patcher(bool @protected, IncrementalMode mode)
                 Diffs.AddRange(Patches.Patches[MappedIndex].Diffs);
 
                 File.WriteAllText(OutputPath, DiffMatchPatch.diff_prettyHtml(Diffs));
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.Error.WriteLine("Error: Patch failed: Please merge the relevant changes manually from '{0}'", OutputPath);
+                Logger.Error("Patch failed: Please merge the relevant changes manually from '{0}'", OutputPath);
             }
 
             if (ForceDump || FailureCount > 0)

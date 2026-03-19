@@ -75,8 +75,7 @@ internal class ConfigFile
         if (!Remap.TryGetValue(Key, out var Remapped)) return Key;
         if (!WarnedKeys.Add(Key)) return Remapped;
 
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine($"DEPRECATION: '{Key}', {Context}, has been deprecated. Using '{Remapped}' instead. It is recommended you update your .ini files as soon as possible, and replace {Key} with {Remapped}");
+        Logger.Warning("DEPRECATION: '{0}', {1}, has been deprecated. Using '{2}' instead. It is recommended you update your .ini files as soon as possible, and replace {0} with {2}", Key, Context, Remapped);
         return Remapped;
     }
 
@@ -288,8 +287,7 @@ internal class ConfigFile
         catch (Exception)
         {
             // Make ConfigFile when EngineDirectory is unknown a warning since ConfigRemapFile cannot be read in this case; e.g. Assemblies outside Engine that depend on ConfigFile
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("Failed to read ConfigRemapFile into Sections");
+            Logger.Warning("Failed to read ConfigRemapFile into Sections");
         }
 
         // Walk over the sections, where all but the special SectionNameRemap section is a section of keys to remap in that same section

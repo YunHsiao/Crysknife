@@ -33,8 +33,7 @@ internal static class ProjectSetup
         var LinuxScript = string.Format(LinuxTemplate, Utils.UnifySeparators(PluginName, "/"));
         File.WriteAllText(Path.Combine(TargetDirectory, "Setup.sh"), LinuxScript);
         File.WriteAllText(Path.Combine(TargetDirectory, "Setup.command"), LinuxScript);
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine("Setup scripts created: " + Path.Combine(TargetDirectory, "Setup"));
+        Logger.Action("Setup scripts created: {0}", Path.Combine(TargetDirectory, "Setup"));
     }
 
     private static readonly JsonObject PluginReference = new (
@@ -52,9 +51,7 @@ internal static class ProjectSetup
         var PluginDescFile = Path.Combine(TargetDirectory, Path.GetFileName(PluginName) + ".uplugin");
         if (!File.Exists(PluginDescFile))
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.Error.WriteLine("Error: Couldn't find plugin description at {0}", PluginDescFile);
-            Utils.Abort();
+            Utils.Abort(string.Format("Couldn't find plugin description at {0}", PluginDescFile));
         }
         var PluginDesc = JsonNode.Parse(File.ReadAllText(PluginDescFile));
         if (PluginDesc == null) return;
@@ -76,8 +73,7 @@ internal static class ProjectSetup
         }
 
         File.WriteAllText(PluginDescFile, PluginDesc.ToJsonString(new JsonSerializerOptions{ WriteIndented = true }));
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine("Plugin description patched: " + PluginDescFile);
+        Logger.Action("Plugin description patched: {0}", PluginDescFile);
     }
 
     private static readonly string ConfigTemplate = @"

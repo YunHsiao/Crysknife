@@ -367,8 +367,7 @@ internal static class Utils
 
             if (!Flags.HasFlag(MapFlag.SkipWarning))
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"Invalid variable reference: '{Matched.Groups[1].Value}' not found");
+                Logger.Warning("Invalid variable reference: '{0}' not found", Matched.Groups[1].Value);
             }
 
             return Matched.Value;
@@ -402,8 +401,7 @@ internal static class Utils
         }
         catch (Exception E)
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("Failed to access '{0}': {1}", Dest, E);
+            Logger.Warning("Failed to access '{0}': {1}", Dest, E);
             return false;
         }
 
@@ -425,7 +423,7 @@ internal static class Utils
         do
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.Write("{0} [Yes(Y)/No(N)/YesForAll(A)/NoForAll(Z)/Abort(C)] ", Message);
+            Console.Write("{0} [Yes(Y)/No(N)/YesForAll(A)/NoForAll(Z)/Abort(C)] ", Message); // Interactive prompt, keep Console
             if (!Console.IsInputRedirected)
             {
                 Response = Console.ReadKey(false).Key; // true is intercept key (don't show), false is show
@@ -518,8 +516,9 @@ internal static class Utils
         return Content[..NewLine].Contains(Packer.GetDefaultTag(Variables)) ? Content[(NewLine + 1)..] : Content;
     }
 
-    public static void Abort()
+    public static void Abort(string Message = "")
     {
+        if (Message.Length > 0) Logger.Fatal(Message);
         Console.ResetColor();
         Environment.Exit(1);
     }

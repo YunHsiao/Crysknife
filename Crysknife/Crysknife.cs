@@ -56,9 +56,7 @@ internal static class Launcher
 
         if (!Arguments.TryGetValue("P", out var PluginName))
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("Please specify the plugin name, where the source patches are located.");
-            Utils.Abort();
+            Utils.Abort("Please specify the plugin name, where the source patches are located.");
             return;
         }
 

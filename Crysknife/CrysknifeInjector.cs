@@ -59,8 +59,7 @@ public class Injector
             var Patches = PatcherInstance.Load();
             if (Patches.HasAnyActivePatch())
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("Skipped patch: {0} does not exist!", TargetPath);
+                Logger.Warning("Skipped patch: {0} does not exist!", TargetPath);
                 Patches.Dump(GetDumpPath());
             }
             return;
@@ -97,16 +96,14 @@ public class Injector
 
             if (!PatcherInstance.Save(Patches)) return;
 
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("Patch updated: " + PatchPath);
+            Logger.Action("Patch updated: {0}", PatchPath);
         }
 
         void Clear()
         {
             if (ClearedTarget.Length == TargetContent.Length) return;
             Utils.FileAccessGuard(() => File.WriteAllText(TargetPath, Utils.UnifyLineEndings(ClearedTarget, OutputCrlf)), TargetPath);
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("Patch removed from: " + TargetPath);
+            Logger.Warning("Patch removed from: {0}", TargetPath);
             TargetContent = ClearedTarget;
         }
 
@@ -131,8 +128,7 @@ public class Injector
             }
 
             Utils.FileAccessGuard(() => File.WriteAllText(TargetPath, FinalContent), TargetPath);
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("Patched: " + TargetPath);
+            Logger.Action("Patched: {0}", TargetPath);
             TargetContent = Patched;
             ClearedTarget = Config.PatchRegex.Unpatch(TargetContent);
         }
@@ -165,14 +161,12 @@ public class Injector
                 if (AutoClearConfirm.HasFlag(Utils.ConfirmResult.Yes))
                 {
                     File.Delete(SrcPath);
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine("Source file removed: {0}", SrcPath);
+                    Logger.Warning("Source file removed: {0}", SrcPath);
                 }
             }
             else if (Utils.FileAccessGuard(() => File.WriteAllText(SrcPath, Utils.StripNewFileTag(Config.TagPacker, Config.Variables, TargetContent)), SrcPath))
             {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Copied back: {0} <- {1}", SrcPath, DstPath);
+                Logger.Action("Copied back: {0} <- {1}", SrcPath, DstPath);
                 SourceContent = TargetContent;
                 UpToDate = true;
             }
@@ -181,8 +175,7 @@ public class Injector
         if (Job.HasFlag(JobType.Clear) && Exists)
         {
             Utils.FileAccessGuard(() => File.Delete(DstPath), DstPath);
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("{0} removed: {1}", IsSymLink ? "Link" : "File", DstPath);
+            Logger.Warning("{0} removed: {1}", IsSymLink ? "Link" : "File", DstPath);
             Exists = IsSymLink = UpToDate = false;
         }
 
@@ -209,8 +202,7 @@ public class Injector
                 Utils.FileAccessGuard(() => File.CreateSymbolicLink(DstPath, SrcPath), DstPath) :
                 Utils.FileAccessGuard(() => File.WriteAllText(DstPath, Utils.UnifyLineEndings(SourceContent, OutputCrlf)), DstPath))
             {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("{0}: {1} -> {2}", ShouldBeSymLink ? "Linked" : "Copied", SrcPath, DstPath);
+                Logger.Action("{0}: {1} -> {2}", ShouldBeSymLink ? "Linked" : "Copied", SrcPath, DstPath);
             }
         }
     }
@@ -262,8 +254,7 @@ public class Injector
             Register:
             Directory.GetParent(PatchPath)?.Create();
             File.Create(PatchPath).Close();
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("New source patch registered: " + PatchPath);
+            Logger.Action("New source patch registered: {0}", PatchPath);
         }
     }
 
@@ -298,8 +289,7 @@ public class Injector
 
             ProcessPatch(JobType.Clear, PatchPath, PatchedPath, Config);
             File.Delete(PatchPath);
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("Patch file deleted: " + PatchPath);
+            Logger.Info("Patch file deleted: {0}", PatchPath);
         }
     }
 
@@ -369,8 +359,7 @@ public class Injector
             ProcessPatch(Job, PatchPath, SourcePath, Config);
         }
 
-        Console.ForegroundColor = ConsoleColor.Blue;
-        Console.WriteLine("{0} job done: {1} <=> {2}", Job.ToString(), Config.PatchDirectory, Utils.GetSourceDirectory());
+        Logger.Info("{0} job done: {1} <=> {2}", Job.ToString(), Config.PatchDirectory, Utils.GetSourceDirectory());
     }
 
     private IncrementalMode GetDefaultIncrementalMode()
@@ -393,6 +382,7 @@ public class Injector
     private string PrivateExclusiveFilter = "NonExist";
     private Utils.ConfirmResult OverrideConfirm;
     private Utils.ConfirmResult AutoClearConfirm = Utils.ConfirmResult.NotDecided;
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 

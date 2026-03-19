@@ -138,8 +138,7 @@ internal class ConfigPredicates
                 var Predicate = Array.Find(Predicates,Predicate => Rule.StartsWith(Predicate.Keyword + ":", StringComparison.OrdinalIgnoreCase));
                 if (Predicate == null)
                 {
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine("Config: Invalid predicate name: {0}", Rule);
+                    Logger.Warning("Config: Invalid predicate name: {0}", Rule);
                     continue;
                 }
 
@@ -243,8 +242,7 @@ internal class ConfigSection
                 var Rule = Array.Find(Rules, Rule => Rule.Matches(Pair.Key));
                 if (Rule == null)
                 {
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine($"Config: Unsupported rule '{Pair.Key}'");
+                    Logger.Warning("Config: Unsupported rule '{0}'", Pair.Key);
                     continue;
                 }
                 Rule.SetValue(Pair.Key, Pair.Value);
@@ -272,8 +270,7 @@ internal class ConfigSection
         var ShouldSkip = Rules[0].Eval(Target);
         if (VerboseLogging && ShouldSkip)
         {
-            Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine($"Config: Skipped '{Target}' due to [{GetSectionName()}] skipping conditions");
+            Logger.Verbose("Config: Skipped '{0}' due to [{1}] skipping conditions", Target, GetSectionName());
         }
 
         if (ShouldSkip) return RemapResult.Skipped;
@@ -281,15 +278,13 @@ internal class ConfigSection
         var ShouldFlatten = Rules[1].Eval(Target);
         if (ShouldFlatten && VerboseLogging)
         {
-            Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine($"Config: Flattened '{Target}' due to [{GetSectionName()}] flatten conditions");
+            Logger.Verbose("Config: Flattened '{0}' due to [{1}] flatten conditions", Target, GetSectionName());
         }
 
         var ShouldRemap = Rules[2].Eval(Target);
         if (ShouldRemap && VerboseLogging)
         {
-            Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine($"Config: Remapped '{Target}' due to [{GetSectionName()}] remap conditions");
+            Logger.Verbose("Config: Remapped '{0}' due to [{1}] remap conditions", Target, GetSectionName());
         }
 
         if (ShouldRemap)
@@ -474,9 +469,7 @@ internal class ConfigSystem
             var CurrentSuffix = Utils.GetLocalConfigSuffix(LocalConfigPath);
             if (LocalSuffix.Length > 0)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Aborting due to multiple sets of active local configs: {0} & {1}", LocalSuffix, CurrentSuffix);
-                Utils.Abort();
+                Utils.Abort(string.Format("Aborting due to multiple sets of active local configs: {0} & {1}", LocalSuffix, CurrentSuffix));
             }
             BaseConfig.Merge(LocalConfigFile);
             LocalSuffix = CurrentSuffix;
@@ -490,8 +483,7 @@ internal class ConfigSystem
             {
                 Utils.FileAccessGuard(() => File.WriteAllText(OutputPath, TargetContent), OutputPath);
             }
-            Console.ForegroundColor = ConsoleColor.Blue;
-            Console.WriteLine("Internal environment detected, operating under '{0}' local config", LocalSuffix);
+            Logger.Info("Internal environment detected, operating under '{0}' local config", LocalSuffix);
         }
         ConfigFile.Init(RootPath);
     }
@@ -647,9 +639,7 @@ internal class ConfigSystem
             }
             else
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Specified plugin not found: {0}", PluginName);
-                Utils.Abort();
+                Utils.Abort(string.Format("Specified plugin not found: {0}", PluginName));
             }
         }
         var Config = new ConfigSystem(PluginName, string.Join(',', VariableOverrides, VariableOverridesFromChild));
