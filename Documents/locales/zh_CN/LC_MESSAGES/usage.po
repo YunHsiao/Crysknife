@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Crysknife \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-13 16:44+0800\n"
+"POT-Creation-Date: 2026-04-28 11:23+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -13,7 +13,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.16.0\n"
+"Generated-By: Babel 2.18.0\n"
 
 #: ../../usage.rst:6
 msgid "Usage"
@@ -124,10 +124,8 @@ msgid "Additionally, to modify the stock engine code, follow these steps:"
 msgstr "对于要直接修改的官方引擎源码，遵循如下流程："
 
 #: ../../usage.rst:81
-msgid ""
-"Comment out the original code block (only line comments are supported "
-"atm.)"
-msgstr "将要修改的引擎代码全部注释掉（暂只支持行注释 ``//``）"
+msgid "Comment out the original code block (only line comments are supported)"
+msgstr "将要修改的引擎代码全部注释掉（只支持行注释 ``//``）"
 
 #: ../../usage.rst:82
 msgid ""
@@ -163,90 +161,96 @@ msgid ""
 "code:"
 msgstr "如果的确要删改大段引擎源码，也可以用宏包围，这样不需要逐行修改："
 
-#: ../../usage.rst:109
+#: ../../usage.rst:106
+msgid ""
+"In contexts where only block comments are possible (e.g. inside multi-"
+"line macro definitions), just wrap the comment tag inside:"
+msgstr "在只有块注释可行的上下文中（比如多行宏定义内），把注释桩包在块注释内即可："
+
+#: ../../usage.rst:116
 msgid "Decorators"
 msgstr "装饰器"
 
-#: ../../usage.rst:111
+#: ../../usage.rst:118
 msgid ""
 "To improve the robustness of the fuzzy-match process, etc. on a per-code-"
 "block basis, inline decorators can be specified inside the guarded block "
 "in the following format:"
 msgstr "在注释桩修饰的代码内，可以通过装饰器的形式配置一些逐代码块的参数，来提高比如模糊匹配过程的稳定性："
 
-#: ../../usage.rst:120
+#: ../../usage.rst:127
 msgid "Supported Directives"
 msgstr "装饰器指令"
 
-#: ../../usage.rst:124
+#: ../../usage.rst:129
 msgid "``MatchContext=<UPPER|LOWER>``"
 msgstr ""
 
-#: ../../usage.rst:123
+#: ../../usage.rst:130
 msgid ""
 "Limit the fuzzy-matching context to the specified direction, by default "
 "all contexts are matched"
 msgstr "指定匹配的上下文方向，默认所有方向都会匹配"
 
-#: ../../usage.rst:128
+#: ../../usage.rst:133
 msgid "``MatchLength=<LENGTH>``"
 msgstr ""
 
-#: ../../usage.rst:127
+#: ../../usage.rst:134
 msgid ""
 "For each matching context, only match up to the specified length of the "
 "context, default is 64 (maximum)"
 msgstr "对每个上下文方向，最多只匹配到指定长度，默认为 64（最大值）"
 
-#: ../../usage.rst:132
+#: ../../usage.rst:137
 msgid "``NewerThan=<VERSION>``, ``OlderThan=<VERSION>``"
 msgstr ""
 
-#: ../../usage.rst:131
+#: ../../usage.rst:138
 msgid ""
 "Mark the Enclosing code block as engine-version-relevant, so it would "
 "only apply to matching engine versions"
 msgstr "将当前代码块标记为引擎版本相关，应用时只会影响匹配的引擎版本"
 
-#: ../../usage.rst:135
+#: ../../usage.rst:141
 msgid "``IsTruthy=<VARIABLE>``"
 msgstr ""
 
-#: ../../usage.rst:135
+#: ../../usage.rst:142
 msgid "Apply the current patch only when the specified variable is true"
 msgstr "当且仅当指定变量值为真时才应用当前 Patch"
 
-#: ../../usage.rst:138
+#: ../../usage.rst:145
 msgid "Builtin Source Patches"
 msgstr "内置 Patch"
 
-#: ../../usage.rst:140
+#: ../../usage.rst:147
 msgid ""
 "We included some useful utilities in the built-in ``SourcePatch`` folder,"
 " which can provide some interesting trade-offs."
 msgstr "我们在 `SourcePatch` 文件夹内置了一些可能有用的工具，可以提供一些有趣的权衡。"
 
-#: ../../usage.rst:144
+#: ../../usage.rst:151
 msgid "Include Path"
 msgstr "头文件路径"
 
-#: ../../usage.rst:144
+#: ../../usage.rst:151
 msgid "Module"
 msgstr "模块"
 
-#: ../../usage.rst:144
+#: ../../usage.rst:151
 msgid "Comment"
 msgstr "备注"
 
-#: ../../usage.rst:146
+#: ../../usage.rst:153
 msgid "`Misc/PrivateAccessor.h`_"
 msgstr ""
 
-#: ../../usage.rst:146
+#: ../../usage.rst:153
 msgid "Core"
 msgstr ""
 
-#: ../../usage.rst:146
+#: ../../usage.rst:153
 msgid "A tiny library for accessing private members from non-friend contexts"
 msgstr "允许在非友元环境下访问私有变量或函数的小工具"
 

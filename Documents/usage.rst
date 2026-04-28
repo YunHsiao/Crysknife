@@ -78,7 +78,7 @@ Modifying Existing Code
 
 Additionally, to modify the stock engine code, follow these steps:
 
-- Comment out the original code block (only line comments are supported atm.)
+- Comment out the original code block (only line comments are supported)
 - Guard the comment block using any of the above forms, with one special tweak*
 - Add a new guarded block normally for your code
 
@@ -97,11 +97,18 @@ the surrounding code segment is directly from the stock engine source, essential
 If having to modify large blocks of engine code, remember there's always the macro guard approach
 which does not need to touch every line of the code:
 
-.. code-block::
+.. code-block:: cpp
 
    #if 0 // ${Tag}${Comments}
    ** LARGE SOURCE BLOCK **
    #endif // ${Tag}${Comments}
+
+In contexts where only block comments are possible (e.g. inside multi-line macro definitions),
+just wrap the comment tag inside:
+
+.. code-block:: cpp
+
+   /* // ${Tag}${Comments} */
 
 .. _Decorators:
 

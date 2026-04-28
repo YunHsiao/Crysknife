@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # SPDX-FileCopyrightText: Yun Hsiao Wu <yunhsiaow@gmail.com>
 # SPDX-License-Identifier: MIT
-# pip install sphinx sphinx-intl furo
 
 if [ $# -eq 0 ]; then
     set -- "12"
 fi
 
 STEP=$1
+
+if [[ $STEP == *"0"* ]]; then
+    pip install sphinx sphinx-intl furo
+fi
 
 if [[ $STEP == *"1"* ]]; then
     sphinx-build -b gettext . _build/gettext

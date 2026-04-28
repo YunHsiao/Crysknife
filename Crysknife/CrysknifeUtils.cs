@@ -106,7 +106,6 @@ internal struct CommentTagFormat(string pluginName)
 internal class InjectionRegex
 {
     private readonly InjectionRegexForm[] MatchForms;
-    private readonly Regex TestPattern;
 
     public InjectionRegex(CommentTagFormat Format, string? TagOverride = null)
     {
@@ -126,11 +125,7 @@ internal class InjectionRegex
             new InjectionRegexForm(Tag, $@"^[^\S\n]*//[^\S\n]*{Format.PrefixRegex}(?<Tag>{CommentTag}){Format.SuffixRegex}[^\S\n]*\n(?<Content>.*)\n",
                 RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.Compiled) // Next-line form
         };
-
-        TestPattern = new Regex($@"//[^\S\n]*{Format.PrefixRegex}{CommentTag}");
     }
-
-    public bool HasAnyMatch(string Content) { return TestPattern.IsMatch(Content); }
 
     public List<Match> Match(string Content)
     {

@@ -175,14 +175,6 @@ public class InjectionRegexTests
     }
 
     [Fact]
-    public void HasAnyMatch_FindsTag()
-    {
-        var regex = MakeRegex();
-        Assert.True(regex.HasAnyMatch("// TestPlugin\n"));
-        Assert.False(regex.HasAnyMatch("no tags here\n"));
-    }
-
-    [Fact]
     public void Unpatch_RemovesSingleLineInjection()
     {
         var regex = MakeRegex();
