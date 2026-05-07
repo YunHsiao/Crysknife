@@ -75,7 +75,7 @@ internal class ConfigFile
         if (!Remap.TryGetValue(Key, out var Remapped)) return Key;
         if (!WarnedKeys.Add(Key)) return Remapped;
 
-        Logger.Warning("DEPRECATION: '{0}', {1}, has been deprecated. Using '{2}' instead. It is recommended you update your .ini files as soon as possible, and replace {0} with {2}", Key, Context, Remapped);
+        Logger.Warning($"DEPRECATION: '{Key}', {Context}, has been deprecated. Using '{Remapped}' instead. It is recommended you update your .ini files as soon as possible, and replace {Key} with {Remapped}");
         return Remapped;
     }
 

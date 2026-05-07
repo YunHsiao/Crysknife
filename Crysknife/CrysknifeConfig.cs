@@ -138,7 +138,7 @@ internal class ConfigPredicates
                 var Predicate = Array.Find(Predicates,Predicate => Rule.StartsWith(Predicate.Keyword + ":", StringComparison.OrdinalIgnoreCase));
                 if (Predicate == null)
                 {
-                    Logger.Warning("Config: Invalid predicate name: {0}", Rule);
+                    Logger.Warning($"Config: Invalid predicate name: {Rule}");
                     continue;
                 }
 
@@ -242,7 +242,7 @@ internal class ConfigSection
                 var Rule = Array.Find(Rules, Rule => Rule.Matches(Pair.Key));
                 if (Rule == null)
                 {
-                    Logger.Warning("Config: Unsupported rule '{0}'", Pair.Key);
+                    Logger.Warning($"Config: Unsupported rule '{Pair.Key}'");
                     continue;
                 }
                 Rule.SetValue(Pair.Key, Pair.Value);
@@ -261,30 +261,29 @@ internal class ConfigSection
         RemapTarget = Utils.MapVariables(Variables, RemapTarget, Utils.MapFlag.AllowLocal);
     }
 
-    public RemapResult Remap(string Target, out string Result, bool VerboseLogging)
+    public RemapResult Remap(string Target, out string Result)
     {
         Result = Target;
         var ControllingDomain = Array.Find(TargetNames, TargetName => Target.StartsWith(TargetName, StringComparison.OrdinalIgnoreCase));
         if (ControllingDomain == null) return RemapResult.DoNotAffect;
 
         var ShouldSkip = Rules[0].Eval(Target);
-        if (VerboseLogging && ShouldSkip)
+        if (ShouldSkip)
         {
-            Logger.Verbose("Config: Skipped '{0}' due to [{1}] skipping conditions", Target, GetSectionName());
+            Logger.Verbose($"Config: Skipped '{Target}' due to [{GetSectionName()}] skipping conditions");
+            return RemapResult.Skipped;
         }
 
-        if (ShouldSkip) return RemapResult.Skipped;
-
         var ShouldFlatten = Rules[1].Eval(Target);
-        if (ShouldFlatten && VerboseLogging)
+        if (ShouldFlatten)
         {
-            Logger.Verbose("Config: Flattened '{0}' due to [{1}] flatten conditions", Target, GetSectionName());
+            Logger.Verbose($"Config: Flattened '{Target}' due to [{GetSectionName()}] flatten conditions");
         }
 
         var ShouldRemap = Rules[2].Eval(Target);
-        if (ShouldRemap && VerboseLogging)
+        if (ShouldRemap)
         {
-            Logger.Verbose("Config: Remapped '{0}' due to [{1}] remap conditions", Target, GetSectionName());
+            Logger.Verbose($"Config: Remapped '{Target}' due to [{GetSectionName()}] remap conditions");
         }
 
         if (ShouldRemap)
@@ -471,7 +470,7 @@ internal class ConfigSystem
             var CurrentSuffix = Utils.GetLocalConfigSuffix(LocalConfigPath);
             if (LocalSuffix.Length > 0)
             {
-                Utils.Abort(string.Format("Aborting due to multiple sets of active local configs: {0} & {1}", LocalSuffix, CurrentSuffix));
+                Utils.Abort($"Aborting due to multiple sets of active local configs: {LocalSuffix} & {CurrentSuffix}");
             }
             BaseConfig.Merge(LocalConfigFile);
             LocalSuffix = CurrentSuffix;
@@ -485,7 +484,7 @@ internal class ConfigSystem
             {
                 Utils.FileAccessGuard(() => File.WriteAllText(OutputPath, TargetContent), OutputPath);
             }
-            Logger.Info("Internal environment detected, operating under '{0}' local config", LocalSuffix);
+            Logger.Info($"Internal environment detected, operating under '{LocalSuffix}' local config");
         }
         ConfigFile.Init(RootPath);
     }
@@ -640,7 +639,7 @@ internal class ConfigSystem
             }
             else
             {
-                Utils.Abort(string.Format("Specified plugin not found: {0}", PluginName));
+                Utils.Abort($"Specified plugin not found: {PluginName}");
             }
         }
         var Config = new ConfigSystem(PluginName, string.Join(',', VariableOverrides, VariableOverridesFromChild));
@@ -733,13 +732,13 @@ internal class ConfigSystem
         }
     }
 
-    public bool Remap(string Target, out string Result, bool VerboseLogging, string SuffixForRemapping = "")
+    public bool Remap(string Target, out string Result, string SuffixForRemapping = "")
     {
         Result = Target;
         var NearestSectionIndex = ConfigSectionHierarchy.GetNearestSection(Hierarchy, Target);
         if (NearestSectionIndex == null) return true; // As-is if no rule is found
 
-        switch (Sections[NearestSectionIndex.Value].Remap(Target + SuffixForRemapping, out var Temp, VerboseLogging))
+        switch (Sections[NearestSectionIndex.Value].Remap(Target + SuffixForRemapping, out var Temp))
         {
             case RemapResult.AsIs:
                 return true;

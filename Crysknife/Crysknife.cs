@@ -50,14 +50,55 @@ internal static class Launcher
         }
     }
 
-    private static void Main(string[] Args)
+    private static bool TryResolveLogLevel(IReadOnlyDictionary<string, string> Arguments, out LogLevel Level)
+    {
+        if (Arguments.TryGetValue("log-level", out var Explicit))
+        {
+            if (Enum.TryParse<LogLevel>(Explicit, ignoreCase: true, out var Parsed))
+            {
+                Level = Parsed;
+                return true;
+            }
+            Level = LogLevel.Info;
+            return false;
+        }
+
+        if (Arguments.ContainsKey("v") || Arguments.ContainsKey("verbose"))
+        {
+            Level = LogLevel.Verbose;
+            return true;
+        }
+
+        if (Arguments.ContainsKey("q") || Arguments.ContainsKey("quiet"))
+        {
+            Level = LogLevel.Warning;
+            return true;
+        }
+
+        Level = LogLevel.Info;
+        return true;
+    }
+
+    private static int Main(string[] Args)
     {
         var Arguments = ParseArguments(Args);
 
+        var NoColorEnv = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")); // https://no-color.org
+        var NoColor = Arguments.ContainsKey("no-color") || NoColorEnv || Console.IsOutputRedirected;
+        Logger.SetLogger(new ConsoleLogger(!NoColor));
+
+        if (!TryResolveLogLevel(Arguments, out var ResolvedLevel))
+        {
+            Utils.Abort($"Unknown --log-level value. Expected one of: {string.Join(", ", Enum.GetNames<LogLevel>()).ToLowerInvariant()}.",
+                CrysknifeExitCode.UsageError);
+            return (int)CrysknifeExitCode.UsageError;
+        }
+        Logger.MinimumLevel = ResolvedLevel;
+
         if (!Arguments.TryGetValue("P", out var PluginName))
         {
-            Utils.Abort("Please specify the plugin name, where the source patches are located.");
-            return;
+            Utils.Abort("Please specify the plugin name, where the source patches are located.", CrysknifeExitCode.UsageError);
+            return (int)CrysknifeExitCode.UsageError;
         }
 
         var EngineRoot = Directory.GetCurrentDirectory();
@@ -102,6 +143,6 @@ internal static class Launcher
         if (Job == JobType.None) Job = JobType.Apply; // Do the apply action by default
 
         InjectorInstance.Process(Job);
-        Console.ResetColor();
+        return (int)CrysknifeExitCode.Success;
     }
 }

@@ -15,6 +15,14 @@ public enum LogLevel
     Fatal,
 }
 
+public enum CrysknifeExitCode
+{
+    Success = 0,
+    PartialFailure = 1, // Apply finished but some patches did not land cleanly.
+    UsageError = 2,     // Bad CLI arguments / missing required flags.
+    Fatal = 3,          // Unhandled exception or environment error (Utils.Abort default).
+}
+
 public interface ILogger
 {
     void Log(LogLevel Level, string Format, params object[] Args);
@@ -23,21 +31,24 @@ public interface ILogger
 public static class Logger
 {
     private static ILogger Instance = new ConsoleLogger();
+    public static LogLevel MinimumLevel { get; set; } = LogLevel.Info;
 
     public static void SetLogger(ILogger NewLogger)
     {
         Instance = NewLogger;
     }
 
-    public static void Verbose(string Format, params object[] Args) => Instance.Log(LogLevel.Verbose, Format, Args);
-    public static void Info(string Format, params object[] Args) => Instance.Log(LogLevel.Info, Format, Args);
-    public static void Action(string Format, params object[] Args) => Instance.Log(LogLevel.Action, Format, Args);
-    public static void Warning(string Format, params object[] Args) => Instance.Log(LogLevel.Warning, Format, Args);
-    public static void Error(string Format, params object[] Args) => Instance.Log(LogLevel.Error, Format, Args);
-    public static void Fatal(string Format, params object[] Args) => Instance.Log(LogLevel.Fatal, Format, Args);
+    public static bool IsEnabled(LogLevel Level) => Level >= MinimumLevel;
+
+    public static void Verbose(string Format, params object[] Args) { if (IsEnabled(LogLevel.Verbose)) Instance.Log(LogLevel.Verbose, Format, Args); }
+    public static void Info   (string Format, params object[] Args) { if (IsEnabled(LogLevel.Info))    Instance.Log(LogLevel.Info,    Format, Args); }
+    public static void Action (string Format, params object[] Args) { if (IsEnabled(LogLevel.Action))  Instance.Log(LogLevel.Action,  Format, Args); }
+    public static void Warning(string Format, params object[] Args) { if (IsEnabled(LogLevel.Warning)) Instance.Log(LogLevel.Warning, Format, Args); }
+    public static void Error  (string Format, params object[] Args) { if (IsEnabled(LogLevel.Error))   Instance.Log(LogLevel.Error,   Format, Args); }
+    public static void Fatal  (string Format, params object[] Args) { if (IsEnabled(LogLevel.Fatal))   Instance.Log(LogLevel.Fatal,   Format, Args); }
 }
 
-internal class ConsoleLogger : ILogger
+internal class ConsoleLogger(bool UseColor = true) : ILogger
 {
     private static readonly Dictionary<LogLevel, (ConsoleColor Color, string Prefix)> LevelStyles = new()
     {
@@ -51,20 +62,21 @@ internal class ConsoleLogger : ILogger
 
     public void Log(LogLevel Level, string Format, params object[] Args)
     {
+        if (Level < Logger.MinimumLevel) return;
+
         var (Color, Prefix) = LevelStyles[Level];
         var Message = Args.Length > 0 ? string.Format(Format, Args) : Format;
 
-        Console.ForegroundColor = Color;
+        if (UseColor) Console.ForegroundColor = Color;
         var Output = Level >= LogLevel.Error ? Console.Error : Console.Out;
         Output.WriteLine("{0} {1}", Prefix, Message);
-        Console.ResetColor();
+        if (UseColor) Console.ResetColor();
     }
 }
 
-internal class InjectionRegexForm(string commentTag, string pattern, RegexOptions options)
+internal class InjectionRegexForm(string CommentTag, Regex Pattern)
 {
     private static readonly Regex CommentRegex = new (@"^(\s*)//\s*", RegexOptions.Multiline | RegexOptions.Compiled);
-    private readonly Regex Pattern = new(pattern, options);
 
     public Match Match(string Content)
     {
@@ -73,7 +85,7 @@ internal class InjectionRegexForm(string commentTag, string pattern, RegexOption
 
     public string Unpatch(string Content)
     {
-        return Pattern.Replace(Content, Matched => Replace(Matched.Groups["Tag"].Value, Matched.Groups["Content"].Value, commentTag));
+        return Pattern.Replace(Content, Matched => Replace(Matched.Groups["Tag"].Value, Matched.Groups["Content"].Value, CommentTag));
     }
 
     public static string Replace(string Tag, string Content, string CommentTag)
@@ -101,6 +113,30 @@ internal struct CommentTagFormat(string pluginName)
     public string SuffixCtor = "";
     public string BeginCtor = "";
     public string EndCtor = "";
+
+    public const int MultiLineForm = 0;
+    public const int SingleLineForm = 1;
+    public const int NextLineForm = 2;
+
+    public readonly Regex[] BuildMatchForms(string? TagOverride = null)
+    {
+        string ResolvedTag = TagOverride ?? Tag;
+        var CommentTag = Utils.EscapeLiteralsForRegex(ResolvedTag) + @"[^\n]*?"; // Allow some comments in between
+
+        var Forms = new Regex[3];
+        Forms[MultiLineForm] = new Regex(string.Format(Anastrophe ?
+                @"[^\S\n]*//[^\S\n]*{0}{3}(?<Tag>{1}){2}\n(?<Content>.*?)// (?<EndTag>{0}{4}{1}{2})[^\S\n]*\n" :
+                @"[^\S\n]*//[^\S\n]*{0}(?<Tag>{1}){2}{3}(?<Content>.*?)// (?<EndTag>{0}{1}{2}{4})[^\S\n]*\n",
+            PrefixRegex, CommentTag, SuffixRegex, BeginRegex, EndRegex),
+            RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        Forms[SingleLineForm] = new Regex(
+            $@"^(?<Content>[^\S\n]*\S+.*?)[^\S\n]*//[^\S\n]*{PrefixRegex}(?<Tag>{CommentTag}){SuffixRegex}[^\S\n]*\n",
+            RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        Forms[NextLineForm] = new Regex(
+            $@"^[^\S\n]*//[^\S\n]*{PrefixRegex}(?<Tag>{CommentTag}){SuffixRegex}[^\S\n]*\n(?<Content>.*)\n",
+            RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        return Forms;
+    }
 }
 
 internal class InjectionRegex
@@ -110,21 +146,8 @@ internal class InjectionRegex
     public InjectionRegex(CommentTagFormat Format, string? TagOverride = null)
     {
         string Tag = TagOverride ?? Format.Tag;
-        var CommentTag = Utils.EscapeLiteralsForRegex(Tag) + @"[^\n]*?"; // Allow some comments in between
-
-        MatchForms = new []
-        {
-            // Form order matters here, specific -> general
-            new InjectionRegexForm(Tag, string.Format(Format.Anastrophe ? 
-                    @"[^\S\n]*//[^\S\n]*{0}{3}(?<Tag>{1}){2}\n(?<Content>.*?)// (?<EndTag>{0}{4}{1}{2})[^\S\n]*\n" :
-                    @"[^\S\n]*//[^\S\n]*{0}(?<Tag>{1}){2}{3}(?<Content>.*?)// (?<EndTag>{0}{1}{2}{4})[^\S\n]*\n",
-                Format.PrefixRegex, CommentTag, Format.SuffixRegex, Format.BeginRegex, Format.EndRegex),
-                RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.Compiled), // Multi-line form
-            new InjectionRegexForm(Tag, $@"^(?<Content>[^\S\n]*\S+.*?)[^\S\n]*//[^\S\n]*{Format.PrefixRegex}(?<Tag>{CommentTag}){Format.SuffixRegex}[^\S\n]*\n",
-                RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.Compiled), // Single-line form
-            new InjectionRegexForm(Tag, $@"^[^\S\n]*//[^\S\n]*{Format.PrefixRegex}(?<Tag>{CommentTag}){Format.SuffixRegex}[^\S\n]*\n(?<Content>.*)\n",
-                RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.Compiled) // Next-line form
-        };
+        var Patterns = Format.BuildMatchForms(TagOverride);
+        MatchForms = Patterns.Select(Pattern => new InjectionRegexForm(Tag, Pattern)).ToArray();
     }
 
     public List<Match> Match(string Content)
@@ -176,6 +199,7 @@ internal class CommentTagPacker
 
     private readonly Regex PackRegex;
     private readonly Regex UnpackRegex;
+    private readonly Regex[] AuthoritativeForms;
 
     public CommentTagPacker(string ModuleName, CommentTagFormat Format)
     {
@@ -189,19 +213,73 @@ internal class CommentTagPacker
             Format.PrefixRegex, CommentTag, Format.SuffixRegex, Format.BeginRegex, Format.EndRegex);
         PackRegex = new Regex(PackFormat, RegexOptions.IgnoreCase | RegexOptions.Compiled);
         UnpackRegex = new Regex($@"@{ModuleName}Tag(\w*)\(([^\n]*)\)\n", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        AuthoritativeForms = Format.BuildMatchForms();
     }
 
     public string GetDefaultTag(IReadOnlyDictionary<string, string> Variables) { return Unpack($"@{ModuleName}Tag()\n", Variables); }
-    public bool HasAnyMatch(string Content) { return PackRegex.IsMatch(Content); }
+    public bool HasAnyMatch(string Content) { return CollectAuthoritativeAnchors(Content).Count > 0; }
+
+    private List<(int Start, int End)> CollectAuthoritativeAnchors(string Content)
+    {
+        var Anchors = new List<(int Start, int End)>();
+        var ClaimedSegments = new List<(int Start, int End)>();
+
+        void RecordTagAnchor(Group TagGroup)
+        {
+            if (!TagGroup.Success || TagGroup.Length == 0) return;
+            Anchors.Add((TagGroup.Index, TagGroup.Index + TagGroup.Length));
+        }
+
+        bool OverlapsClaimed(int Start, int End)
+        {
+            return ClaimedSegments.Any(S => Start < S.End && End > S.Start);
+        }
+
+        foreach (Match Matched in AuthoritativeForms[CommentTagFormat.MultiLineForm].Matches(Content))
+        {
+            ClaimedSegments.Add((Matched.Index, Matched.Index + Matched.Length));
+            RecordTagAnchor(Matched.Groups["Tag"]);
+            RecordTagAnchor(Matched.Groups["EndTag"]);
+        }
+        foreach (Match Matched in AuthoritativeForms[CommentTagFormat.SingleLineForm].Matches(Content))
+        {
+            if (OverlapsClaimed(Matched.Index, Matched.Index + Matched.Length)) continue;
+            ClaimedSegments.Add((Matched.Index, Matched.Index + Matched.Length));
+            RecordTagAnchor(Matched.Groups["Tag"]);
+        }
+        foreach (Match Matched in AuthoritativeForms[CommentTagFormat.NextLineForm].Matches(Content))
+        {
+            if (OverlapsClaimed(Matched.Index, Matched.Index + Matched.Length)) continue;
+            ClaimedSegments.Add((Matched.Index, Matched.Index + Matched.Length));
+            RecordTagAnchor(Matched.Groups["Tag"]);
+        }
+
+        return Anchors;
+    }
+
+    private static bool IsAnchoredAt(IReadOnlyList<(int Start, int End)> Anchors, int Index, int Length)
+    {
+        var End = Index + Length;
+        return Anchors.Any(Anchor => Anchor.Start == Index && End <= Anchor.End);
+    }
 
     private string Pack(string Content, bool SkipCaptures)
     {
+        var Anchors = CollectAuthoritativeAnchors(Content);
+
         return PackRegex.Replace(Content, Matched =>
         {
+            var TagGroup = Matched.Groups["Tag"];
+            // Preserve text that merely looks like a tag inside payload.
+            if (!IsAnchoredAt(Anchors, TagGroup.Index, TagGroup.Length))
+            {
+                return Matched.Value;
+            }
+
             string Result = $"// @{ModuleName}Tag";
             if (Matched.Groups["Begin"].Success) Result += "Begin";
             else if (Matched.Groups["End"].Success) Result += "End";
-            Result += $"({Matched.Groups["Tag"].Value[Format.Tag.Length..]})\n";
+            Result += $"({TagGroup.Value[Format.Tag.Length..]})\n";
             if (SkipCaptures) return Result;
 
             foreach (var Index in Enumerable.Range(0, 10))
@@ -418,7 +496,7 @@ internal static class Utils
 
             if (!Flags.HasFlag(MapFlag.SkipWarning))
             {
-                Logger.Warning("Invalid variable reference: '{0}' not found", Matched.Groups[1].Value);
+                Logger.Warning($"Invalid variable reference: '{Matched.Groups[1].Value}' not found");
             }
 
             return Matched.Value;
@@ -452,7 +530,7 @@ internal static class Utils
         }
         catch (Exception E)
         {
-            Logger.Warning("Failed to access '{0}': {1}", Dest, E);
+            Logger.Warning($"Failed to access '{Dest}': {E}");
             return false;
         }
 
@@ -577,11 +655,11 @@ internal static class Utils
         return Content[..NewLine].Contains(Packer.GetDefaultTag(Variables)) ? Content[(NewLine + 1)..] : Content;
     }
 
-    public static void Abort(string Message = "")
+    public static void Abort(string Message = "", CrysknifeExitCode ExitCode = CrysknifeExitCode.Fatal)
     {
         if (Message.Length > 0) Logger.Fatal(Message);
         Console.ResetColor();
-        Environment.Exit(1);
+        Environment.Exit((int)ExitCode);
     }
 
     private static string EngineRoot = string.Empty;

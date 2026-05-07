@@ -45,7 +45,11 @@ Modifiers
    Test run, safely executes the action with all engine output remapped
    to the plugin's ``Intermediate/Crysknife/Playground`` directory
 -v, --verbose
-   Log more verbosely about everything
+   Shorthand for ``--log-level verbose`` — log every config decision
+   (skip / flatten / remap rules), plus everything below.
+-q, --quiet
+   Shorthand for ``--log-level warning`` — suppress info / action lines
+   so only warnings and errors surface. Useful for CI pipelines.
 -p, --protected
    Patches will be saved to / loaded from protected sources which will not be committed
 -t, --treat-patch-as-file
@@ -54,6 +58,10 @@ Modifiers
 Parameters
 ----------
 
+--log-level <verbose|info|action|warning|error|fatal>
+   Set the minimum severity that reaches the console. Defaults to
+   ``info``. Anything below the chosen level is dropped silently.
+   Equivalent shortcuts: ``-v`` (verbose), ``-q`` (warning).
 --patch-context <LENGTH>
    Global patch context length when generating patches, defaults to 250
 --content-tolerance <TOLERANCE>

@@ -50,7 +50,7 @@ internal class Patcher(bool @protected, IncrementalMode mode)
                 });
                 File.WriteAllText(OutputPath, DiffMatchPatch.diff_prettyHtml(Diffs));
                 if (!Log) return;
-                Logger.Warning("Patch full dump: '{0}'", OutputPath);
+                Logger.Warning($"Patch full dump: '{OutputPath}'");
             }
         }
 
@@ -85,7 +85,7 @@ internal class Patcher(bool @protected, IncrementalMode mode)
             var Index = Content.IndexOf('=');
             if (Index < 0)
             {
-                Logger.Warning("'{0}' declared without a value from '{1}'", Key, CurrentPatch);
+                Logger.Warning($"'{Key}' declared without a value from '{CurrentPatch}'");
                 return false;
             }
 
@@ -138,7 +138,7 @@ internal class Patcher(bool @protected, IncrementalMode mode)
                         }
                         else
                         {
-                            Logger.Warning("Unsupported decorator '{0}' declared in '{1}'", Decorator, CurrentPatch);
+                            Logger.Warning($"Unsupported decorator '{Decorator}' declared in '{CurrentPatch}'");
                         }
                     }
                 }
@@ -326,7 +326,7 @@ internal class Patcher(bool @protected, IncrementalMode mode)
                 Diffs.AddRange(Patches.Patches[MappedIndex].Diffs);
 
                 File.WriteAllText(OutputPath, DiffMatchPatch.diff_prettyHtml(Diffs));
-                Logger.Error("Patch failed: Please merge the relevant changes manually from '{0}'", OutputPath);
+                Logger.Error($"Patch failed: Please merge the relevant changes manually from '{OutputPath}'");
             }
 
             if (ForceDump || FailureCount > 0)

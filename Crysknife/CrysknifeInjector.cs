@@ -19,9 +19,8 @@ public enum JobOptions
     Link = 0x1,
     Force = 0x2,
     DryRun = 0x4,
-    Verbose = 0x8,
-    Protected = 0x10,
-    TreatPatchAsFile = 0x20,
+    Protected = 0x8,
+    TreatPatchAsFile = 0x10,
 }
 
 public enum IncrementalMode
@@ -59,7 +58,7 @@ public class Injector
             var Patches = PatcherInstance.Load();
             if (Patches.HasAnyActivePatch())
             {
-                Logger.Warning("Skipped patch: {0} does not exist!", TargetPath);
+                Logger.Warning($"Skipped patch: {TargetPath} does not exist!");
                 Patches.Dump(GetDumpPath());
             }
             return;
@@ -96,14 +95,14 @@ public class Injector
 
             if (!PatcherInstance.Save(Patches)) return;
 
-            Logger.Action("Patch updated: {0}", PatchPath);
+            Logger.Action($"Patch updated: {PatchPath}");
         }
 
         void Clear()
         {
             if (ClearedTarget.Length == TargetContent.Length) return;
             Utils.FileAccessGuard(() => File.WriteAllText(TargetPath, Utils.UnifyLineEndings(ClearedTarget, OutputCrlf)), TargetPath);
-            Logger.Warning("Patch removed from: {0}", TargetPath);
+            Logger.Warning($"Patch removed from: {TargetPath}");
             TargetContent = ClearedTarget;
         }
 
@@ -128,7 +127,7 @@ public class Injector
             }
 
             Utils.FileAccessGuard(() => File.WriteAllText(TargetPath, FinalContent), TargetPath);
-            Logger.Action("Patched: {0}", TargetPath);
+            Logger.Action($"Patched: {TargetPath}");
             TargetContent = Patched;
             ClearedTarget = Config.PatchRegex.Unpatch(TargetContent);
         }
@@ -161,12 +160,12 @@ public class Injector
                 if (AutoClearConfirm.HasFlag(Utils.ConfirmResult.Yes))
                 {
                     File.Delete(SrcPath);
-                    Logger.Warning("Source file removed: {0}", SrcPath);
+                    Logger.Warning($"Source file removed: {SrcPath}");
                 }
             }
             else if (Utils.FileAccessGuard(() => File.WriteAllText(SrcPath, Utils.StripNewFileTag(Config.TagPacker, Config.Variables, TargetContent)), SrcPath))
             {
-                Logger.Action("Copied back: {0} <- {1}", SrcPath, DstPath);
+                Logger.Action($"Copied back: {SrcPath} <- {DstPath}");
                 SourceContent = TargetContent;
                 UpToDate = true;
             }
@@ -175,7 +174,7 @@ public class Injector
         if (Job.HasFlag(JobType.Clear) && Exists)
         {
             Utils.FileAccessGuard(() => File.Delete(DstPath), DstPath);
-            Logger.Warning("{0} removed: {1}", IsSymLink ? "Link" : "File", DstPath);
+            Logger.Warning($"{(IsSymLink ? "Link" : "File")} removed: {DstPath}");
             Exists = IsSymLink = UpToDate = false;
         }
 
@@ -202,7 +201,7 @@ public class Injector
                 Utils.FileAccessGuard(() => File.CreateSymbolicLink(DstPath, SrcPath), DstPath) :
                 Utils.FileAccessGuard(() => File.WriteAllText(DstPath, Utils.UnifyLineEndings(SourceContent, OutputCrlf)), DstPath))
             {
-                Logger.Action("{0}: {1} -> {2}", ShouldBeSymLink ? "Linked" : "Copied", SrcPath, DstPath);
+                Logger.Action($"{(ShouldBeSymLink ? "Linked" : "Copied")}: {SrcPath} -> {DstPath}");
             }
         }
     }
@@ -254,7 +253,7 @@ public class Injector
             Register:
             Directory.GetParent(PatchPath)?.Create();
             File.Create(PatchPath).Close();
-            Logger.Action("New source patch registered: {0}", PatchPath);
+            Logger.Action($"New source patch registered: {PatchPath}");
         }
     }
 
@@ -289,13 +288,12 @@ public class Injector
 
             ProcessPatch(JobType.Clear, PatchPath, PatchedPath, Config);
             File.Delete(PatchPath);
-            Logger.Info("Patch file deleted: {0}", PatchPath);
+            Logger.Warning($"Patch file deleted: {PatchPath}");
         }
     }
 
     private void Process(ConfigSystem Config, JobType Job)
     {
-        var VerboseLogging = Options.HasFlag(JobOptions.Verbose);
         var Patches = new HashSet<string>();
 
         foreach (var SrcPath in Directory.GetFiles(Config.PatchDirectory, "*", new EnumerationOptions { RecurseSubdirectories = true }))
@@ -307,7 +305,7 @@ public class Injector
             {
                 Patches.Add(Patcher.GetSourcePath(RelativePath));
             }
-            else if (Config.Remap(RelativePath, out var DstRelativePath, VerboseLogging))
+            else if (Config.Remap(RelativePath, out var DstRelativePath))
             {
                 var OutputPath = Path.GetFullPath(Path.Combine(Utils.GetSourceDirectory(), DstRelativePath));
 
@@ -326,7 +324,7 @@ public class Injector
 
         foreach (var RelativePath in Patches)
         {
-            if (!Config.Remap(RelativePath, out var NewRelativePath, VerboseLogging, PatcherInstance.DefaultExtension)) continue;
+            if (!Config.Remap(RelativePath, out var NewRelativePath, PatcherInstance.DefaultExtension)) continue;
 
             var PatchPath = Path.Combine(Config.PatchDirectory, RelativePath);
             var SourcePath = Path.GetFullPath(Path.Combine(Utils.GetSourceDirectory(), NewRelativePath));
@@ -359,7 +357,7 @@ public class Injector
             ProcessPatch(Job, PatchPath, SourcePath, Config);
         }
 
-        Logger.Info("{0} job done: {1} <=> {2}", Job.ToString(), Config.PatchDirectory, Utils.GetSourceDirectory());
+        Logger.Info($"{Job} job done: {Config.PatchDirectory} <=> {Utils.GetSourceDirectory()}");
     }
 
     private IncrementalMode GetDefaultIncrementalMode()

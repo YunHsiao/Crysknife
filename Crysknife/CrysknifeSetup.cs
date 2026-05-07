@@ -33,7 +33,8 @@ internal static class ProjectSetup
         var LinuxScript = string.Format(LinuxTemplate, Utils.UnifySeparators(PluginName, "/"));
         File.WriteAllText(Path.Combine(TargetDirectory, "Setup.sh"), LinuxScript);
         File.WriteAllText(Path.Combine(TargetDirectory, "Setup.command"), LinuxScript);
-        Logger.Action("Setup scripts created: {0}", Path.Combine(TargetDirectory, "Setup"));
+        var SetupPath = Path.Combine(TargetDirectory, "Setup");
+        Logger.Action($"Setup scripts created: {SetupPath}");
     }
 
     private static readonly JsonObject PluginReference = new (
@@ -51,7 +52,7 @@ internal static class ProjectSetup
         var PluginDescFile = Path.Combine(TargetDirectory, Path.GetFileName(PluginName) + ".uplugin");
         if (!File.Exists(PluginDescFile))
         {
-            Utils.Abort(string.Format("Couldn't find plugin description at {0}", PluginDescFile));
+            Utils.Abort($"Couldn't find plugin description at {PluginDescFile}");
         }
         var PluginDesc = JsonNode.Parse(File.ReadAllText(PluginDescFile));
         if (PluginDesc == null) return;
@@ -73,7 +74,7 @@ internal static class ProjectSetup
         }
 
         File.WriteAllText(PluginDescFile, PluginDesc.ToJsonString(new JsonSerializerOptions{ WriteIndented = true }));
-        Logger.Action("Plugin description patched: {0}", PluginDescFile);
+        Logger.Action($"Plugin description patched: {PluginDescFile}");
     }
 
     private static readonly string ConfigTemplate = @"
